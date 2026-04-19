@@ -11,8 +11,9 @@ final class FoodEntry {
     var protein: Double
     var ingredients: String
     var date: Date
+    var location: String // "fridge" или "meal"
     
-    init(image: UIImage, name: String, calories: Double, protein: Double, ingredients: String, date: Date) {
+    init(image: UIImage, name: String, calories: Double, protein: Double, ingredients: String, date: Date, location: String = "fridge") {
         self.id = UUID()
         self.imageData = image.jpegData(compressionQuality: 0.5) ?? Data()
         self.name = name
@@ -20,6 +21,7 @@ final class FoodEntry {
         self.protein = protein
         self.ingredients = ingredients
         self.date = date
+        self.location = location
     }
     
     var uiImage: UIImage? {

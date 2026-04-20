@@ -39,26 +39,16 @@ class GeminiService {
     static let shared = GeminiService()
     private let apiKey = Config.apiKey
     
-    // Ссылка без скобок и форматирования
+    // Чистая ссылка без маркдауна и скобок
     private let baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-    
-    // Твой персональный контекст для ИИ
-    private let userContext = """
-    USER CONTEXT:
-    1. Daily protein target: Strictly minimum 180g.
-    2. Vocabulary: "Контейнер риса" means a rice box/container.
-    3. Products: "Tuna", "bread", or generic items are always from 7/11.
-    4. Padel Drinks: Heavy padel = 2 tsp SALZ Essentials + 2 packs Neo-Lyte (1.5L water). Light padel = 1 tsp SALZ + 2 packs Neo-Lyte.
-    """
     
     // 1. Анализ фото еды
     func analyzeImages(images: [UIImage], completion: @escaping (FoodResult?, String?) -> Void) {
         let prompt = """
-        \(userContext)
         Analyze food. Return ONLY a single JSON object. 
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
         """
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, completion: completion)
     }
@@ -66,7 +56,6 @@ class GeminiService {
     // 2. Анализ текста (что я съел)
     func analyzeText(text: String, completion: @escaping (FoodResult?, String?) -> Void) {
         let prompt = """
-        \(userContext)
         Nutrition expert. User ate: '\(text)'. Return ONLY a single JSON object. 
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
@@ -79,7 +68,6 @@ class GeminiService {
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
         let prompt = """
         ACT AS NUTRITIONIST. 
-        \(userContext)
         CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot. 
         BREAKDOWN: \(currentData.ingredients_breakdown).
         USER COMMAND: "\(userComment)".
@@ -93,22 +81,21 @@ class GeminiService {
     }
 
     // 4. Анализ тренировок
-        func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
-            let prompt = """
-            Extract workout stats from fitness tracker screenshot. Return ONLY a single JSON object.
-            CRITICAL RULE: You MUST use exactly this structure:
-            {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
-            """
-            sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, completion: completion)
-        }
+    func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
+        let prompt = """
+        Extract workout stats from fitness tracker screenshot. Return ONLY a single JSON object.
+        CRITICAL RULE: You MUST use exactly this structure:
+        {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
+        """
+        sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, completion: completion)
+    }
 
     // 5. Генератор рецептов
     func generateRecipes(from ingredients: [String], completion: @escaping ([RecipeResult]?, String?) -> Void) {
         let list = ingredients.joined(separator: ", ")
         let prompt = """
-        \(userContext)
         You are a Michelin-star fitness chef. I have these ingredients: \(list).
-        Suggest 3 DISTINCT, healthy recipes combining SOME or ALL of them to help me hit my 180g daily protein goal. 
+        Suggest 3 DISTINCT, healthy and high-protein recipes combining SOME or ALL of them. 
         Use MARKDOWN formatting for instructions (bolding, bullets, emojis).
         Return ONLY valid JSON:
         {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35} ]}

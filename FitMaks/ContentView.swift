@@ -19,15 +19,11 @@ struct ParsedIng: Identifiable { let id = UUID(); let name: String; let weight: 
 @Model class DailySetup { @Attribute(.unique) var dateID: String; var mode: String; init(date: Date, mode: DayMode) { self.dateID = DateFormatter.yyyyMMdd.string(from: date); self.mode = mode.rawValue } }
 @Model class ShoppingItem { var id: UUID = UUID(); var name: String; var isCompleted: Bool; init(name: String) { self.name = name; self.isCompleted = false } }
 
-// 🔥 ТЕПЕРЬ MEALS ХРАНЯТ ФОТКИ 🔥
 @Model class SavedRecipe {
-    var id: UUID = UUID(); var name: String; var instructions: String; var calories: Double; var protein: Double; var dateSaved: Date
+    var id: UUID = UUID(); var name: String; var instructions: String; var calories: Double; var protein: Double; var dateSaved: Date; var ingredients: String
     @Attribute(.externalStorage) var imageData: Data?
     var uiImage: UIImage? { if let data = imageData { return UIImage(data: data) }; return nil }
-    
-    init(image: UIImage? = nil, name: String, instructions: String, calories: Double, protein: Double) {
-        self.name = name; self.instructions = instructions; self.calories = calories; self.protein = protein; self.dateSaved = Date(); self.imageData = image?.jpegData(compressionQuality: 0.8)
-    }
+    init(image: UIImage? = nil, name: String, instructions: String, calories: Double, protein: Double, ingredients: String = "") { self.name = name; self.instructions = instructions; self.calories = calories; self.protein = protein; self.ingredients = ingredients; self.dateSaved = Date(); self.imageData = image?.jpegData(compressionQuality: 0.8) }
     var asResult: RecipeResult { RecipeResult(recipe_name: name, cooking_instructions: instructions, estimated_calories: calories, estimated_protein: protein) }
 }
 
@@ -84,7 +80,7 @@ struct ContentView: View {
                         Text("FitMaks").font(.footnote).fontWeight(.bold).foregroundColor(.gray)
                         HStack(spacing: 15) {
                             Button(action: { changeDate(by: -1) }) { Image(systemName: "chevron.left").foregroundColor(.neonGreen).font(.title3.bold()) }
-                            Text(formatDate(selectedDate)).font(.headline).bold().foregroundColor(.neonGreen).padding(.horizontal, 12).padding(.vertical, 6).background(Color.neonGreen.opacity(0.15)).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen.opacity(0.3), lineWidth: 1)).onTapGesture { isShowingCalendar = true }
+                            Text(formatDate(selectedDate)).font(.headline).bold().foregroundColor(.neonGreen).padding(.horizontal, 12).padding(.vertical, 6).background(Color.gray.opacity(0.15)).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen.opacity(0.3), lineWidth: 1)).onTapGesture { isShowingCalendar = true }
                             Button(action: { changeDate(by: 1) }) { Image(systemName: "chevron.right").foregroundColor(.neonGreen).font(.title3.bold()) }.opacity(Calendar.current.isDateInToday(selectedDate) ? 0 : 1).disabled(Calendar.current.isDateInToday(selectedDate))
                         }
                     }
@@ -105,8 +101,26 @@ struct ContentView: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         ForEach(processingItems) { item in loadingRow(item: item) }
-                        if dailyFeed.isEmpty && processingItems.isEmpty { Text("No records").foregroundColor(.gray).padding(.top, 40) }
-                        else {
+                        
+                        if dailyFeed.isEmpty && processingItems.isEmpty {
+                            // 🔥 ТЕПЕРЬ ВСЯ ЗАГЛУШКА РАБОТАЕТ КАК КНОПКА 🔥
+                            Button(action: { isShowingSourceDialog = true }) {
+                                VStack(spacing: 15) {
+                                    Image(systemName: "fork.knife.circle")
+                                        .font(.system(size: 45))
+                                        .foregroundColor(.gray.opacity(0.3))
+                                    Text("Add your food\nor a workout screenshot here")
+                                        .font(.subheadline)
+                                        .multilineTextAlignment(.center)
+                                        .foregroundColor(.gray)
+                                        .lineSpacing(4)
+                                }
+                                .padding(.top, 60)
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle()) // Чтобы нажималась не только по буквам, но и рядом
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
                             ForEach(dailyFeed.reversed()) { item in
                                 switch item {
                                 case .food(let entry): foodRow(entry: entry).onTapGesture { withAnimation(.spring()) { selectedEntryForEdit = entry } }.swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
@@ -144,7 +158,7 @@ struct ContentView: View {
         .onChange(of: selectedCameraImage) { _, newValue in if let img = newValue { let item = ProcessingItem(images: [img], isTraining: pickingMode == .training); processingItems.append(item); if pickingMode == .training { processTrainingQueue(items: [item]) } else { processQueue(items: [item]) }; selectedCameraImage = nil } }
         .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
         .onChange(of: selectedPhotoItems) { _, newItems in guard !newItems.isEmpty else { return }; Task { var loadedImages: [UIImage] = []; for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img) } }; await MainActor.run { selectedPhotoItems.removeAll(); if !loadedImages.isEmpty { let newItem = ProcessingItem(images: loadedImages, isTraining: pickingMode == .training); withAnimation { processingItems.append(newItem) }; if pickingMode == .training { processTrainingQueue(items: [newItem]) } else { processQueue(items: [newItem]) } } } } }
-        .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, maxCalories: maxCalories, targetProtein: targetProtein).presentationDetents([.medium, .large]).presentationDragIndicator(.visible) }
+        .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, maxCalories: maxCalories, targetProtein: targetProtein, allSetups: allDailySetups).presentationDetents([.medium, .large]).presentationDragIndicator(.visible) }
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
         .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: targetProtein) }
@@ -153,15 +167,28 @@ struct ContentView: View {
     func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); if let icon = UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 60, weight: .bold))?.withTintColor(UIColor(color), renderingMode: .alwaysOriginal) { icon.draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: (size.height - icon.size.height) / 2)) } } }
     func generateEmojiIcon(emoji: String) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); let safeEmoji = emoji.isEmpty ? "🍽️" : emoji; let nsString = safeEmoji as NSString; let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 75)]; let stringSize = nsString.size(withAttributes: attributes); nsString.draw(at: CGPoint(x: (size.width - stringSize.width) / 2, y: (size.height - stringSize.height) / 2), withAttributes: attributes) } }
 
-    func foodRow(entry: FoodEntry) -> some View { let isRecipe = entry.name.contains("👨‍🍳"); return HStack(spacing: 15) { if let img = entry.uiImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)) }; VStack(alignment: .leading) { HStack(spacing: 6) { Text(entry.name).font(.subheadline).bold().foregroundColor(.white) }; Text("-\(Int(entry.calories)) kcal • +\(Int(entry.protein))g protein").font(.caption).foregroundColor(isRecipe ? .orange : .gray) }; Spacer(); Image(systemName: isRecipe ? "sparkles" : "info.circle").foregroundColor(isRecipe ? .orange : .gray).font(.subheadline) }.padding().background(RoundedRectangle(cornerRadius: 15).fill(isRecipe ? Color.orange.opacity(0.1) : Color.gray.opacity(0.15))).overlay(RoundedRectangle(cornerRadius: 15).stroke(isRecipe ? Color.orange.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: 1)) }
+    func foodRow(entry: FoodEntry) -> some View {
+        return HStack(spacing: 15) {
+            if let img = entry.uiImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)) }
+            VStack(alignment: .leading) {
+                HStack(spacing: 6) { Text(entry.name).font(.subheadline).bold().foregroundColor(.white) }
+                Text("-\(Int(entry.calories)) kcal • +\(Int(entry.protein))g protein").font(.caption).foregroundColor(.gray)
+            }
+            Spacer()
+            Image(systemName: "info.circle").foregroundColor(.gray).font(.subheadline)
+        }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.gray.opacity(0.15))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+    }
+    
     func trainingRow(entry: TrainingEntry) -> some View { HStack(spacing: 15) { if let img = entry.uiImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)) }; VStack(alignment: .leading) { Text(entry.name).font(.subheadline).bold().foregroundColor(.white); Text("\(Int(entry.caloriesBurned)) kcal burned • \(entry.duration)").font(.caption).foregroundColor(.gray) }; Spacer(); Image(systemName: "flame.fill").foregroundColor(.blue).font(.subheadline) }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.blue.opacity(0.1))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.blue.opacity(0.5), lineWidth: 1)) }
     func loadingRow(item: ProcessingItem) -> some View { HStack(spacing: 15) { if let firstImg = item.images.first { Image(uiImage: firstImg).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)).overlay(Color.black.opacity(0.2).cornerRadius(10)) }; VStack(alignment: .leading, spacing: 6) { Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...").font(.subheadline).bold().foregroundColor(.white); RoundedRectangle(cornerRadius: 4).fill(Color.gray.opacity(0.3)).frame(width: 120, height: 10) }; Spacer(); ProgressView().tint(item.isTraining ? .blue : .neonGreen) }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.gray.opacity(0.15)).overlay(RoundedRectangle(cornerRadius: 15).stroke(item.isTraining ? Color.blue.opacity(0.5) : Color.neonGreen.opacity(0.5), lineWidth: 1)).shadow(color: item.isTraining ? .blue.opacity(0.2) : .neonGreen.opacity(0.2), radius: 5)) }
 
-    func processQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { return (item.id, await analyzeTextAsync(text: text)) } else { return (item.id, await analyzeImagesAsync(images: item.images)) } } }; for await (id, result) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result { let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage; let entry = FoodEntry(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown, date: selectedDate); withAnimation(.spring()) { modelContext.insert(entry) } } } } } } } }
-    func processTrainingQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, TrainingResult?).self) { group in for item in items { group.addTask { return (item.id, await analyzeTrainingImagesAsync(images: item.images)) } }; for await (id, result) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let processedImage = processingItems[index].images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result { let entry = TrainingEntry(image: processedImage, name: res.activity_name, caloriesBurned: res.calories_burned, duration: res.duration, date: selectedDate); withAnimation(.spring()) { modelContext.insert(entry) } } } } } } } }
+    func processQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { return (item.id, await analyzeTextAsync(text: text)) } else { return (item.id, await analyzeImagesAsync(images: item.images)) } } }; for await (id, result) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result {
+        let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage
+        let entry = FoodEntry(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown, date: selectedDate); withAnimation(.spring()) { modelContext.insert(entry) }
+    } } } } } } }
     
-    // 🔥 СОХРАНЯЕТ ЛИБО В ХОЛОДИЛЬНИК, ЛИБО В MEALS В ЗАВИСИМОСТИ ОТ ВКЛАДКИ 🔥
-    func processFridgeQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { return (item.id, await analyzeTextAsync(text: text)) } else { return (item.id, await analyzeImagesAsync(images: item.images)) } } }; for await (id, result) in group { await MainActor.run { if let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) { let item = fridgeProcessingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = fridgeProcessingItems.remove(at: index) }; if let res = result { let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage; if item.targetTab == 1 { modelContext.insert(SavedRecipe(image: finalImage, name: res.food_name, instructions: "", calories: res.calories, protein: res.protein)) } else { modelContext.insert(FavoriteFood(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } } } } } } } }
+    func processTrainingQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, TrainingResult?).self) { group in for item in items { group.addTask { return (item.id, await analyzeTrainingImagesAsync(images: item.images)) } }; for await (id, result) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let processedImage = processingItems[index].images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result { let entry = TrainingEntry(image: processedImage, name: res.activity_name, caloriesBurned: res.calories_burned, duration: res.duration, date: selectedDate); withAnimation(.spring()) { modelContext.insert(entry) } } } } } } } }
+    func processFridgeQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { return (item.id, await analyzeTextAsync(text: text)) } else { return (item.id, await analyzeImagesAsync(images: item.images)) } } }; for await (id, result) in group { await MainActor.run { if let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) { let item = fridgeProcessingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = fridgeProcessingItems.remove(at: index) }; if let res = result { let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage; if item.targetTab == 1 { modelContext.insert(SavedRecipe(image: finalImage, name: res.food_name, instructions: "", calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } else { modelContext.insert(FavoriteFood(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } } } } } } } }
     
     func analyzeImagesAsync(images: [UIImage]) async -> FoodResult? { await withCheckedContinuation { continuation in GeminiService.shared.analyzeImages(images: images) { result, _ in continuation.resume(returning: result) } } }
     func analyzeTextAsync(text: String) async -> FoodResult? { await withCheckedContinuation { continuation in GeminiService.shared.analyzeText(text: text) { result, _ in continuation.resume(returning: result) } } }
@@ -254,14 +281,25 @@ struct AIChatEditView: View {
     }
     
     func saveAs(isMeal: Bool) {
-        if isMeal { modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein)) }
+        if isMeal { modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients)) }
         else { modelContext.insert(FavoriteFood(image: entry.uiImage, name: entry.name, calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients)) }
     }
     
-    func sendMessage() { let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, ingredients_breakdown: entry.ingredients, ai_response_text: ""); GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text) { result, _ in isWaiting = false; if let res = result { entry.name = res.food_name; entry.calories = res.calories; entry.protein = res.protein; entry.ingredients = res.ingredients_breakdown; messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein)) } } }
+    func sendMessage() {
+        let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, ingredients_breakdown: entry.ingredients, ai_response_text: "");
+        GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text) { result, _ in
+            isWaiting = false;
+            if let res = result {
+                let prefix = entry.name.hasPrefix("👨‍🍳") ? "👨‍🍳 " : (entry.name.hasPrefix("❄️") ? "❄️ " : "")
+                let cleanName = res.food_name.replacingOccurrences(of: "👨‍🍳 ", with: "").replacingOccurrences(of: "❄️ ", with: "")
+                entry.name = prefix + cleanName; entry.calories = res.calories; entry.protein = res.protein; entry.ingredients = res.ingredients_breakdown;
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein))
+            }
+        }
+    }
 }
 
-// MARK: - ПРОФИЛЬ, МЕНЕДЖЕР ЗДОРОВЬЯ И КАЛЕНДАРЬ
+// MARK: - ПРОФИЛЬ И КАЛЕНДАРЬ
 struct ProfileView: View { @Environment(\.dismiss) var dismiss; @Binding var gender: String; @Binding var age: Int; @Binding var weight: Double; @Binding var height: Double; @Binding var goal: String; @Binding var activityLevel: String; @Binding var useCustomGoals: Bool; @Binding var customCalories: Double; @Binding var customProtein: Double; var calculatedCalories: Double; var calculatedProtein: Double; let neonPurple = Color(red: 0.8, green: 0.2, blue: 1.0); var body: some View { NavigationView { ZStack { Color.darkGrey.edgesIgnoringSafeArea(.all); ScrollView { VStack(spacing: 25) { Toggle("Set Custom Goals", isOn: $useCustomGoals).tint(neonPurple).foregroundColor(.white).font(.headline).bold().padding(.horizontal, 20).onChange(of: useCustomGoals) { _, newValue in if newValue { if customCalories == 0 { customCalories = calculatedCalories }; if customProtein == 0 { customProtein = calculatedProtein } } }; HStack(spacing: 20) { VStack(spacing: 5) { Text("DAILY CALORIES").font(.caption).bold().foregroundColor(.gray); if useCustomGoals { TextField("Kcal", value: $customCalories, format: .number).keyboardType(.numberPad).font(.title).bold().foregroundColor(.white).multilineTextAlignment(.center).padding(5).background(Color.gray.opacity(0.3)).cornerRadius(8) } else { Text("\(Int(calculatedCalories))").font(.title).bold().foregroundColor(.white).shadow(color: .white.opacity(0.5), radius: 5) } }.frame(maxWidth: .infinity); Divider().background(Color.gray).frame(height: 40); VStack(spacing: 5) { Text("DAILY PROTEIN").font(.caption).bold().foregroundColor(.gray); if useCustomGoals { HStack(spacing: 0) { TextField("Prot", value: $customProtein, format: .number).keyboardType(.numberPad).font(.title).bold().foregroundColor(neonPurple).multilineTextAlignment(.trailing).padding(5).background(Color.gray.opacity(0.3)).cornerRadius(8); Text("g").font(.title).bold().foregroundColor(neonPurple).padding(.leading, 2) } } else { Text("\(Int(calculatedProtein))g").font(.title).bold().foregroundColor(neonPurple).shadow(color: neonPurple.opacity(0.6), radius: 5) } }.frame(maxWidth: .infinity) }.padding(20).background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.4))).overlay(RoundedRectangle(cornerRadius: 20).stroke(neonPurple.opacity(0.5), lineWidth: 1)).padding(.horizontal); VStack(spacing: 20) { Picker("Goal", selection: $goal) { Text("Lose Weight").tag("Lose Weight"); Text("Maintain").tag("Maintain"); Text("Build Muscle").tag("Build Muscle") }.pickerStyle(SegmentedPickerStyle()); Picker("Gender", selection: $gender) { Text("Male").tag("Male"); Text("Female").tag("Female") }.pickerStyle(SegmentedPickerStyle()); Picker("Activity", selection: $activityLevel) { Text("Sedentary").tag("Sedentary"); Text("Light").tag("Light"); Text("Moderate").tag("Moderate"); Text("Active").tag("Active") }.pickerStyle(SegmentedPickerStyle()); Divider().background(Color.gray.opacity(0.3)); VStack(alignment: .leading) { HStack { Text("Age (years):").foregroundColor(.white).bold(); Spacer(); TextField("Age", value: $age, format: .number).keyboardType(.numberPad).foregroundColor(neonPurple).bold().multilineTextAlignment(.trailing).frame(width: 50).padding(5).background(Color.black.opacity(0.3)).cornerRadius(5) }; Slider(value: Binding(get: { Double(age) }, set: { age = Int($0) }), in: 10...100, step: 1).tint(neonPurple) }; VStack(alignment: .leading) { HStack { Text("Weight (kg):").foregroundColor(.white).bold(); Spacer(); TextField("Weight", value: $weight, format: .number).keyboardType(.decimalPad).foregroundColor(neonPurple).bold().multilineTextAlignment(.trailing).frame(width: 60).padding(5).background(Color.black.opacity(0.3)).cornerRadius(5) }; Slider(value: $weight, in: 40...150, step: 0.5).tint(neonPurple) }; VStack(alignment: .leading) { HStack { Text("Height (cm):").foregroundColor(.white).bold(); Spacer(); TextField("Height", value: $height, format: .number).keyboardType(.decimalPad).foregroundColor(neonPurple).bold().multilineTextAlignment(.trailing).frame(width: 60).padding(5).background(Color.black.opacity(0.3)).cornerRadius(5) }; Slider(value: $height, in: 140...220, step: 1).tint(neonPurple) } }.padding(20).background(RoundedRectangle(cornerRadius: 20).fill(Color.gray.opacity(0.15))).padding(.horizontal).opacity(useCustomGoals ? 0.6 : 1.0).animation(.easeInOut, value: useCustomGoals) }.padding(.top, 20) } }.navigationTitle("Profile & Goals").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Save") { dismiss() }.foregroundColor(neonPurple).bold() } } }.preferredColorScheme(.dark) } }
 
 class HealthKitManager { static let shared = HealthKitManager(); let healthStore = HKHealthStore(); func fetchSteps(for date: Date, completion: @escaping (Double) -> Void) { guard HKHealthStore.isHealthDataAvailable(), let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { completion(0); return }; healthStore.requestAuthorization(toShare: nil, read: [stepType]) { success, _ in guard success else { completion(0); return }; let start = Calendar.current.startOfDay(for: date); let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!; let query = HKStatisticsQuery(quantityType: stepType, quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate), options: .cumulativeSum) { _, result, _ in completion(result?.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0) }; self.healthStore.execute(query) } }; func fetchWeeklySteps(completion: @escaping ([String: Double]) -> Void) { guard HKHealthStore.isHealthDataAvailable(), let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { completion([:]); return }; let cal = Calendar.current; let end = cal.startOfDay(for: Date()).addingTimeInterval(86400); let start = cal.date(byAdding: .day, value: -30, to: end)!; let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate); let query = HKStatisticsCollectionQuery(quantityType: stepType, quantitySamplePredicate: predicate, options: .cumulativeSum, anchorDate: start, intervalComponents: DateComponents(day: 1)); query.initialResultsHandler = { _, results, _ in var stepsDict: [String: Double] = [:]; results?.enumerateStatistics(from: start, to: end) { stat, _ in stepsDict[DateFormatter.yyyyMMdd.string(from: stat.startDate)] = stat.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0 }; completion(stepsDict) }; healthStore.execute(query) } }
@@ -269,5 +307,86 @@ class HealthKitManager { static let shared = HealthKitManager(); let healthStore
 struct SwipeToDeleteModifier: ViewModifier { var action: () -> Void; @State private var offset: CGFloat = 0; func body(content: Content) -> some View { ZStack(alignment: .trailing) { ZStack(alignment: .trailing) { RoundedRectangle(cornerRadius: 15).fill(Color.red); Image(systemName: "trash").font(.title3).foregroundColor(.white).padding(.trailing, 20) }.onTapGesture { withAnimation(.spring()) { offset = 0 }; DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { action() } }; content.background(Color.darkGrey).cornerRadius(15).offset(x: offset).gesture(DragGesture(minimumDistance: 30).onChanged { value in guard abs(value.translation.width) > abs(value.translation.height) else { return }; if value.translation.width < 0 { offset = max(value.translation.width, -80) } else if offset < 0 && value.translation.width > 0 { offset = min(value.translation.width - 80, 0) } }.onEnded { value in withAnimation(.spring()) { offset = value.translation.width < -40 ? -80 : 0 } }) } } }
 extension View { func swipeToDelete(action: @escaping () -> Void) -> some View { self.modifier(SwipeToDeleteModifier(action: action)) } }
 
-struct CustomCalendarView: View { @Binding var selectedDate: Date; var allEntries: [FoodEntry]; var maxCalories: Double; var targetProtein: Double; @Environment(\.dismiss) var dismiss; @State private var currentMonthOffset: Int = 0; let columns = Array(repeating: GridItem(.flexible()), count: 7); var body: some View { VStack(spacing: 20) { HStack { Button(action: { currentMonthOffset -= 1 }) { Image(systemName: "chevron.left").foregroundColor(.neonGreen).font(.title2) }; Spacer(); Text(monthYearString(for: currentMonthOffset)).font(.title3).bold().foregroundColor(.white); Spacer(); Button(action: { currentMonthOffset += 1 }) { Image(systemName: "chevron.right").foregroundColor(currentMonthOffset < 0 ? .neonGreen : .gray).font(.title2) }.disabled(currentMonthOffset >= 0) }.padding(.horizontal).padding(.top, 25); HStack { ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { day in Text(day).font(.caption).bold().foregroundColor(.gray).frame(maxWidth: .infinity) } }; LazyVGrid(columns: columns, spacing: 15) { ForEach(extractDates(), id: \.self) { date in if let date = date { let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate); let dailyEntries = allEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }; let totalCal = dailyEntries.reduce(0) { $0 + $1.calories }; let totalProt = dailyEntries.reduce(0) { $0 + $1.protein }; let bgColor: Color = dailyEntries.isEmpty ? Color.gray.opacity(0.15) : (totalCal > maxCalories ? Color.red.opacity(0.8) : Color.neonGreen.opacity(0.8)); let proteinGoalMet = totalProt >= targetProtein && !dailyEntries.isEmpty; ZStack { Circle().fill(bgColor).frame(width: 40, height: 40); if proteinGoalMet { Circle().stroke(Color.neonCyan, lineWidth: 2).frame(width: 44, height: 44).shadow(color: .neonCyan.opacity(0.5), radius: 4) }; Text("\(Calendar.current.component(.day, from: date))").foregroundColor(bgColor == Color.gray.opacity(0.15) ? .white : .black).fontWeight(isSelected ? .bold : .medium) }.overlay(Circle().stroke(Color.white, lineWidth: isSelected ? 2 : 0).frame(width: 48, height: 48)).onTapGesture { if date <= Date() { selectedDate = date; dismiss() } } } else { Color.clear.frame(width: 40, height: 40) } } }; Spacer() }.padding().background(Color.darkGrey.edgesIgnoringSafeArea(.all)) }; func monthYearString(for offset: Int) -> String { let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: Calendar.current.date(byAdding: .month, value: offset, to: Date()) ?? Date()) }; func extractDates() -> [Date?] { let cal = Calendar.current; let target = cal.date(byAdding: .month, value: currentMonthOffset, to: Date()) ?? Date(); let start = cal.date(from: cal.dateComponents([.year, .month], from: target))!; let range = cal.range(of: .day, in: .month, for: start)!; var firstWeekday = cal.component(.weekday, from: start) - cal.firstWeekday; if firstWeekday < 0 { firstWeekday += 7 }; var dates: [Date?] = Array(repeating: nil, count: firstWeekday); for d in 1...range.count { if let date = cal.date(byAdding: .day, value: d - 1, to: start) { dates.append(date) } }; return dates } }
+// 🔥 ОБНОВЛЕННЫЙ КАЛЕНДАРЬ 🔥
+struct CustomCalendarView: View {
+    @Binding var selectedDate: Date
+    var allEntries: [FoodEntry]
+    var maxCalories: Double
+    var targetProtein: Double
+    var allSetups: [DailySetup]
+    @Environment(\.dismiss) var dismiss
+    @State private var currentMonthOffset: Int = 0
+    let columns = Array(repeating: GridItem(.flexible()), count: 7)
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Button(action: { currentMonthOffset -= 1 }) { Image(systemName: "chevron.left").foregroundColor(.neonGreen).font(.title2) }
+                Spacer()
+                Text(monthYearString(for: currentMonthOffset)).font(.title3).bold().foregroundColor(.white)
+                Spacer()
+                Button(action: { currentMonthOffset += 1 }) { Image(systemName: "chevron.right").foregroundColor(currentMonthOffset < 0 ? .neonGreen : .gray).font(.title2) }.disabled(currentMonthOffset >= 0)
+            }.padding(.horizontal).padding(.top, 25)
+            
+            HStack {
+                ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { day in
+                    Text(day).font(.caption).bold().foregroundColor(.gray).frame(maxWidth: .infinity)
+                }
+            }
+            
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(extractDates(), id: \.self) { date in
+                    if let date = date {
+                        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                        let dailyEntries = allEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+                        let totalCal = dailyEntries.reduce(0) { $0 + $1.calories }
+                        let totalProt = dailyEntries.reduce(0) { $0 + $1.protein }
+                        let bgColor: Color = dailyEntries.isEmpty ? Color.gray.opacity(0.15) : (totalCal > maxCalories ? Color.red.opacity(0.8) : Color.neonGreen.opacity(0.8))
+                        let proteinGoalMet = totalProt >= targetProtein && !dailyEntries.isEmpty
+                        
+                        let dateStr = DateFormatter.yyyyMMdd.string(from: date)
+                        let modeStr = allSetups.first(where: { $0.dateID == dateStr })?.mode ?? "Chill 🛋️"
+                        let emoji = modeStr.contains("Padel") ? "🎾" : (modeStr.contains("Gym") ? "🏋️‍♂️" : "🛋️")
+                        
+                        VStack(spacing: 4) {
+                            ZStack {
+                                Circle().fill(bgColor).frame(width: 40, height: 40)
+                                if proteinGoalMet { Circle().stroke(Color.neonCyan, lineWidth: 2).frame(width: 44, height: 44).shadow(color: .neonCyan.opacity(0.5), radius: 4) }
+                                Text("\(Calendar.current.component(.day, from: date))").foregroundColor(bgColor == Color.gray.opacity(0.15) ? .white : .black).fontWeight(isSelected ? .bold : .medium)
+                            }
+                            .overlay(Circle().stroke(Color.white, lineWidth: isSelected ? 2 : 0).frame(width: 48, height: 48))
+                            .onTapGesture { if date <= Date() { selectedDate = date; dismiss() } }
+                            
+                            Text(emoji).font(.system(size: 10))
+                        }
+                    } else {
+                        Color.clear.frame(width: 40, height: 40)
+                    }
+                }
+            }
+            Spacer()
+        }.padding().background(Color.darkGrey.edgesIgnoringSafeArea(.all))
+    }
+    
+    func monthYearString(for offset: Int) -> String {
+        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
+        return f.string(from: Calendar.current.date(byAdding: .month, value: offset, to: Date()) ?? Date())
+    }
+    
+    func extractDates() -> [Date?] {
+        var cal = Calendar.current
+        cal.firstWeekday = 2
+        
+        let target = cal.date(byAdding: .month, value: currentMonthOffset, to: Date()) ?? Date()
+        let start = cal.date(from: cal.dateComponents([.year, .month], from: target))!
+        let range = cal.range(of: .day, in: .month, for: start)!
+        
+        var firstWeekday = cal.component(.weekday, from: start) - cal.firstWeekday
+        if firstWeekday < 0 { firstWeekday += 7 }
+        
+        var dates: [Date?] = Array(repeating: nil, count: firstWeekday)
+        for d in 1...range.count { if let date = cal.date(byAdding: .day, value: d - 1, to: start) { dates.append(date) } }
+        return dates
+    }
+}
 extension DateFormatter { static let yyyyMMdd: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }(); static let shortDate: DateFormatter = { let f = DateFormatter(); f.dateFormat = "MMM d, yyyy"; return f }(); static let yyyyMM: DateFormatter = { let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f }() }

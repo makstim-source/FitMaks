@@ -36,6 +36,7 @@ struct ContentView: View {
     @Query(sort: \FoodEntry.date, order: .forward) var allFoodEntries: [FoodEntry]
     @Query(sort: \TrainingEntry.date, order: .forward) var allTrainingEntries: [TrainingEntry]
     @Query var allDailySetups: [DailySetup]
+    @Query var favorites: [FavoriteFood] // 🔥 Достаем холодильник
     
     @AppStorage("userGender") private var gender: String = "Male"
     @AppStorage("userAge") private var age: Int = 30
@@ -53,7 +54,7 @@ struct ContentView: View {
     @State private var processingItems: [ProcessingItem] = []; @State private var fridgeProcessingItems: [ProcessingItem] = []; @State private var selectedEntryForEdit: FoodEntry?
     
     @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
-    @State private var isShowingAIAssistant = false // 🔥 Новый стейт для тренера
+    @State private var isShowingAIAssistant = false
 
     var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let setup = allDailySetups.first(where: { $0.dateID == id }), let mode = DayMode(rawValue: setup.mode) { return mode }; return .chill }
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
@@ -87,7 +88,6 @@ struct ContentView: View {
                         }
                     }
                     Spacer()
-                    // 🔥 НОВАЯ КНОПКА ИИ-ТРЕНЕРА 🔥
                     Button(action: { isShowingAIAssistant = true }) {
                         Image(systemName: "sparkles")
                             .font(.title3)
@@ -110,7 +110,6 @@ struct ContentView: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         ForEach(processingItems) { item in loadingRow(item: item) }
-                        
                         if dailyFeed.isEmpty && processingItems.isEmpty {
                             Button(action: { isShowingSourceDialog = true }) {
                                 VStack(spacing: 15) {
@@ -170,8 +169,19 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
         .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: targetProtein) }
-        // 🔥 ВЫЗОВ НОВОГО ЭКРАНА ПОМОЩНИКА 🔥
-        .sheet(isPresented: $isShowingAIAssistant) { AIAssistantView(consumedCalories: dailyCaloriesConsumed, consumedProtein: dailyProtein, targetCalories: maxCalories, targetProtein: targetProtein, foods: dailyFoodEntries, trainings: dailyTrainingEntries).presentationDetents([.medium, .large]) }
+        // 🔥 ПЕРЕДАЕМ ДАТУ И ХОЛОДИЛЬНИК В ИИ-ТРЕНЕР 🔥
+        .sheet(isPresented: $isShowingAIAssistant) {
+            AIAssistantView(
+                selectedDate: selectedDate,
+                consumedCalories: dailyCaloriesConsumed,
+                consumedProtein: dailyProtein,
+                targetCalories: maxCalories,
+                targetProtein: targetProtein,
+                foods: dailyFoodEntries,
+                trainings: dailyTrainingEntries,
+                favorites: favorites
+            ).presentationDetents([.medium, .large])
+        }
     }
 
     func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); if let icon = UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 60, weight: .bold))?.withTintColor(UIColor(color), renderingMode: .alwaysOriginal) { icon.draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: (size.height - icon.size.height) / 2)) } } }
@@ -213,61 +223,100 @@ struct ContentView: View {
 // MARK: - 🔥 ЭКРАН ИИ-ТРЕНЕРА 🔥
 struct AIAssistantView: View {
     @Environment(\.dismiss) var dismiss
+    
+    var selectedDate: Date
     var consumedCalories: Double
     var consumedProtein: Double
     var targetCalories: Double
     var targetProtein: Double
     var foods: [FoodEntry]
     var trainings: [TrainingEntry]
+    var favorites: [FavoriteFood] // 🔥 Список холодильника
 
-    @State private var summary: String = ""
-    @State private var isLoading = true
+    @State private var messages: [ChatMessage] = []
+    @State private var userMessage = ""
+    @State private var attachedImage: UIImage? = nil
+    @State private var isShowingAttachmentDialog = false
+    @State private var isShowingAttachmentPicker = false
+    @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var isWaiting = false
 
     var body: some View {
         NavigationView {
-            ZStack {
-                Color.darkGrey.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: 20) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 40))
-                            .foregroundColor(.neonCyan)
-                            .padding(.top, 20)
-                            
-                        if isLoading {
-                            ProgressView().tint(.neonCyan).scaleEffect(1.5).padding(.top, 30)
-                            Text("Coach is thinking...").foregroundColor(.gray).padding(.top, 10)
-                        } else {
-                            Text(summary)
-                                .font(.body)
-                                .foregroundColor(.white)
-                                .lineSpacing(6)
-                                .padding(20)
-                                .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.3)))
-                                .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.neonCyan.opacity(0.5), lineWidth: 1))
-                        }
-                    }.padding()
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            ForEach(messages) { msg in
+                                VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 10) {
+                                    HStack {
+                                        if msg.isUser { Spacer() }
+                                        VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 8) {
+                                            if let img = msg.attachedImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 120, height: 120).clipShape(RoundedRectangle(cornerRadius: 10)) }
+                                            if !msg.text.isEmpty { Text(msg.text) }
+                                        }
+                                        .font(.subheadline).padding(14)
+                                        .background(msg.isUser ? Color.neonCyan.opacity(0.2) : Color.gray.opacity(0.15))
+                                        .foregroundColor(.white).cornerRadius(15)
+                                        if !msg.isUser { Spacer() }
+                                    }
+                                }.id(msg.id)
+                            }
+                            if isWaiting { HStack { TypingIndicatorView(color: .neonCyan).padding(14).background(Color.gray.opacity(0.15)).cornerRadius(15); Spacer() }.id("TypingIndicator") }
+                        }.padding()
+                    }
+                    .onChange(of: messages.count) { withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }
+                    .onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
+                }
+                
+                VStack(spacing: 0) {
+                    if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.white).background(Circle().fill(Color.black)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
+                    HStack(spacing: 12) {
+                        Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.title3).foregroundColor(.neonCyan) }
+                        TextField("Reply or attach photo...", text: $userMessage).padding(10).background(Color.black.opacity(0.4)).cornerRadius(20).foregroundColor(.white)
+                        Button(action: sendMessage) { Image(systemName: "paperplane.fill").foregroundColor((userMessage.isEmpty && attachedImage == nil) || isWaiting ? .gray : .neonCyan) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting)
+                    }.padding().background(Color(red: 20/255, green: 20/255, blue: 25/255))
                 }
             }
-            .navigationTitle("AI Coach")
+            .background(Color.darkGrey)
+            .navigationTitle(Calendar.current.isDateInToday(selectedDate) ? "AI Coach ✨" : "Past Day Review 📅")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.gray) } }
-            .onAppear { fetchSummary() }
+            .onAppear { if messages.isEmpty { fetchSummary(isInitial: true, message: "", image: nil) } }
+            .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
+            .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img } } }), sourceType: attachmentSource) }
         }.preferredColorScheme(.dark)
     }
 
-    func fetchSummary() {
+    func sendMessage() {
+        let text = userMessage
+        let imageToSend = attachedImage
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        userMessage = ""
+        withAnimation { attachedImage = nil }
+        fetchSummary(isInitial: false, message: text, image: imageToSend)
+    }
+
+    func fetchSummary(isInitial: Bool, message: String, image: UIImage?) {
+        isWaiting = true
+        
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         let timeString = formatter.string(from: Date())
 
+        let isPastDay = !Calendar.current.isDateInToday(selectedDate)
+        
         let mealNames = foods.map { "\($0.name) (\(Int($0.calories)) kcal, \(Int($0.protein))g P)" }
         let workoutNames = trainings.map { "\($0.name) (\(Int($0.caloriesBurned)) kcal burned)" }
+        
+        // 🔥 Собираем холодильник для ИИ 🔥
+        let fridgeNames = favorites.map { "\($0.name) (\(Int($0.calories))kcal, \(Int($0.protein))g protein)" }
 
-        GeminiService.shared.generateDailySummary(timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames) { result in
+        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames) { result in
             DispatchQueue.main.async {
-                self.summary = result ?? "Oops, something went wrong connecting to the AI. Try again!"
-                self.isLoading = false
+                self.isWaiting = false
+                let aiText = result ?? "Oops, something went wrong connecting to the AI. Try again!"
+                self.messages.append(ChatMessage(text: aiText, isUser: false))
             }
         }
     }
@@ -380,7 +429,7 @@ class HealthKitManager { static let shared = HealthKitManager(); let healthStore
 struct SwipeToDeleteModifier: ViewModifier { var action: () -> Void; @State private var offset: CGFloat = 0; func body(content: Content) -> some View { ZStack(alignment: .trailing) { ZStack(alignment: .trailing) { RoundedRectangle(cornerRadius: 15).fill(Color.red); Image(systemName: "trash").font(.title3).foregroundColor(.white).padding(.trailing, 20) }.onTapGesture { withAnimation(.spring()) { offset = 0 }; DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { action() } }; content.background(Color.darkGrey).cornerRadius(15).offset(x: offset).gesture(DragGesture(minimumDistance: 30).onChanged { value in guard abs(value.translation.width) > abs(value.translation.height) else { return }; if value.translation.width < 0 { offset = max(value.translation.width, -80) } else if offset < 0 && value.translation.width > 0 { offset = min(value.translation.width - 80, 0) } }.onEnded { value in withAnimation(.spring()) { offset = value.translation.width < -40 ? -80 : 0 } }) } } }
 extension View { func swipeToDelete(action: @escaping () -> Void) -> some View { self.modifier(SwipeToDeleteModifier(action: action)) } }
 
-// 🔥 ОБНОВЛЕННЫЙ КАЛЕНДАРЬ 🔥
+// 🔥 КАЛЕНДАРЬ 🔥
 struct CustomCalendarView: View {
     @Binding var selectedDate: Date
     var allEntries: [FoodEntry]

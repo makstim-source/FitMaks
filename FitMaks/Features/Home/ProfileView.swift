@@ -16,7 +16,9 @@ struct ProfileView: View {
     var calculatedCalories: Double
     var calculatedProtein: Double
 
-    private let neonPurple = Color(red: 0.8, green: 0.2, blue: 1.0)
+    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
+
+    private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
         ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job, little walking", multiplier: 1.2),
         ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks, 1-2 workouts/week", multiplier: 1.375),
@@ -68,9 +70,9 @@ struct ProfileView: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color(red: 17/255, green: 18/255, blue: 24/255),
-                        Color.darkGrey,
-                        Color.black.opacity(0.94)
+                        Color.appBackgroundStart,
+                        Color.appBackgroundMid,
+                        Color.appBackgroundEnd
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -80,6 +82,7 @@ struct ProfileView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
                         goalsHeader
+                        themeCard
                         recommendationCard
                         goalAndGenderCard
                         activityCard
@@ -102,14 +105,49 @@ struct ProfileView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
     private var goalsHeader: some View {
         HStack(spacing: 14) {
-            goalStat(title: "DAILY CALORIES", value: "\(Int(selectedCalories))", unit: "kcal", color: .white)
+            goalStat(title: "DAILY CALORIES", value: "\(Int(selectedCalories))", unit: "kcal", color: .appText)
             goalStat(title: "DAILY PROTEIN", value: "\(Int(selectedProtein))", unit: "g", color: neonPurple)
         }
+    }
+
+    private var themeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    sectionTitle("Theme")
+
+                    Text("Pick the mood")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appText)
+                }
+
+                Spacer()
+
+                Text((AppTheme(rawValue: selectedThemeID) ?? .neonPulse).palette.name)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.neonGreen)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
+            }
+
+            Text("If the original neon feels too loud, Morning and Midnight are the calmer friend-test options.")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ThemePickerGrid(selectedThemeID: $selectedThemeID)
+        }
+        .padding(18)
+        .background(cardBackground)
     }
 
     private var recommendationCard: some View {
@@ -123,7 +161,7 @@ struct ProfileView: View {
 
                     Text("\(Int(recommendedCalories)) kcal/day")
                         .font(.system(size: 30, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                 }
 
                 Spacer()
@@ -147,7 +185,7 @@ struct ProfileView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 26)
-                .fill(Color.black.opacity(0.32))
+                .fill(Color.appElevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26)
@@ -167,7 +205,7 @@ struct ProfileView: View {
             }
 
             Divider()
-                .background(Color.white.opacity(0.12))
+                .background(Color.appBorder)
 
             sectionTitle("Body formula")
 
@@ -189,7 +227,7 @@ struct ProfileView: View {
 
                 Text("Choose what sounds like your real life")
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
 
             VStack(spacing: 10) {
@@ -202,11 +240,11 @@ struct ProfileView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle()
-                                    .fill(activityLevel == option.key ? neonPurple : Color.white.opacity(0.08))
+                                    .fill(activityLevel == option.key ? neonPurple : Color.appSurface)
 
                                 Image(systemName: activityIcon(for: option.key))
                                     .font(.system(size: 14, weight: .heavy))
-                                    .foregroundColor(activityLevel == option.key ? .black : neonPurple)
+                                    .foregroundColor(activityLevel == option.key ? .appAccentText : neonPurple)
                             }
                             .frame(width: 38, height: 38)
 
@@ -214,11 +252,11 @@ struct ProfileView: View {
                                 Text(option.title)
                                     .font(.subheadline)
                                     .fontWeight(.heavy)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.appText)
 
                                 Text(option.subtitle)
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.appMuted)
                             }
 
                             Spacer()
@@ -226,16 +264,16 @@ struct ProfileView: View {
                             Text("x\(String(format: "%.3g", option.multiplier))")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(activityLevel == option.key ? neonPurple : .gray)
+                                .foregroundColor(activityLevel == option.key ? neonPurple : .appMuted)
                         }
                         .padding(13)
                         .background(
                             RoundedRectangle(cornerRadius: 18)
-                                .fill(activityLevel == option.key ? neonPurple.opacity(0.16) : Color.white.opacity(0.045))
+                                .fill(activityLevel == option.key ? neonPurple.opacity(0.16) : Color.appSurface)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 18)
-                                .stroke(activityLevel == option.key ? neonPurple.opacity(0.5) : Color.white.opacity(0.06), lineWidth: 1)
+                                .stroke(activityLevel == option.key ? neonPurple.opacity(0.5) : Color.appBorder, lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -300,11 +338,11 @@ struct ProfileView: View {
                     Text("Set custom goals")
                         .font(.headline)
                         .fontWeight(.heavy)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Text("Override the recommendation if you already know your targets.")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                 }
             }
             .tint(neonPurple)
@@ -392,17 +430,17 @@ struct ProfileView: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 24)
-            .fill(Color.white.opacity(0.055))
+            .fill(Color.appSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.appBorder, lineWidth: 1)
             )
     }
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 11, weight: .heavy))
-            .foregroundColor(.gray)
+            .foregroundColor(.appMuted)
             .tracking(0.8)
     }
 
@@ -411,7 +449,7 @@ struct ProfileView: View {
             Text(title)
                 .font(.caption2)
                 .fontWeight(.heavy)
-                .foregroundColor(.gray)
+                .foregroundColor(.appMuted)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
@@ -428,7 +466,7 @@ struct ProfileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color.black.opacity(0.34))
+                .fill(Color.appElevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22)
@@ -442,11 +480,11 @@ struct ProfileView: View {
                 Text(title)
                     .font(.caption)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Text(detail)
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
 
             Spacer()
@@ -454,7 +492,7 @@ struct ProfileView: View {
             Text(value)
                 .font(.subheadline)
                 .fontWeight(.heavy)
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 3)
@@ -475,12 +513,12 @@ struct ProfileView: View {
                     .fontWeight(.bold)
                     .opacity(0.7)
             }
-            .foregroundColor(goal == key ? .black : .white)
+            .foregroundColor(goal == key ? .appAccentText : .appText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(goal == key ? color : Color.white.opacity(0.06))
+                    .fill(goal == key ? color : Color.appSurface)
             )
         }
         .buttonStyle(.plain)
@@ -495,12 +533,12 @@ struct ProfileView: View {
             Text(value)
                 .font(.headline)
                 .fontWeight(.heavy)
-                .foregroundColor(gender == value ? .black : .white)
+                .foregroundColor(gender == value ? .appAccentText : .appText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(gender == value ? neonPurple : Color.white.opacity(0.06))
+                        .fill(gender == value ? neonPurple : Color.appSurface)
                 )
         }
         .buttonStyle(.plain)
@@ -510,26 +548,26 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(.appMuted)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 TextField("0", value: value, format: .number)
                     .keyboardType(.decimalPad)
                     .font(.title3)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .multilineTextAlignment(.leading)
 
                 Text(unit)
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
         }
         .padding(13)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.25)))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private func activityIcon(for key: String) -> String {
@@ -580,17 +618,17 @@ private struct MetricStepperCard: View {
                     Text(title)
                         .font(.caption)
                         .fontWeight(.heavy)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
 
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
                         Text(formattedValue)
                             .font(.system(size: 31, weight: .black))
-                            .foregroundColor(.white)
+                            .foregroundColor(.appText)
 
                         Text(unit)
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.appMuted)
                     }
                 }
 
@@ -610,7 +648,7 @@ private struct MetricStepperCard: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.appText.opacity(0.08))
 
                     Capsule()
                         .fill(accentColor)
@@ -621,15 +659,15 @@ private struct MetricStepperCard: View {
             .frame(height: 8)
         }
         .padding(15)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.26)))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private func stepButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .black))
-                .foregroundColor(.black)
+                .foregroundColor(.appAccentText)
                 .frame(width: 42, height: 42)
                 .background(Circle().fill(accentColor))
                 .shadow(color: accentColor.opacity(0.35), radius: 8)

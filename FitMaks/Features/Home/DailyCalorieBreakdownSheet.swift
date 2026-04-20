@@ -18,22 +18,23 @@ struct DailyCalorieBreakdownSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.darkGrey.ignoresSafeArea()
+                LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 16) {
                         VStack(spacing: 6) {
                             Text(DateFormatter.shortDate.string(from: selectedDate))
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(.appText)
 
                             Text(dayMode.rawValue)
                                 .font(.caption.bold())
-                                .foregroundColor(.gray)
+                                .foregroundColor(.appMuted)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.3)))
+                        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
 
                         goalCard(
                             title: "CALORIES",
@@ -63,7 +64,7 @@ struct DailyCalorieBreakdownSheet: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Food entries")
                                     .font(.caption.bold())
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.appMuted)
 
                                 ForEach(entries.reversed()) { entry in
                                     foodEntryCard(entry)
@@ -86,7 +87,7 @@ struct DailyCalorieBreakdownSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
     func goalCard(title: String, unit: String, base: Double, bonus: Double, target: Double, consumed: Double, accentColor: Color, isMinimumGoal: Bool) -> some View {
@@ -109,9 +110,9 @@ struct DailyCalorieBreakdownSheet: View {
             }
 
             VStack(spacing: 10) {
-                goalRow("Base goal", value: base, unit: unit, color: .white)
-                goalRow("\(dayMode.rawValue) bonus", value: bonus, unit: unit, color: bonus > 0 ? accentColor : .gray, prefix: bonus > 0 ? "+" : "")
-                Divider().background(Color.white.opacity(0.15))
+                goalRow("Base goal", value: base, unit: unit, color: .appText)
+                goalRow("\(dayMode.rawValue) bonus", value: bonus, unit: unit, color: bonus > 0 ? accentColor : .appMuted, prefix: bonus > 0 ? "+" : "")
+                Divider().background(Color.appBorder)
                 goalRow("Today target", value: target, unit: unit, color: accentColor)
                 goalRow("Logged", value: consumed, unit: unit, color: statusColor)
                 goalRow(statusRowTitle(remaining: remaining, isMinimumGoal: isMinimumGoal), value: abs(remaining), unit: unit, color: statusColor)

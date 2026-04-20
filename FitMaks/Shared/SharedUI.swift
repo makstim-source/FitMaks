@@ -93,7 +93,7 @@ struct CoachMessageBubble: View {
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 7) {
                 Text(message.isUser ? "You" : assistantName)
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(message.isUser ? accentColor.opacity(0.85) : .gray)
+                    .foregroundColor(message.isUser ? accentColor.opacity(0.85) : .appMuted)
                     .tracking(0.6)
 
                 if let image = message.attachedImage {
@@ -112,7 +112,7 @@ struct CoachMessageBubble: View {
                     TypewriterText(text: message.text, isEnabled: !message.isUser && message.shouldTypewrite)
                         .font(.system(size: 15, weight: .medium))
                         .lineSpacing(3)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .multilineTextAlignment(message.isUser ? .trailing : .leading)
                 }
             }
@@ -122,7 +122,7 @@ struct CoachMessageBubble: View {
             .background(bubbleBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
-                    .stroke(message.isUser ? accentColor.opacity(0.38) : Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(message.isUser ? accentColor.opacity(0.38) : Color.appBorder, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 22))
             .shadow(color: shadowColor, radius: message.isUser ? 10 : 14, x: 0, y: 6)
@@ -146,7 +146,7 @@ struct CoachMessageBubble: View {
 
             Image(systemName: "sparkles")
                 .font(.system(size: 13, weight: .black))
-                .foregroundColor(.black)
+                .foregroundColor(.appAccentText)
         }
         .frame(width: 32, height: 32)
         .shadow(color: accentColor.opacity(0.55), radius: 10)
@@ -157,8 +157,8 @@ struct CoachMessageBubble: View {
             .fill(
                 LinearGradient(
                     colors: message.isUser
-                        ? [accentColor.opacity(0.24), accentColor.opacity(0.10), Color.black.opacity(0.38)]
-                        : [Color.white.opacity(0.075), Color.white.opacity(0.035), Color.black.opacity(0.34)],
+                        ? [accentColor.opacity(0.24), accentColor.opacity(0.10), Color.appElevated]
+                        : [Color.appSurface, Color.appSurface.opacity(0.75), Color.appElevated],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -166,7 +166,7 @@ struct CoachMessageBubble: View {
     }
 
     private var shadowColor: Color {
-        message.isUser ? accentColor.opacity(0.18) : Color.black.opacity(0.24)
+        message.isUser ? accentColor.opacity(0.18) : Color.appText.opacity(0.12)
     }
 }
 
@@ -189,10 +189,10 @@ struct CoachTypingBubble: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(0.075))
+                        .fill(Color.appSurface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(Color.appBorder, lineWidth: 1)
                         )
                 )
 
@@ -225,7 +225,7 @@ struct SwipeToDeleteModifier: ViewModifier {
             }
 
             content
-                .background(Color.darkGrey)
+                .background(Color.appBackgroundMid)
                 .cornerRadius(15)
                 .offset(x: offset)
                 .gesture(

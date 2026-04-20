@@ -19,6 +19,7 @@ struct ContentView: View {
     @AppStorage("useCustomGoals") private var useCustomGoals: Bool = false
     @AppStorage("customCalories") private var customCalories: Double = 0.0
     @AppStorage("customProtein") private var customProtein: Double = 0.0
+    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
     
     @State private var pickingMode: EntryMode = .food
     @State private var selectedDate = Date()
@@ -149,9 +150,9 @@ struct ContentView: View {
     private var homeBackground: some View {
         LinearGradient(
             colors: [
-                Color(red: 7/255, green: 11/255, blue: 15/255),
-                Color.darkGrey,
-                Color.black.opacity(0.96)
+                Color.appBackgroundStart,
+                Color.appBackgroundMid,
+                Color.appBackgroundEnd
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -199,7 +200,7 @@ struct ContentView: View {
                         .frame(minWidth: 82)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.black.opacity(0.32)))
+                        .background(Capsule().fill(Color.appElevated))
                         .overlay(Capsule().stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
@@ -281,16 +282,16 @@ struct ContentView: View {
                         Text(modeLabel(mode))
                             .font(.system(size: 10, weight: .heavy))
                     }
-                    .foregroundColor(currentDayMode == mode ? .black : .gray)
+                    .foregroundColor(currentDayMode == mode ? .appAccentText : .appMuted)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 7)
                     .background(
                         RoundedRectangle(cornerRadius: 13)
-                            .fill(currentDayMode == mode ? Color.neonCyan : Color.white.opacity(0.055))
+                            .fill(currentDayMode == mode ? Color.neonCyan : Color.appSurface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 13)
-                            .stroke(currentDayMode == mode ? Color.white.opacity(0.25) : Color.white.opacity(0.07), lineWidth: 1)
+                            .stroke(currentDayMode == mode ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -303,16 +304,16 @@ struct ContentView: View {
             HStack {
                 Text("Diary")
                     .font(.system(size: 18, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Spacer()
 
                 Text("\(dailyFeed.count) entries")
                     .font(.caption2.bold())
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.white.opacity(0.06)))
+                    .background(Capsule().fill(Color.appSurface))
             }
             .padding(.horizontal, 3)
 
@@ -343,10 +344,10 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.black.opacity(0.26))
+                .fill(Color.appElevated)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.appBorder, lineWidth: 1)
                 )
         )
         .padding(.horizontal, 15)
@@ -369,11 +370,11 @@ struct ContentView: View {
                     Text("Start this day")
                         .font(.headline)
                         .fontWeight(.black)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Text("Add food, scan a label, or drop a workout screenshot.")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -408,13 +409,13 @@ struct ContentView: View {
             Button(action: { isShowingSourceDialog = true }) {
                 ZStack {
                     Circle()
-                        .fill(Color.neonGreen)
+                    .fill(Color.neonGreen)
                         .frame(width: 66, height: 66)
                         .shadow(color: Color.neonGreen.opacity(0.45), radius: 18, x: 0, y: 8)
 
                     Image(systemName: "plus")
                         .font(.system(size: 28, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                 }
             }
             .buttonStyle(.plain)
@@ -422,7 +423,7 @@ struct ContentView: View {
 
             Spacer()
 
-            dockButton(title: "Profile", systemName: "person.crop.circle.fill", color: Color(red: 0.8, green: 0.2, blue: 1.0)) {
+            dockButton(title: "Profile", systemName: "person.crop.circle.fill", color: .fitPurple) {
                 isShowingProfile = true
             }
         }
@@ -431,7 +432,7 @@ struct ContentView: View {
         .padding(.bottom, 14)
         .background(
             Rectangle()
-                .fill(Color.black.opacity(0.42))
+                .fill(Color.appElevated)
                 .ignoresSafeArea(edges: .bottom)
                 .blur(radius: 0.5)
         )
@@ -465,7 +466,7 @@ struct ContentView: View {
                 .frame(width: 42, height: 42)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.appSurface)
                         .overlay(Circle().stroke(color.opacity(0.16), lineWidth: 1))
                 )
                 .shadow(color: color.opacity(0.18), radius: 10)
@@ -477,7 +478,7 @@ struct ContentView: View {
         VStack(spacing: 6) {
             Text(title.uppercased())
                 .font(.system(size: 8, weight: .heavy))
-                .foregroundColor(.gray)
+                .foregroundColor(.appMuted)
                 .tracking(0.7)
                 .lineLimit(1)
 
@@ -502,13 +503,13 @@ struct ContentView: View {
 
                     Text(value)
                         .font(.system(size: 15, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.55)
 
                     Text(subtitle)
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -520,7 +521,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.black.opacity(0.18))
+                .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.09), lineWidth: 1))
         )
     }
@@ -543,12 +544,12 @@ struct ContentView: View {
                     .font(.system(size: 20, weight: .black))
                     .foregroundColor(color)
                     .frame(width: 50, height: 50)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
+                    .background(Circle().fill(Color.appSurface))
                     .overlay(Circle().stroke(color.opacity(0.18), lineWidth: 1))
 
                 Text(title)
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
             .frame(width: 76)
         }
@@ -578,7 +579,7 @@ struct ContentView: View {
                 Text(entry.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
@@ -594,13 +595,13 @@ struct ContentView: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption.bold())
-                .foregroundColor(.gray)
+                .foregroundColor(.appMuted)
         }
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color.white.opacity(0.055))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .fill(Color.appSurface)
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
         )
     }
     
@@ -627,7 +628,7 @@ struct ContentView: View {
                 Text(entry.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(2)
 
                 Label("\(Int(entry.caloriesBurned)) kcal burned · \(entry.duration)", systemImage: "flame.fill")
@@ -662,7 +663,7 @@ struct ContentView: View {
                 Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...")
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { _ in
@@ -705,7 +706,7 @@ struct ContentView: View {
                         colors: [
                             Color.neonGreen.opacity(0.24),
                             Color.neonCyan.opacity(0.18),
-                            Color.black.opacity(0.35)
+                            Color.appElevated
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -713,7 +714,7 @@ struct ContentView: View {
                 )
         } else {
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.gray.opacity(0.15))
+                .fill(Color.appSurface)
         }
     }
 
@@ -737,7 +738,7 @@ struct ContentView: View {
                         .font(.system(size: 10, weight: .heavy))
                         .tracking(0.8)
                 }
-                .foregroundColor(.black)
+                .foregroundColor(.appAccentText)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Color.neonGreen))
@@ -747,7 +748,7 @@ struct ContentView: View {
         }
     }
     
-    func statCircle(title: String, displayValue: Double, fillValue: Double, total: Double, color: Color, label: String) -> some View { VStack(spacing: 12) { Text(title).font(.caption2).bold().foregroundColor(.gray); ZStack { Circle().stroke(lineWidth: 7).foregroundColor(Color.black.opacity(0.3)); let isCompleted = fillValue >= total; let glowRadius: CGFloat = isCompleted ? 15 : 4; let glowOpacity: Double = isCompleted ? 0.9 : 0.4; Circle().trim(from: 0, to: CGFloat(min(fillValue/total, 1.0))).stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round)).foregroundColor(color).rotationEffect(.degrees(-90)).shadow(color: color.opacity(glowOpacity), radius: glowRadius, x: 0, y: 0); VStack(spacing: 0) { Text("\(Int(displayValue))").font(.headline).bold().foregroundColor(.white); Text(label).font(.system(size: 10, weight: .medium)).foregroundColor(.gray) } }.frame(width: 75, height: 75) }.frame(maxWidth: .infinity) }
+    func statCircle(title: String, displayValue: Double, fillValue: Double, total: Double, color: Color, label: String) -> some View { VStack(spacing: 12) { Text(title).font(.caption2).bold().foregroundColor(.appMuted); ZStack { Circle().stroke(lineWidth: 7).foregroundColor(Color.appText.opacity(0.18)); let isCompleted = fillValue >= total; let glowRadius: CGFloat = isCompleted ? 15 : 4; let glowOpacity: Double = isCompleted ? 0.9 : 0.4; Circle().trim(from: 0, to: CGFloat(min(fillValue/total, 1.0))).stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round)).foregroundColor(color).rotationEffect(.degrees(-90)).shadow(color: color.opacity(glowOpacity), radius: glowRadius, x: 0, y: 0); VStack(spacing: 0) { Text("\(Int(displayValue))").font(.headline).bold().foregroundColor(.appText); Text(label).font(.system(size: 10, weight: .medium)).foregroundColor(.appMuted) } }.frame(width: 75, height: 75) }.frame(maxWidth: .infinity) }
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
     func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }
     func formatDate(_ date: Date) -> String {
@@ -787,9 +788,9 @@ struct AIAssistantView: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color(red: 10/255, green: 15/255, blue: 19/255),
-                        Color.darkGrey,
-                        Color.black.opacity(0.92)
+                        Color.appBackgroundStart,
+                        Color.appBackgroundMid,
+                        Color.appBackgroundEnd
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -837,11 +838,11 @@ struct AIAssistantView: View {
             }
             .navigationTitle(Calendar.current.isDateInToday(selectedDate) ? "AI Coach ✨" : "Past Day Review 📅")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.gray) } }
+            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.appMuted) } }
             .onAppear { if messages.isEmpty { fetchSummary(isInitial: true, message: "", image: nil) } }
             .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
             .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img } } }), sourceType: attachmentSource) }
-        }.preferredColorScheme(.dark)
+        }.preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
     private var coachPulseCard: some View {
@@ -856,12 +857,12 @@ struct AIAssistantView: View {
 
                 Text(DateFormatter.shortDate.string(from: selectedDate))
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
 
             Text(coachHeadline)
                 .font(.system(size: 20, weight: .heavy))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
                 .lineLimit(2)
 
             VStack(spacing: 10) {
@@ -890,7 +891,7 @@ struct AIAssistantView: View {
                         colors: [
                             Color.neonCyan.opacity(0.16),
                             Color.neonGreen.opacity(0.08),
-                            Color.black.opacity(0.34)
+                            Color.appElevated
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -899,7 +900,7 @@ struct AIAssistantView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.appBorder, lineWidth: 1)
         )
         .shadow(color: Color.neonCyan.opacity(0.12), radius: 18, x: 0, y: 10)
     }
@@ -921,7 +922,7 @@ struct AIAssistantView: View {
             HStack {
                 Text(title)
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
 
                 Spacer()
 
@@ -934,7 +935,7 @@ struct AIAssistantView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.appText.opacity(0.08))
 
                     Capsule()
                         .fill(color)
@@ -981,20 +982,20 @@ struct AIAssistantView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.neonCyan)
                         .frame(width: 42, height: 42)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .background(Circle().fill(Color.appSurface))
                 }
 
                 TextField("Ask for a meal move, plan, or review...", text: $userMessage)
                     .padding(.horizontal, 14)
                     .frame(height: 42)
-                    .background(Capsule().fill(Color.black.opacity(0.36)))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
-                    .foregroundColor(.white)
+                    .background(Capsule().fill(Color.appElevated))
+                    .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
+                    .foregroundColor(.appText)
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 16, weight: .heavy))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(width: 42, height: 42)
                         .background(
                             Circle()
@@ -1009,7 +1010,7 @@ struct AIAssistantView: View {
         }
         .background(
             Rectangle()
-                .fill(Color(red: 12/255, green: 14/255, blue: 18/255).opacity(0.96))
+                .fill(Color.appElevated)
                 .ignoresSafeArea(edges: .bottom)
         )
     }
@@ -1073,11 +1074,11 @@ struct AIChatEditView: View {
                 VStack(spacing: 2) {
                     Text("Analysis")
                         .font(.system(size: 16, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Text(entry.name)
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .lineLimit(1)
                         .frame(maxWidth: 150)
                 }
@@ -1102,7 +1103,7 @@ struct AIChatEditView: View {
             .padding(.vertical, 14)
             .background(
                 LinearGradient(
-                    colors: [Color.white.opacity(0.08), Color.black.opacity(0.18)],
+                    colors: [Color.appSurface, Color.appElevated],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -1136,33 +1137,33 @@ struct AIChatEditView: View {
                             .font(.system(size: 17, weight: .black))
                             .foregroundColor(.neonCyan)
                             .frame(width: 42, height: 42)
-                            .background(Circle().fill(Color.white.opacity(0.07)))
+                            .background(Circle().fill(Color.appSurface))
                     }
 
                     TextField("Ask AI or attach label...", text: $userMessage)
                         .font(.system(size: 14, weight: .semibold))
                         .padding(.horizontal, 14)
                         .frame(height: 42)
-                        .background(Capsule().fill(Color.black.opacity(0.38)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
-                        .foregroundColor(.white)
+                        .background(Capsule().fill(Color.appElevated))
+                        .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
+                        .foregroundColor(.appText)
 
                     Button(action: sendMessage) {
                         Image(systemName: "paperplane.fill")
                             .font(.system(size: 15, weight: .black))
-                            .foregroundColor(.black)
+                            .foregroundColor(.appAccentText)
                             .frame(width: 42, height: 42)
                             .background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonGreen))
                     }
                     .disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting)
                 }
                 .padding(14)
-                .background(Color.black.opacity(0.24))
+                .background(Color.appElevated)
             }
         }
         .background(
             LinearGradient(
-                colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.black.opacity(0.92)],
+                colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

@@ -4,23 +4,52 @@ import SwiftData
 @main
 struct FitMaksApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasSelectedTheme") private var hasSelectedTheme = false
+    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
+    @State private var isShowingLaunchSplash = true
+
+    private var selectedTheme: AppTheme {
+        AppTheme(rawValue: selectedThemeID) ?? .neonPulse
+    }
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if hasCompletedOnboarding {
-                    ContentView()
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                } else {
-                    OnboardingView {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                            hasCompletedOnboarding = true
+            ZStack {
+                Group {
+                    if !hasCompletedOnboarding {
+                        OnboardingView {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+                                hasCompletedOnboarding = true
+                            }
                         }
+                        .transition(.opacity)
+                    } else if !hasSelectedTheme {
+                        ThemeSelectionView(isFirstRun: true) {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+                                hasSelectedTheme = true
+                            }
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    } else {
+                        ContentView()
+                            .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     }
-                    .transition(.opacity)
+                }
+
+                if isShowingLaunchSplash {
+                    LaunchSplashView(theme: selectedTheme)
+                        .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                        .zIndex(10)
                 }
             }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(selectedTheme.palette.preferredScheme)
+            .task {
+                guard isShowingLaunchSplash else { return }
+                try? await Task.sleep(nanoseconds: 1_450_000_000)
+                withAnimation(.easeInOut(duration: 0.42)) {
+                    isShowingLaunchSplash = false
+                }
+            }
         }
         .modelContainer(for: [
             FoodEntry.self,
@@ -30,6 +59,86 @@ struct FitMaksApp: App {
             SavedRecipe.self,
             ShoppingItem.self // 🔥 Новая база для списка покупок
         ])
+    }
+}
+
+private struct LaunchSplashView: View {
+    var theme: AppTheme
+
+    @State private var pulse = false
+    @State private var shimmer = false
+
+    private var palette: AppPalette { theme.palette }
+
+    var body: some View {
+        ZStack {
+            themeBackground(theme)
+
+            VStack(spacing: 22) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 42)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    palette.primary.opacity(0.23),
+                                    palette.secondary.opacity(0.12),
+                                    palette.surface
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 144, height: 144)
+                        .rotationEffect(.degrees(pulse ? -4 : 4))
+                        .shadow(color: palette.primary.opacity(pulse ? 0.45 : 0.22), radius: pulse ? 30 : 18, x: 0, y: 14)
+
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 52, weight: .black))
+                        .foregroundColor(palette.primary)
+                        .scaleEffect(pulse ? 1.08 : 0.94)
+                        .shadow(color: palette.primary.opacity(0.7), radius: pulse ? 18 : 9)
+                }
+
+                VStack(spacing: 8) {
+                    Text("FitMaks")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundColor(palette.text)
+                        .tracking(1.2)
+
+                    Text("loading your day")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(palette.muted)
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                }
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(palette.surface)
+                        .frame(width: 156, height: 7)
+
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [palette.primary, palette.secondary, palette.action],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: 58, height: 7)
+                        .offset(x: shimmer ? 98 : 0)
+                }
+                .clipShape(Capsule())
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+            withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+        }
     }
 }
 
@@ -58,7 +167,7 @@ private struct OnboardingView: View {
             title: "Set your body data once.",
             subtitle: "Open Profile after setup. Add weight, height, goal and activity so calories and protein adapt to you.",
             systemName: "person.crop.circle.badge.checkmark",
-            color: Color(red: 0.95, green: 0.35, blue: 1.0)
+            color: .fitPurple
         ),
         OnboardingPage(
             eyebrow: "THE GAME",
@@ -77,7 +186,7 @@ private struct OnboardingView: View {
                 HStack {
                     Text("FitMaks")
                         .font(.system(size: 15, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .tracking(1.4)
 
                     Spacer()
@@ -86,7 +195,7 @@ private struct OnboardingView: View {
                         onComplete()
                     }
                     .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 18)
@@ -103,7 +212,7 @@ private struct OnboardingView: View {
                     HStack(spacing: 7) {
                         ForEach(0..<pages.count, id: \.self) { index in
                             Capsule()
-                                .fill(index == page ? pages[page].color : Color.white.opacity(0.14))
+                                .fill(index == page ? pages[page].color : Color.appText.opacity(0.14))
                                 .frame(width: index == page ? 24 : 7, height: 7)
                                 .animation(.spring(response: 0.32, dampingFraction: 0.8), value: page)
                         }
@@ -117,7 +226,7 @@ private struct OnboardingView: View {
                             Image(systemName: page == pages.count - 1 ? "checkmark" : "arrow.right")
                                 .font(.system(size: 15, weight: .black))
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(
@@ -130,7 +239,7 @@ private struct OnboardingView: View {
 
                     Text("Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
                         .padding(.horizontal, 10)
@@ -142,16 +251,8 @@ private struct OnboardingView: View {
     }
 
     private var onboardingBackground: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 6/255, green: 10/255, blue: 15/255),
-                Color.darkGrey,
-                Color.black
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+            .ignoresSafeArea()
         .overlay(alignment: .topTrailing) {
             Circle()
                 .fill(pages[page].color.opacity(0.18))
@@ -179,8 +280,8 @@ private struct OnboardingView: View {
                         LinearGradient(
                             colors: [
                                 item.color.opacity(0.22),
-                                Color.white.opacity(0.055),
-                                Color.black.opacity(0.28)
+                                Color.appSurface,
+                                Color.appElevated
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -209,7 +310,7 @@ private struct OnboardingView: View {
 
                 Text(item.title)
                     .font(.system(size: 29, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.76)
@@ -218,7 +319,7 @@ private struct OnboardingView: View {
 
                 Text(item.subtitle)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -242,7 +343,7 @@ private struct OnboardingView: View {
 
             Text(quickRuleText)
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white.opacity(0.86))
+                .foregroundColor(.appText.opacity(0.86))
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -250,8 +351,8 @@ private struct OnboardingView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color.white.opacity(0.055))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .fill(Color.appSurface)
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
         )
         .padding(.horizontal, 6)
     }

@@ -121,16 +121,16 @@ struct MyFoodView: View {
             .sheet(item: $selectedRecipeToShow) { rec in RecipeSheet(recipe: rec, isPreSaved: true, selectedDate: selectedDate) }
             .onAppear { if isSelectionMode { currentTab = initialTab } }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
     // MARK: - ПОДВЬЮХИ ДЛЯ ВКЛАДОК
     private var myFoodBackground: some View {
         LinearGradient(
             colors: [
-                Color(red: 8/255, green: 12/255, blue: 17/255),
-                Color.darkGrey,
-                Color.black.opacity(0.96)
+                Color.appBackgroundStart,
+                Color.appBackgroundMid,
+                Color.appBackgroundEnd
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -158,12 +158,12 @@ struct MyFoodView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("FOOD LIBRARY")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .tracking(1)
 
                     Text("Build meals faster.")
                         .font(.system(size: 24, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                 }
 
                 Spacer()
@@ -186,8 +186,8 @@ struct MyFoodView: View {
             tabButton(title: "Shopping", emoji: "🛒", index: 2, color: .neonGreen)
         }
         .padding(6)
-        .background(Capsule().fill(Color.black.opacity(0.32)))
-        .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .background(Capsule().fill(Color.appElevated))
+        .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
         .padding(.horizontal, 18)
         .padding(.bottom, 12)
     }
@@ -203,7 +203,7 @@ struct MyFoodView: View {
                 Text(title)
                     .font(.system(size: 11, weight: .heavy))
             }
-            .foregroundColor(currentTab == index ? .black : .gray)
+            .foregroundColor(currentTab == index ? .appAccentText : .appMuted)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(Capsule().fill(currentTab == index ? color : Color.clear))
@@ -665,24 +665,24 @@ struct RecipeSuggestionsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.darkGrey.ignoresSafeArea()
+                LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 15) {
-                        Text("Chef's Suggestions").font(.title2).bold().foregroundColor(.white).padding(.top)
+                        Text("Chef's Suggestions").font(.title2).bold().foregroundColor(.appText).padding(.top)
                         ForEach(recipes) { r in
                             Button(action: { selectedRecipe = r }) {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text(r.recipe_name).font(.headline).foregroundColor(.white).multilineTextAlignment(.leading)
-                                    HStack { Text("\(Int(r.estimated_calories)) kcal").foregroundColor(.neonGreen); Text("•").foregroundColor(.gray); Text("\(Int(r.estimated_protein))g protein").foregroundColor(.neonCyan) }.font(.subheadline).bold()
+                                    Text(r.recipe_name).font(.headline).foregroundColor(.appText).multilineTextAlignment(.leading)
+                                    HStack { Text("\(Int(r.estimated_calories)) kcal").foregroundColor(.neonGreen); Text("•").foregroundColor(.appMuted); Text("\(Int(r.estimated_protein))g protein").foregroundColor(.neonCyan) }.font(.subheadline).bold()
                                 }.padding().frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.orange.opacity(0.5), lineWidth: 1))
                             }
                         }
                     }.padding()
                 }
             }
-            .navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.gray) } }
+            .navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.appMuted) } }
             .sheet(item: $selectedRecipe) { rec in RecipeSheet(recipe: rec, isPreSaved: false, selectedDate: selectedDate) }
-        }.preferredColorScheme(.dark)
+        }.preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 }
 
@@ -693,23 +693,23 @@ struct RecipeSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.darkGrey.ignoresSafeArea()
+                LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text(recipe.recipe_name).font(.largeTitle).bold().foregroundColor(.white).lineLimit(nil).fixedSize(horizontal: false, vertical: true).padding(.top)
-                        HStack { VStack(spacing: 5) { Text("CALORIES").font(.caption).foregroundColor(.gray); Text("\(Int(recipe.estimated_calories))").font(.title2).bold().foregroundColor(.neonGreen) }.frame(maxWidth: .infinity); Divider().background(Color.gray).frame(height: 30); VStack(spacing: 5) { Text("PROTEIN").font(.caption).foregroundColor(.gray); Text("\(Int(recipe.estimated_protein))g").font(.title2).bold().foregroundColor(.neonCyan) }.frame(maxWidth: .infinity) }.padding().background(Color.black.opacity(0.3)).cornerRadius(15)
-                        Text(LocalizedStringKey(recipe.cooking_instructions)).foregroundColor(.gray).lineSpacing(5)
-                        Button(action: addToDiary) { HStack { Image(systemName: isAddedToDiary ? "checkmark" : "plus.circle.fill"); Text(isAddedToDiary ? "Added to Diary" : "Add to Today's Diary 🍽️").bold() }.frame(maxWidth: .infinity).padding().background(isAddedToDiary ? Color.neonGreen.opacity(0.8) : Color.orange).foregroundColor(.white).cornerRadius(15).padding(.top, 20) }.disabled(isAddedToDiary)
+                        Text(recipe.recipe_name).font(.largeTitle).bold().foregroundColor(.appText).lineLimit(nil).fixedSize(horizontal: false, vertical: true).padding(.top)
+                        HStack { VStack(spacing: 5) { Text("CALORIES").font(.caption).foregroundColor(.appMuted); Text("\(Int(recipe.estimated_calories))").font(.title2).bold().foregroundColor(.neonGreen) }.frame(maxWidth: .infinity); Divider().background(Color.appBorder).frame(height: 30); VStack(spacing: 5) { Text("PROTEIN").font(.caption).foregroundColor(.appMuted); Text("\(Int(recipe.estimated_protein))g").font(.title2).bold().foregroundColor(.neonCyan) }.frame(maxWidth: .infinity) }.padding().background(Color.appElevated).cornerRadius(15)
+                        Text(LocalizedStringKey(recipe.cooking_instructions)).foregroundColor(.appMuted).lineSpacing(5)
+                        Button(action: addToDiary) { HStack { Image(systemName: isAddedToDiary ? "checkmark" : "plus.circle.fill"); Text(isAddedToDiary ? "Added to Diary" : "Add to Today's Diary 🍽️").bold() }.frame(maxWidth: .infinity).padding().background(isAddedToDiary ? Color.neonGreen.opacity(0.8) : Color.fitOrange).foregroundColor(.appAccentText).cornerRadius(15).padding(.top, 20) }.disabled(isAddedToDiary)
                         Spacer()
                     }.padding()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.gray) }
+                ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.appMuted) }
                 if !isPreSaved { ToolbarItem(placement: .navigationBarTrailing) { Button(isSaved ? "Saved ✅" : "Save Meal") { if !isSaved { modelContext.insert(SavedRecipe(name: recipe.recipe_name, instructions: recipe.cooking_instructions, calories: recipe.estimated_calories, protein: recipe.estimated_protein, ingredients: "")); withAnimation { isSaved = true } } }.foregroundColor(isSaved ? .neonGreen : .orange).bold() } }
             }
-        }.preferredColorScheme(.dark)
+        }.preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
     func addToDiary() {
         let safeName = recipe.recipe_name.hasPrefix("👨‍🍳") ? recipe.recipe_name : "👨‍🍳 " + recipe.recipe_name

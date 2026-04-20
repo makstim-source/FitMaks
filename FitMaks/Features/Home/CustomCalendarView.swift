@@ -30,13 +30,13 @@ struct CustomCalendarView: View {
                     Text(monthYearString(for: currentMonthOffset))
                         .font(.title3)
                         .bold()
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Spacer()
 
                     Button(action: { currentMonthOffset += 1 }) {
                         Image(systemName: "chevron.right")
-                            .foregroundColor(currentMonthOffset < 0 ? .neonGreen : .gray)
+                            .foregroundColor(currentMonthOffset < 0 ? .neonGreen : .appMuted)
                             .font(.title2)
                     }
                     .disabled(currentMonthOffset >= 0)
@@ -49,7 +49,7 @@ struct CustomCalendarView: View {
                         Text(day)
                             .font(.caption)
                             .bold()
-                            .foregroundColor(.gray)
+                            .foregroundColor(.appMuted)
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -98,7 +98,10 @@ struct CustomCalendarView: View {
             .padding()
             .padding(.bottom, 16)
         }
-        .background(Color.darkGrey.edgesIgnoringSafeArea(.all))
+        .background(
+            LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .edgesIgnoringSafeArea(.all)
+        )
         .onAppear(perform: loadStepsForVisibleMonth)
         .onChange(of: currentMonthOffset) { _, _ in
             loadStepsForVisibleMonth()
@@ -136,7 +139,7 @@ struct CustomCalendarView: View {
             Text(text)
         }
         .font(.system(size: 11, weight: .medium))
-        .foregroundColor(.gray)
+        .foregroundColor(.appMuted)
     }
 
     private func dayMode(for date: Date) -> DayMode {

@@ -159,9 +159,9 @@ struct StatsView: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color(red: 8/255, green: 12/255, blue: 16/255),
-                        Color.darkGrey,
-                        Color.black.opacity(0.95)
+                        Color.appBackgroundStart,
+                        Color.appBackgroundMid,
+                        Color.appBackgroundEnd
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -203,7 +203,7 @@ struct StatsView: View {
                 animateBars()
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
     private var weekSwitcher: some View {
@@ -222,11 +222,11 @@ struct StatsView: View {
                 Text(dateRangeText)
                     .font(.headline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Text(weekDateRange)
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
 
             Spacer()
@@ -234,15 +234,15 @@ struct StatsView: View {
             Button(action: { withAnimation(.spring()) { weekOffset -= 1 } }) {
                 Image(systemName: "chevron.right")
                     .font(.headline.bold())
-                    .foregroundColor(weekOffset > 0 ? .neonGreen : .gray)
+                    .foregroundColor(weekOffset > 0 ? .neonGreen : .appMuted)
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Color.white.opacity(0.07)))
             }
             .disabled(weekOffset == 0)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 22).fill(Color.black.opacity(0.28)))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private var heroScoreCard: some View {

@@ -26,9 +26,9 @@ struct StatsView: View {
     )
 
     var dateRangeText: String {
-        if weekOffset == 0 { return "Current Window" }
-        if weekOffset == 1 { return "Previous Window" }
-        return "\(weekOffset) Windows Ago"
+        if weekOffset == 0 { return "Last 7 Days" }
+        if weekOffset == 1 { return "Previous 7 Days" }
+        return "\(weekOffset + 1) Blocks Ago"
     }
 
     var stats: [WeekStat] {

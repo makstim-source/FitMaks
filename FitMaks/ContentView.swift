@@ -51,7 +51,9 @@ struct ContentView: View {
     @State private var selectedDate = Date()
     @State private var isShowingSourceDialog = false; @State private var isShowingCamera = false; @State private var selectedCameraImage: UIImage?; @State private var isShowingPhotoPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []; @State private var isShowingTextEntry = false; @State private var manualText = ""
     @State private var processingItems: [ProcessingItem] = []; @State private var fridgeProcessingItems: [ProcessingItem] = []; @State private var selectedEntryForEdit: FoodEntry?
+    
     @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
+    @State private var isShowingAIAssistant = false // 🔥 Новый стейт для тренера
 
     var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let setup = allDailySetups.first(where: { $0.dateID == id }), let mode = DayMode(rawValue: setup.mode) { return mode }; return .chill }
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
@@ -85,7 +87,14 @@ struct ContentView: View {
                         }
                     }
                     Spacer()
-                    Color.clear.frame(width: 44, height: 44)
+                    // 🔥 НОВАЯ КНОПКА ИИ-ТРЕНЕРА 🔥
+                    Button(action: { isShowingAIAssistant = true }) {
+                        Image(systemName: "sparkles")
+                            .font(.title3)
+                            .foregroundColor(.neonCyan)
+                            .padding(12)
+                            .background(Circle().fill(Color.gray.opacity(0.15)))
+                    }
                 }.padding(.top, 10).padding(.horizontal, 20)
                 
                 VStack(spacing: 12) {
@@ -103,7 +112,6 @@ struct ContentView: View {
                         ForEach(processingItems) { item in loadingRow(item: item) }
                         
                         if dailyFeed.isEmpty && processingItems.isEmpty {
-                            // 🔥 ТЕПЕРЬ ВСЯ ЗАГЛУШКА РАБОТАЕТ КАК КНОПКА 🔥
                             Button(action: { isShowingSourceDialog = true }) {
                                 VStack(spacing: 15) {
                                     Image(systemName: "fork.knife.circle")
@@ -117,7 +125,7 @@ struct ContentView: View {
                                 }
                                 .padding(.top, 60)
                                 .frame(maxWidth: .infinity)
-                                .contentShape(Rectangle()) // Чтобы нажималась не только по буквам, но и рядом
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(PlainButtonStyle())
                         } else {
@@ -162,6 +170,8 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
         .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: targetProtein) }
+        // 🔥 ВЫЗОВ НОВОГО ЭКРАНА ПОМОЩНИКА 🔥
+        .sheet(isPresented: $isShowingAIAssistant) { AIAssistantView(consumedCalories: dailyCaloriesConsumed, consumedProtein: dailyProtein, targetCalories: maxCalories, targetProtein: targetProtein, foods: dailyFoodEntries, trainings: dailyTrainingEntries).presentationDetents([.medium, .large]) }
     }
 
     func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); if let icon = UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 60, weight: .bold))?.withTintColor(UIColor(color), renderingMode: .alwaysOriginal) { icon.draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: (size.height - icon.size.height) / 2)) } } }
@@ -198,6 +208,69 @@ struct ContentView: View {
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
     func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }
     func formatDate(_ date: Date) -> String { Calendar.current.isDateInToday(date) ? "Today" : { let f = DateFormatter(); f.dateFormat = "MMM d, yyyy"; return f.string(from: date) }() }
+}
+
+// MARK: - 🔥 ЭКРАН ИИ-ТРЕНЕРА 🔥
+struct AIAssistantView: View {
+    @Environment(\.dismiss) var dismiss
+    var consumedCalories: Double
+    var consumedProtein: Double
+    var targetCalories: Double
+    var targetProtein: Double
+    var foods: [FoodEntry]
+    var trainings: [TrainingEntry]
+
+    @State private var summary: String = ""
+    @State private var isLoading = true
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.darkGrey.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 40))
+                            .foregroundColor(.neonCyan)
+                            .padding(.top, 20)
+                            
+                        if isLoading {
+                            ProgressView().tint(.neonCyan).scaleEffect(1.5).padding(.top, 30)
+                            Text("Coach is thinking...").foregroundColor(.gray).padding(.top, 10)
+                        } else {
+                            Text(summary)
+                                .font(.body)
+                                .foregroundColor(.white)
+                                .lineSpacing(6)
+                                .padding(20)
+                                .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.3)))
+                                .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.neonCyan.opacity(0.5), lineWidth: 1))
+                        }
+                    }.padding()
+                }
+            }
+            .navigationTitle("AI Coach")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.gray) } }
+            .onAppear { fetchSummary() }
+        }.preferredColorScheme(.dark)
+    }
+
+    func fetchSummary() {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let timeString = formatter.string(from: Date())
+
+        let mealNames = foods.map { "\($0.name) (\(Int($0.calories)) kcal, \(Int($0.protein))g P)" }
+        let workoutNames = trainings.map { "\($0.name) (\(Int($0.caloriesBurned)) kcal burned)" }
+
+        GeminiService.shared.generateDailySummary(timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames) { result in
+            DispatchQueue.main.async {
+                self.summary = result ?? "Oops, something went wrong connecting to the AI. Try again!"
+                self.isLoading = false
+            }
+        }
+    }
 }
 
 // MARK: - ЧАТ И РЕДАКТОР ЕДЫ

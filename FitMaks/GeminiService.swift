@@ -34,6 +34,11 @@ struct GroceryListResult: Codable {
     let items: [FoodResult]
 }
 
+// 🔥 НОВАЯ МОДЕЛЬ ДЛЯ ИТОГОВ ДНЯ
+struct DailySummaryResult: Codable {
+    let ai_summary: String
+}
+
 // MARK: - СЕРВИС GEMINI
 class GeminiService {
     static let shared = GeminiService()
@@ -115,6 +120,25 @@ class GeminiService {
         """
         sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self) { result, err in
             completion(result?.items, err)
+        }
+    }
+    
+    // 🔥 7. ГЕНЕРАЦИЯ ИТОГОВ ДНЯ 🔥
+    func generateDailySummary(timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], completion: @escaping (String?) -> Void) {
+        let prompt = """
+        You are a top-tier fitness and nutrition coach.
+        Current time: \(timeOfDay).
+        User's daily goal: \(Int(targetCalories)) kcal, \(Int(targetProtein))g protein.
+        Today's progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed.
+        Meals eaten today: \(meals.isEmpty ? "None yet" : meals.joined(separator: ", ")).
+        Workouts done today: \(workouts.isEmpty ? "None yet" : workouts.joined(separator: ", ")).
+
+        Analyze the day based on the current time and progress. Give practical advice for the rest of the day, or a brief wrap-up if it's late evening/night. Keep it under 4 sentences, be direct, honest, and motivating. Use emojis.
+        Return ONLY a single JSON object:
+        {"ai_summary": "your text here"}
+        """
+        sendToGemini(images: [], prompt: prompt, responseType: DailySummaryResult.self) { result, _ in
+            completion(result?.ai_summary)
         }
     }
 

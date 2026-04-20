@@ -80,6 +80,7 @@ struct TypewriterText: View {
 struct CoachMessageBubble: View {
     var message: ChatMessage
     var accentColor: Color = .neonCyan
+    var assistantName: String = "FitMaks Coach"
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {
@@ -90,7 +91,7 @@ struct CoachMessageBubble: View {
             }
 
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 7) {
-                Text(message.isUser ? "You" : "FitMaks Coach")
+                Text(message.isUser ? "You" : assistantName)
                     .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(message.isUser ? accentColor.opacity(0.85) : .gray)
                     .tracking(0.6)

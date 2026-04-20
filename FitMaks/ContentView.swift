@@ -74,7 +74,7 @@ struct ContentView: View {
         ZStack {
             homeBackground
 
-            VStack(spacing: 14) {
+            VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
                 timelinePanel
@@ -103,7 +103,7 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
-        .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: targetProtein) }
+        .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: baseProteinGoal) }
         // 🔥 ПЕРЕДАЕМ ДАТУ И ХОЛОДИЛЬНИК В ИИ-ТРЕНЕР 🔥
         .sheet(isPresented: $isShowingAIAssistant) {
             AIAssistantView(
@@ -174,43 +174,41 @@ struct ContentView: View {
     }
 
     private var homeHeader: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             homeIconButton(systemName: "chart.bar.xaxis", color: .neonGreen) {
                 isShowingStats = true
             }
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button(action: { changeDate(by: -1) }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .black))
+                        .font(.system(size: 13, weight: .black))
                         .foregroundColor(.neonGreen)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.white.opacity(0.07)))
                 }
 
-                VStack(spacing: 2) {
-                    Text("FitMaks")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.gray)
-                        .tracking(1.2)
-
+                Button(action: { isShowingCalendar = true }) {
                     Text(formatDate(selectedDate))
-                        .font(.system(size: 15, weight: .black))
+                        .font(.system(size: 14, weight: .black))
                         .foregroundColor(.neonGreen)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(minWidth: 82)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.black.opacity(0.32)))
+                        .overlay(Capsule().stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.black.opacity(0.32)))
-                .overlay(Capsule().stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
-                .onTapGesture { isShowingCalendar = true }
+                .buttonStyle(.plain)
 
                 Button(action: { changeDate(by: 1) }) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 15, weight: .black))
+                        .font(.system(size: 13, weight: .black))
                         .foregroundColor(.neonGreen)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.white.opacity(0.07)))
                 }
                 .opacity(Calendar.current.isDateInToday(selectedDate) ? 0 : 1)
@@ -223,36 +221,12 @@ struct ContentView: View {
                 isShowingAIAssistant = true
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 16)
     }
 
     private var dailyCommandCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Calendar.current.isDateInToday(selectedDate) ? "TODAY'S RUN" : "DAY REPLAY")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.gray)
-                        .tracking(1)
-
-                    Text(dayStatusTitle)
-                        .font(.system(size: 22, weight: .black))
-                        .foregroundColor(.white)
-                }
-
-                Spacer()
-
-                if isPerfectPastDay {
-                    Label("Perfect", systemImage: "sparkles")
-                        .font(.caption.bold())
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(Color.neonGreen))
-                }
-            }
-
-            HStack(spacing: 10) {
+        VStack(spacing: 11) {
+            HStack(spacing: 6) {
                 let caloriesOver = dailyCaloriesConsumed > maxCalories
                 metricTile(
                     title: "Calories",
@@ -286,36 +260,36 @@ struct ContentView: View {
 
             modeSelector
         }
-        .padding(18)
+        .padding(12)
         .background(statsPanelBackground)
         .overlay(statsPanelCelebrationOverlay)
-        .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.45) : Color.black.opacity(0.18), radius: isPerfectPastDay ? 20 : 14, x: 0, y: 10)
+        .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.36) : Color.black.opacity(0.14), radius: isPerfectPastDay ? 18 : 10, x: 0, y: 8)
         .padding(.horizontal, 15)
     }
 
     private var modeSelector: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 7) {
             ForEach(DayMode.allCases, id: \.self) { mode in
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
                         setDayMode(mode)
                     }
                 } label: {
-                    VStack(spacing: 3) {
+                    HStack(spacing: 5) {
                         Text(mode.emoji)
-                            .font(.system(size: 17))
+                            .font(.system(size: 14))
                         Text(modeLabel(mode))
                             .font(.system(size: 10, weight: .heavy))
                     }
                     .foregroundColor(currentDayMode == mode ? .black : .gray)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 7)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 13)
                             .fill(currentDayMode == mode ? Color.neonCyan : Color.white.opacity(0.055))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 13)
                             .stroke(currentDayMode == mode ? Color.white.opacity(0.25) : Color.white.opacity(0.07), lineWidth: 1)
                     )
                 }
@@ -325,7 +299,7 @@ struct ContentView: View {
     }
 
     private var timelinePanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Diary")
                     .font(.system(size: 18, weight: .black))
@@ -334,16 +308,16 @@ struct ContentView: View {
                 Spacer()
 
                 Text("\(dailyFeed.count) entries")
-                    .font(.caption.bold())
+                    .font(.caption2.bold())
                     .foregroundColor(.gray)
                     .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 4)
                     .background(Capsule().fill(Color.white.opacity(0.06)))
             }
             .padding(.horizontal, 3)
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     ForEach(processingItems) { item in loadingRow(item: item) }
 
                     if dailyFeed.isEmpty && processingItems.isEmpty {
@@ -365,13 +339,13 @@ struct ContentView: View {
                 .padding(.bottom, 4)
             }
         }
-        .padding(16)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 28)
+            RoundedRectangle(cornerRadius: 24)
                 .fill(Color.black.opacity(0.26))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28)
+                    RoundedRectangle(cornerRadius: 24)
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
@@ -435,7 +409,7 @@ struct ContentView: View {
                 ZStack {
                     Circle()
                         .fill(Color.neonGreen)
-                        .frame(width: 72, height: 72)
+                        .frame(width: 66, height: 66)
                         .shadow(color: Color.neonGreen.opacity(0.45), radius: 18, x: 0, y: 8)
 
                     Image(systemName: "plus")
@@ -453,8 +427,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 30)
-        .padding(.top, 8)
-        .padding(.bottom, 18)
+        .padding(.top, 6)
+        .padding(.bottom, 14)
         .background(
             Rectangle()
                 .fill(Color.black.opacity(0.42))
@@ -486,9 +460,9 @@ struct ContentView: View {
     private func homeIconButton(systemName: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 18, weight: .black))
+                .font(.system(size: 16, weight: .black))
                 .foregroundColor(color)
-                .frame(width: 46, height: 46)
+                .frame(width: 42, height: 42)
                 .background(
                     Circle()
                         .fill(Color.white.opacity(0.07))
@@ -500,52 +474,54 @@ struct ContentView: View {
     }
 
     private func metricTile(title: String, value: String, subtitle: String, progress: Double, color: Color, systemName: String) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                Image(systemName: systemName)
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundColor(color)
+        VStack(spacing: 6) {
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .heavy))
+                .foregroundColor(.gray)
+                .tracking(0.7)
+                .lineLimit(1)
 
-                Spacer()
+            ZStack {
+                Circle()
+                    .stroke(Color.black.opacity(0.34), lineWidth: 7)
 
-                Text(title.uppercased())
-                    .font(.system(size: 8, weight: .heavy))
-                    .foregroundColor(.gray)
-                    .tracking(0.5)
-            }
+                Circle()
+                    .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: color.opacity(0.55), radius: progress >= 1 ? 13 : 6)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 21, weight: .black))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                VStack(spacing: 0) {
+                    Image(systemName: systemName)
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(color)
+                        .padding(.bottom, 1)
 
-                Text(subtitle)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-            }
+                    Text(value)
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.08))
-
-                    Capsule()
-                        .fill(color)
-                        .frame(width: proxy.size.width * CGFloat(min(max(progress, 0), 1)))
-                        .shadow(color: color.opacity(0.45), radius: 8)
+                    Text(subtitle)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
+                .padding(.horizontal, 5)
             }
-            .frame(height: 6)
+            .frame(width: 74, height: 74)
         }
-        .padding(12)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.black.opacity(0.25))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.12), lineWidth: 1))
+                .fill(Color.black.opacity(0.18))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.09), lineWidth: 1))
         )
     }
 
@@ -774,7 +750,15 @@ struct ContentView: View {
     func statCircle(title: String, displayValue: Double, fillValue: Double, total: Double, color: Color, label: String) -> some View { VStack(spacing: 12) { Text(title).font(.caption2).bold().foregroundColor(.gray); ZStack { Circle().stroke(lineWidth: 7).foregroundColor(Color.black.opacity(0.3)); let isCompleted = fillValue >= total; let glowRadius: CGFloat = isCompleted ? 15 : 4; let glowOpacity: Double = isCompleted ? 0.9 : 0.4; Circle().trim(from: 0, to: CGFloat(min(fillValue/total, 1.0))).stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round)).foregroundColor(color).rotationEffect(.degrees(-90)).shadow(color: color.opacity(glowOpacity), radius: glowRadius, x: 0, y: 0); VStack(spacing: 0) { Text("\(Int(displayValue))").font(.headline).bold().foregroundColor(.white); Text(label).font(.system(size: 10, weight: .medium)).foregroundColor(.gray) } }.frame(width: 75, height: 75) }.frame(maxWidth: .infinity) }
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
     func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }
-    func formatDate(_ date: Date) -> String { Calendar.current.isDateInToday(date) ? "Today" : { let f = DateFormatter(); f.dateFormat = "MMM d, yyyy"; return f.string(from: date) }() }
+    func formatDate(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year) ? "MMM d" : "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
 }
 
 // MARK: - 🔥 ЭКРАН ИИ-ТРЕНЕРА 🔥
@@ -1078,34 +1062,117 @@ struct AIChatEditView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onDone) { Text("Done").fontWeight(.bold).foregroundColor(.neonGreen) }
-                Spacer(); Text("Analysis").font(.headline).foregroundColor(.white); Spacer()
-                HStack(spacing: 20) {
-                    Button(action: { isShowingSaveDialog = true }) { Image(systemName: "square.and.arrow.down").foregroundColor(.neonCyan).font(.title3) }
-                    Button(action: onDelete) { Image(systemName: "trash").foregroundColor(.red.opacity(0.8)).font(.title3) }
+                Button(action: onDone) {
+                    Text("Done")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundColor(.neonGreen)
                 }
-            }.padding().background(Color.darkGrey)
+
+                Spacer()
+
+                VStack(spacing: 2) {
+                    Text("Analysis")
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundColor(.white)
+
+                    Text(entry.name)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                        .frame(maxWidth: 150)
+                }
+
+                Spacer()
+
+                HStack(spacing: 14) {
+                    Button(action: { isShowingSaveDialog = true }) {
+                        Image(systemName: "square.and.arrow.down")
+                            .foregroundColor(.neonCyan)
+                            .font(.system(size: 17, weight: .bold))
+                    }
+
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red.opacity(0.85))
+                            .font(.system(size: 17, weight: .bold))
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.08), Color.black.opacity(0.18)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 20) {
-                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, accentColor: .gray)
+                    VStack(spacing: 16) {
+                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, accentColor: .neonGreen.opacity(0.8))
                         ForEach(messages) { msg in
-                            VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 10) {
-                                HStack { if msg.isUser { Spacer() }; VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 8) { if let img = msg.attachedImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 120, height: 120).clipShape(RoundedRectangle(cornerRadius: 10)) }; if !msg.text.isEmpty { Text(msg.text) } }.font(.subheadline).padding(12).background(msg.isUser ? Color.neonGreen.opacity(0.2) : Color.gray.opacity(0.2)).foregroundColor(.white).cornerRadius(15); if !msg.isUser { Spacer() } }
+                            VStack(spacing: 10) {
+                                CoachMessageBubble(message: msg, accentColor: .neonGreen, assistantName: "FitMaks AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, accentColor: .neonCyan).padding(.trailing, 20) }
-                            }.id(msg.id)
+                            }
+                            .id(msg.id)
                         }
-                        if isWaiting { HStack { TypingIndicatorView(color: .neonGreen).padding(14).background(Color.gray.opacity(0.2)).cornerRadius(15); Spacer() }.id("TypingIndicator") }
+                        if isWaiting {
+                            CoachTypingBubble(accentColor: .neonGreen)
+                                .id("TypingIndicator")
+                        }
                     }.padding()
-                }.onChange(of: messages.count) { withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
+                }
+                .onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }
+                .onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.white).background(Circle().fill(Color.black)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 12) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.title3).foregroundColor(.neonCyan) }; TextField("Ask AI or attach label...", text: $userMessage).padding(10).background(Color.black.opacity(0.4)).cornerRadius(20).foregroundColor(.white); Button(action: sendMessage) { Image(systemName: "paperplane.fill").foregroundColor((userMessage.isEmpty && attachedImage == nil) || isWaiting ? .gray : .neonGreen) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding().background(Color(red: 20/255, green: 20/255, blue: 25/255))
+                HStack(spacing: 10) {
+                    Button(action: { isShowingAttachmentDialog = true }) {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 17, weight: .black))
+                            .foregroundColor(.neonCyan)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill(Color.white.opacity(0.07)))
+                    }
+
+                    TextField("Ask AI or attach label...", text: $userMessage)
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .frame(height: 42)
+                        .background(Capsule().fill(Color.black.opacity(0.38)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+                        .foregroundColor(.white)
+
+                    Button(action: sendMessage) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundColor(.black)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonGreen))
+                    }
+                    .disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting)
+                }
+                .padding(14)
+                .background(Color.black.opacity(0.24))
             }
-        }.background(Color.darkGrey).cornerRadius(25).overlay(RoundedRectangle(cornerRadius: 25).stroke(Color.gray.opacity(0.2), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
-        .onAppear { originalIngredients = entry.ingredients; originalCalories = entry.calories; originalProtein = entry.protein; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false)) } }
+        }
+        .background(
+            LinearGradient(
+                colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.black.opacity(0.92)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(28)
+        .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
+        .shadow(color: Color.neonGreen.opacity(0.16), radius: 24, x: 0, y: 12)
+        .padding(.horizontal, 15)
+        .frame(maxHeight: 680)
+        .onAppear { originalIngredients = entry.ingredients; originalCalories = entry.calories; originalProtein = entry.protein; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img } } }), sourceType: attachmentSource) }
         .confirmationDialog("Save to My Food", isPresented: $isShowingSaveDialog) {
@@ -1127,9 +1194,9 @@ struct AIChatEditView: View {
                 let prefix = entry.name.hasPrefix("👨‍🍳") ? "👨‍🍳 " : (entry.name.hasPrefix("❄️") ? "❄️ " : "")
                 let cleanName = res.food_name.replacingOccurrences(of: "👨‍🍳 ", with: "").replacingOccurrences(of: "❄️ ", with: "")
                 entry.name = prefix + cleanName; entry.calories = res.calories; entry.protein = res.protein; entry.ingredients = res.ingredients_breakdown;
-                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein))
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true))
             } else {
-                messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false))
+                messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
             }
         }
     }

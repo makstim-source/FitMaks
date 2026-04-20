@@ -35,53 +35,76 @@ struct IngredientBreakdownCard: View {
     var accentColor: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(title)
-                    .font(.caption2)
-                    .bold()
+                Label(title, systemImage: "wand.and.stars")
+                    .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(accentColor)
+                    .tracking(0.6)
 
                 Spacer()
 
-                Text("\(Int(calories)) kcal • \(Int(protein))g prot")
-                    .font(.caption2)
-                    .bold()
-                    .foregroundColor(.white)
+                HStack(spacing: 6) {
+                    macroChip(text: "\(Int(calories)) kcal", color: .neonGreen)
+                    macroChip(text: "\(Int(protein))g P", color: .neonCyan)
+                }
             }
 
-            VStack(spacing: 0) {
+            VStack(spacing: 8) {
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Weight").frame(width: 60, alignment: .center)
-                    Text("Kcal").frame(width: 40, alignment: .trailing)
-                    Text("Prot").frame(width: 40, alignment: .trailing)
+                    Text("Weight").frame(width: 58, alignment: .center)
+                    Text("Kcal").frame(width: 42, alignment: .trailing)
+                    Text("Prot").frame(width: 42, alignment: .trailing)
                 }
-                .font(.caption.bold())
-                .foregroundColor(.white)
-                .padding(.bottom, 8)
-
-                Divider()
-                    .background(Color.white.opacity(0.3))
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.gray)
 
                 ForEach(parseIngredientBreakdown(ingredients)) { item in
                     HStack {
                         Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
-                        Text(item.weight).frame(width: 60, alignment: .center)
-                        Text(item.kcal).frame(width: 40, alignment: .trailing)
-                        Text(item.prot).frame(width: 40, alignment: .trailing)
+                            .lineLimit(2)
+                        Text(item.weight).frame(width: 58, alignment: .center)
+                        Text(item.kcal).frame(width: 42, alignment: .trailing)
+                        Text(item.prot).frame(width: 42, alignment: .trailing)
                     }
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.vertical, 8)
-
-                    Divider()
-                        .background(Color.gray.opacity(0.1))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.white.opacity(0.045))
+                    )
                 }
             }
-            .padding()
-            .background(Color.black.opacity(0.4))
-            .cornerRadius(12)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.black.opacity(0.34))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.07), lineWidth: 1))
+            )
         }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [accentColor.opacity(0.10), Color.white.opacity(0.045), Color.black.opacity(0.22)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(accentColor.opacity(0.15), lineWidth: 1))
+        )
+    }
+
+    private func macroChip(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .black))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(color.opacity(0.12)))
     }
 }

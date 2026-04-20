@@ -26,9 +26,9 @@ struct StatsView: View {
     )
 
     var dateRangeText: String {
-        if weekOffset == 0 { return "This Week" }
-        if weekOffset == 1 { return "Last Week" }
-        return "\(weekOffset) Weeks Ago"
+        if weekOffset == 0 { return "Current Window" }
+        if weekOffset == 1 { return "Previous Window" }
+        return "\(weekOffset) Windows Ago"
     }
 
     var stats: [WeekStat] {
@@ -73,6 +73,19 @@ struct StatsView: View {
         return result.reversed()
     }
 
+    var last30Stats: [WeekStat] {
+        let calendar = Calendar.current
+
+        return (0..<30).compactMap { index in
+            let daysBack = 29 - index
+            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
+                return nil
+            }
+
+            return stat(for: date)
+        }
+    }
+
     var calorieWins: Int { stats.filter(calorieWin).count }
     var proteinWins: Int { stats.filter(proteinWin).count }
     var stepWins: Int { stats.filter(stepWin).count }
@@ -83,6 +96,47 @@ struct StatsView: View {
     var avgCalories: Double { stats.map { $0.consumed }.reduce(0, +) / Double(max(stats.count, 1)) }
     var totalSteps: Double { stats.map { $0.steps }.reduce(0, +) }
     var remainingChecks: Int { max(totalChecks - completedChecks, 0) }
+    var perfectDays30: Int { last30Stats.filter(isPerfectDay).count }
+
+    var currentPerfectStreak: Int {
+        let calendar = Calendar.current
+        var count = 0
+
+        for stat in last30Stats.reversed() {
+            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
+                continue
+            }
+
+            if isPerfectDay(stat) {
+                count += 1
+            } else {
+                break
+            }
+        }
+
+        return count
+    }
+
+    var bestPerfectStreak30: Int {
+        let calendar = Calendar.current
+        var best = 0
+        var current = 0
+
+        for stat in last30Stats {
+            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
+                continue
+            }
+
+            if isPerfectDay(stat) {
+                current += 1
+                best = max(best, current)
+            } else {
+                current = 0
+            }
+        }
+
+        return best
+    }
 
     var bestPerfectRun: Int {
         var best = 0
@@ -193,7 +247,7 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("WEEK SCORE", systemImage: "bolt.fill")
+                    Label("STREAK MODE", systemImage: "flame.fill")
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundColor(.black.opacity(0.78))
                         .tracking(0.8)
@@ -208,14 +262,14 @@ struct StatsView: View {
 
                 VStack(alignment: .trailing, spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text("\(weeklyScore)")
+                        Text("\(currentPerfectStreak)")
                             .font(.system(size: 52, weight: .black))
-                        Text("%")
+                        Text("d")
                             .font(.system(size: 20, weight: .black))
                     }
                     .foregroundColor(.black)
 
-                    Text("\(completedChecks)/\(totalChecks) badges")
+                    Text("current streak")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.black.opacity(0.62))
@@ -229,14 +283,14 @@ struct StatsView: View {
 
                     Capsule()
                         .fill(Color.black.opacity(0.82))
-                        .frame(width: proxy.size.width * CGFloat(Double(weeklyScore) / 100.0))
+                        .frame(width: proxy.size.width * CGFloat(min(Double(currentPerfectStreak) / Double(max(bestPerfectStreak30, 1)), 1.0)))
                 }
             }
             .frame(height: 9)
 
             HStack(spacing: 10) {
-                scorePill(title: "Perfect", value: "\(perfectDays)/7", icon: "sparkles")
-                scorePill(title: "Best run", value: "\(bestPerfectRun)d", icon: "flame.fill")
+                scorePill(title: "Best 30d", value: "\(bestPerfectStreak30)d", icon: "flame.fill")
+                scorePill(title: "Perfect days", value: "\(perfectDays30)/30", icon: "sparkles")
             }
         }
         .padding(20)
@@ -262,14 +316,14 @@ struct StatsView: View {
             metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: "under daily target", color: .neonGreen)
             metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: "goal reached", color: .neonCyan)
             metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(Int(totalSteps)) total steps", color: .yellow)
-            metricCard(icon: "chart.line.uptrend.xyaxis", title: "Avg intake", value: "\(Int(avgCalories))", subtitle: "kcal per day", color: .orange)
+            metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
         }
     }
 
     private var weeklyArena: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Daily Badges")
+                Text("7-Day Streak Board")
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundColor(.white)
 
@@ -345,12 +399,12 @@ struct StatsView: View {
             .frame(width: 52, height: 52)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(remainingChecks == 0 ? "Perfect sweep." : "Next objective")
+                Text(streakObjectiveTitle)
                     .font(.headline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)
 
-                Text(remainingChecks == 0 ? "This week is clean. Go admire the calendar." : "Collect \(remainingChecks) more badges to beat this week.")
+                Text(streakObjectiveText)
                     .font(.subheadline)
                     .foregroundColor(.gray)
                     .lineLimit(2)
@@ -373,16 +427,28 @@ struct StatsView: View {
     }
 
     private var scoreMessage: String {
-        switch weeklyScore {
-        case 85...100:
-            return "That is a dangerous week."
-        case 60..<85:
-            return "Momentum is building."
-        case 30..<60:
-            return "A few badges unlock the week."
+        switch currentPerfectStreak {
+        case 7...:
+            return "You are on a serious run."
+        case 3..<7:
+            return "Momentum is real now."
+        case 1..<3:
+            return "Protect the streak."
         default:
-            return "Start collecting small wins."
+            return "One perfect day starts it."
         }
+    }
+
+    private var streakObjectiveTitle: String {
+        currentPerfectStreak == 0 ? "Start the next streak." : "Keep the chain alive."
+    }
+
+    private var streakObjectiveText: String {
+        if currentPerfectStreak == 0 {
+            return "A missed day does not kill the week. Close calories, protein, and 10k once to light the chain again."
+        }
+
+        return "Today is not a test of the whole week. It is just the next link: calories, protein, 10k."
     }
 
     private var weekDateRange: String {
@@ -536,6 +602,40 @@ struct StatsView: View {
 
     private func daySubtitle(_ stat: WeekStat) -> String {
         "\(Int(stat.consumed))/\(Int(stat.target)) kcal · \(Int(stat.protein))/\(Int(stat.proteinTarget))g · \(Int(stat.steps)) steps"
+    }
+
+    private func stat(for date: Date) -> WeekStat {
+        let calendar = Calendar.current
+        let dateID = DateFormatter.yyyyMMdd.string(from: date)
+        let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
+        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+        let consumed = dayFood.reduce(0) { $0 + $1.calories }
+        let protein = dayFood.reduce(0) { $0 + $1.protein }
+
+        let targetCalories: Double
+        let targetProtein: Double
+
+        switch mode {
+        case .chill:
+            targetCalories = baseCalories
+            targetProtein = baseProtein
+        case .padel:
+            targetCalories = baseCalories + 500
+            targetProtein = baseProtein + 15
+        case .gym:
+            targetCalories = baseCalories + 300
+            targetProtein = baseProtein + 25
+        }
+
+        return (
+            date: date,
+            consumed: consumed,
+            target: targetCalories,
+            mode: mode,
+            protein: protein,
+            proteinTarget: targetProtein,
+            steps: weeklySteps[dateID] ?? 0
+        )
     }
 
     private func animateBars() {

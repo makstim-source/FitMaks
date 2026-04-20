@@ -42,28 +42,28 @@ private struct OnboardingView: View {
         OnboardingPage(
             eyebrow: "WELCOME TO FITMAKS",
             title: "Your day, finally readable.",
-            subtitle: "Scan meals, track protein, calories, steps, workouts, and collect days you will actually want to look back at.",
+            subtitle: "Scan meals, track protein, calories, steps and workouts. Collect days you'll want to look back at.",
             systemName: "sparkles",
             color: .neonGreen
         ),
         OnboardingPage(
             eyebrow: "ADD FOOD FAST",
             title: "Photo first. Edit if needed.",
-            subtitle: "Tap + to scan a plate, label, receipt, or type food manually. AI gives an estimate, then you can tap the food card to adjust details.",
+            subtitle: "Tap + to scan a plate, label or receipt. AI estimates it, then you can tap any food card to correct portions.",
             systemName: "camera.macro",
             color: .neonCyan
         ),
         OnboardingPage(
             eyebrow: "GOALS",
             title: "Set your body data once.",
-            subtitle: "Open Profile after setup and add weight, height, goal, and activity. Protein and calories will adapt to you, not to a random default.",
+            subtitle: "Open Profile after setup. Add weight, height, goal and activity so calories and protein adapt to you.",
             systemName: "person.crop.circle.badge.checkmark",
             color: Color(red: 0.95, green: 0.35, blue: 1.0)
         ),
         OnboardingPage(
             eyebrow: "THE GAME",
             title: "Chase Perfect Days.",
-            subtitle: "A perfect day means protein closed, 10k steps, and calories under target. Chill, Padel, and Gym adjust your daily budget.",
+            subtitle: "Perfect Day means protein closed, 10k steps and calories under target. Padel and Gym add training budget.",
             systemName: "flame.fill",
             color: .yellow
         )
@@ -99,7 +99,7 @@ private struct OnboardingView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
-                VStack(spacing: 18) {
+                VStack(spacing: 14) {
                     HStack(spacing: 7) {
                         ForEach(0..<pages.count, id: \.self) { index in
                             Capsule()
@@ -119,7 +119,7 @@ private struct OnboardingView: View {
                         }
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
+                        .frame(height: 52)
                         .background(
                             Capsule()
                                 .fill(pages[page].color)
@@ -129,14 +129,14 @@ private struct OnboardingView: View {
                     .buttonStyle(.plain)
 
                     Text("Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
                         .padding(.horizontal, 10)
                 }
                 .padding(.horizontal, 22)
-                .padding(.bottom, 26)
+                .padding(.bottom, 22)
             }
         }
     }
@@ -170,8 +170,8 @@ private struct OnboardingView: View {
     }
 
     private func onboardingPage(_ item: OnboardingPage) -> some View {
-        VStack(spacing: 26) {
-            Spacer(minLength: 18)
+        VStack(spacing: 18) {
+            Spacer(minLength: 8)
 
             ZStack {
                 RoundedRectangle(cornerRadius: 44)
@@ -186,7 +186,7 @@ private struct OnboardingView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 230, height: 230)
+                    .frame(width: 188, height: 188)
                     .rotationEffect(.degrees(-6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 44)
@@ -195,30 +195,34 @@ private struct OnboardingView: View {
                     .shadow(color: item.color.opacity(0.24), radius: 30, x: 0, y: 18)
 
                 Image(systemName: item.systemName)
-                    .font(.system(size: 78, weight: .black))
+                    .font(.system(size: 62, weight: .black))
                     .foregroundColor(item.color)
                     .shadow(color: item.color.opacity(0.75), radius: 20)
             }
 
-            VStack(spacing: 13) {
+            VStack(spacing: 9) {
                 Text(item.eyebrow)
                     .font(.system(size: 11, weight: .heavy))
                     .foregroundColor(item.color)
                     .tracking(1.2)
+                    .multilineTextAlignment(.center)
 
                 Text(item.title)
-                    .font(.system(size: 34, weight: .black))
+                    .font(.system(size: 29, weight: .black))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.82)
-                    .lineSpacing(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.76)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(0)
 
                 Text(item.subtitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 18)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 8)
             }
 
             quickRuleCard(for: item)
@@ -231,18 +235,19 @@ private struct OnboardingView: View {
     private func quickRuleCard(for item: OnboardingPage) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "lightbulb.fill")
-                .font(.system(size: 17, weight: .black))
+                .font(.system(size: 16, weight: .black))
                 .foregroundColor(item.color)
-                .frame(width: 42, height: 42)
+                .frame(width: 38, height: 38)
                 .background(Circle().fill(item.color.opacity(0.12)))
 
             Text(quickRuleText)
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.white.opacity(0.86))
-                .lineSpacing(3)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 22)
                 .fill(Color.white.opacity(0.055))

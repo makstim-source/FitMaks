@@ -1,0 +1,10 @@
+Create a local file named Config.swift next to this file.
+Do not commit Config.swift.
+
+Use this content:
+
+import Foundation
+
+enum Config {
+    static let apiKey = "PASTE_YOUR_LOCAL_API_KEY_HERE"
+}

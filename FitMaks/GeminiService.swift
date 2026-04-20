@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CryptoKit
 
 // MARK: - МОДЕЛИ ОТВЕТОВ ИИ
 struct FoodResult: Codable {
@@ -53,25 +54,75 @@ class GeminiService {
     private let apiKey = Config.apiKey
     
     private let baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    private let foodCacheQueue = DispatchQueue(label: "FitMaks.foodEstimateCache")
+    private var foodImageEstimateCache: [String: FoodResult] = [:]
+    private var foodTextEstimateCache: [String: FoodResult] = [:]
     
     func analyzeImages(images: [UIImage], completion: @escaping (FoodResult?, String?) -> Void) {
+        let cacheKey = foodImageCacheKey(images: images)
+
+        if let cacheKey, let cached = cachedFoodImageEstimate(for: cacheKey) {
+            completion(cached, nil)
+            return
+        }
+
         let prompt = """
-        Analyze food. Return ONLY a single JSON object. 
+        Analyze food as a deterministic nutrition estimator. Consistency is more important than creativity.
+
+        ESTIMATION RULES:
+        - Estimate the visible edible portion only.
+        - Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
+        - Estimate every ingredient weight in grams using the visible plate size.
+        - Use normal cooked-food nutrition values. Example anchors: cooked salmon is usually about 200-230 kcal and 20-25g protein per 100g; cooked white rice is usually about 130 kcal and 2-3g protein per 100g; creamy/oily sauces are separate small portions unless clearly large.
+        - If uncertain, choose the most likely midpoint, not an extreme.
+        - Avoid very large restaurant-size assumptions unless the image clearly shows a large portion.
+        - The top-level calories and protein MUST equal the sum of the ingredient rows.
+        - If the same image is analyzed again, return the same ingredient weights and totals.
+
+        Return ONLY a single JSON object. 
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
         """
-        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, completion: completion)
+        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+            let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
+
+            if let cacheKey, let stabilized {
+                self?.cacheFoodImageEstimate(stabilized, for: cacheKey)
+            }
+
+            completion(stabilized, error)
+        }
     }
     
     func analyzeText(text: String, completion: @escaping (FoodResult?, String?) -> Void) {
+        let cacheKey = normalizedFoodTextCacheKey(text)
+
+        if let cached = cachedFoodTextEstimate(for: cacheKey) {
+            completion(cached, nil)
+            return
+        }
+
         let prompt = """
-        Nutrition expert. User ate: '\(text)'. Return ONLY a single JSON object. 
+        Nutrition expert. User ate: '\(text)'.
+        Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
+        Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
+        The top-level calories and protein MUST equal the sum of the ingredient rows.
+
+        Return ONLY a single JSON object. 
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
         """
-        sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, completion: completion)
+        sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+            let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
+
+            if let stabilized {
+                self?.cacheFoodTextEstimate(stabilized, for: cacheKey)
+            }
+
+            completion(stabilized, error)
+        }
     }
     
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
@@ -85,7 +136,9 @@ class GeminiService {
         Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, completion: completion)
+        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+            completion(result.map { self?.stabilizedFoodResult($0) ?? $0 }, error)
+        }
     }
 
     func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
@@ -94,7 +147,7 @@ class GeminiService {
         CRITICAL RULE: You MUST use exactly this structure:
         {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
         """
-        sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, completion: completion)
+        sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
     }
 
     func generateRecipes(from ingredients: [String], completion: @escaping ([RecipeResult]?, String?) -> Void) {
@@ -106,7 +159,7 @@ class GeminiService {
         Return ONLY valid JSON:
         {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35} ]}
         """
-        sendToGemini(images: [], prompt: prompt, responseType: RecipeListResult.self) { result, error in completion(result?.recipes, error) }
+        sendToGemini(images: [], prompt: prompt, responseType: RecipeListResult.self, temperature: 0.7) { result, error in completion(result?.recipes, error) }
     }
     
     func scanGroceries(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
@@ -116,7 +169,7 @@ class GeminiService {
         Return ONLY JSON: 
         {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;100g;0;0", "ai_response_text": ""}]}
         """
-        sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self) { result, err in completion(result?.items, err) }
+        sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self, temperature: 0.1, topP: 0.3, topK: 1) { result, err in completion(result?.items, err) }
     }
     
     // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
@@ -151,12 +204,20 @@ class GeminiService {
         {"ai_summary": "your response here"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self) { result, error in
+        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self, temperature: 0.6) { result, error in
             completion(result?.ai_summary, error)
         }
     }
 
-    private func sendToGemini<T: Decodable>(images: [UIImage], prompt: String, responseType: T.Type, completion: @escaping (T?, String?) -> Void) {
+    private func sendToGemini<T: Decodable>(
+        images: [UIImage],
+        prompt: String,
+        responseType: T.Type,
+        temperature: Double = 0.2,
+        topP: Double? = nil,
+        topK: Int? = nil,
+        completion: @escaping (T?, String?) -> Void
+    ) {
         func finish(_ result: T?, _ error: String?) {
             DispatchQueue.main.async {
                 completion(result, error)
@@ -191,7 +252,20 @@ class GeminiService {
         request.httpMethod = "POST"
         request.timeoutInterval = 60
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": ["response_mime_type": "application/json"]]
+        var generationConfig: [String: Any] = [
+            "response_mime_type": "application/json",
+            "temperature": temperature
+        ]
+
+        if let topP {
+            generationConfig["topP"] = topP
+        }
+
+        if let topK {
+            generationConfig["topK"] = topK
+        }
+
+        let body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": generationConfig]
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
             finish(nil, "Failed to encode Gemini request.")
@@ -266,6 +340,126 @@ class GeminiService {
                 finish(nil, "Failed to decode Gemini response.")
             }
         }.resume()
+    }
+
+    private func stabilizedFoodResult(_ result: FoodResult) -> FoodResult {
+        let rowTotals = nutritionTotals(from: result.ingredients_breakdown)
+
+        guard let rowTotals else {
+            return roundedFoodResult(result)
+        }
+
+        let calorieDifference = abs(rowTotals.calories - result.calories)
+        let proteinDifference = abs(rowTotals.protein - result.protein)
+        let calories = calorieDifference > max(50, result.calories * 0.12) ? rowTotals.calories : result.calories
+        let protein = proteinDifference > max(5, result.protein * 0.15) ? rowTotals.protein : result.protein
+
+        return roundedFoodResult(
+            FoodResult(
+                food_name: result.food_name,
+                emoji: result.emoji,
+                calories: calories,
+                protein: protein,
+                ingredients_breakdown: result.ingredients_breakdown,
+                ai_response_text: result.ai_response_text
+            )
+        )
+    }
+
+    private func roundedFoodResult(_ result: FoodResult) -> FoodResult {
+        FoodResult(
+            food_name: result.food_name,
+            emoji: result.emoji,
+            calories: (result.calories / 5).rounded() * 5,
+            protein: result.protein.rounded(),
+            ingredients_breakdown: result.ingredients_breakdown,
+            ai_response_text: result.ai_response_text
+        )
+    }
+
+    private func nutritionTotals(from breakdown: String) -> (calories: Double, protein: Double)? {
+        var calories = 0.0
+        var protein = 0.0
+        var rowCount = 0
+
+        for line in breakdown.components(separatedBy: .newlines) {
+            let parts = line.components(separatedBy: ";")
+
+            guard parts.count >= 4 else {
+                continue
+            }
+
+            calories += numericValue(from: parts[2])
+            protein += numericValue(from: parts[3])
+            rowCount += 1
+        }
+
+        return rowCount > 0 ? (calories, protein) : nil
+    }
+
+    private func numericValue(from string: String) -> Double {
+        let allowed = CharacterSet(charactersIn: "0123456789.,-")
+        let cleaned = string
+            .unicodeScalars
+            .filter { allowed.contains($0) }
+            .map(String.init)
+            .joined()
+            .replacingOccurrences(of: ",", with: ".")
+
+        return Double(cleaned) ?? 0
+    }
+
+    private func foodImageCacheKey(images: [UIImage]) -> String? {
+        var combinedData = Data()
+
+        for image in images {
+            guard let data = image.resized(toMaxDimension: 320).jpegData(compressionQuality: 0.65) else {
+                continue
+            }
+
+            combinedData.append(data)
+        }
+
+        guard !combinedData.isEmpty else {
+            return nil
+        }
+
+        return SHA256.hash(data: combinedData)
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private func normalizedFoodTextCacheKey(_ text: String) -> String {
+        text
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func cachedFoodImageEstimate(for key: String) -> FoodResult? {
+        foodCacheQueue.sync {
+            foodImageEstimateCache[key]
+        }
+    }
+
+    private func cacheFoodImageEstimate(_ result: FoodResult, for key: String) {
+        foodCacheQueue.async {
+            self.foodImageEstimateCache[key] = result
+        }
+    }
+
+    private func cachedFoodTextEstimate(for key: String) -> FoodResult? {
+        foodCacheQueue.sync {
+            foodTextEstimateCache[key]
+        }
+    }
+
+    private func cacheFoodTextEstimate(_ result: FoodResult, for key: String) {
+        foodCacheQueue.async {
+            self.foodTextEstimateCache[key] = result
+        }
     }
 }
 

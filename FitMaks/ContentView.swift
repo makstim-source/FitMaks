@@ -33,7 +33,20 @@ struct ContentView: View {
     var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
     
-    var calculatedProtein: Double { return max(weight * (goal == "Build Muscle" ? 2.2 : 2.0), 180.0) }
+    var calculatedProtein: Double {
+        let gramsPerKg: Double
+
+        switch goal {
+        case "Build Muscle":
+            gramsPerKg = 2.2
+        case "Lose Weight":
+            gramsPerKg = 2.0
+        default:
+            gramsPerKg = 1.8
+        }
+
+        return weight * gramsPerKg
+    }
     var calculatedCalories: Double { let bmr = (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0); let multipliers: [String: Double] = ["Sedentary": 1.2, "Light": 1.375, "Moderate": 1.55, "Active": 1.725]; let tdee = bmr * (multipliers[activityLevel] ?? 1.2); if goal == "Lose Weight" { return tdee - 500 }; if goal == "Build Muscle" { return tdee + 500 }; return tdee }
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
     var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
@@ -59,90 +72,16 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Color.darkGrey.edgesIgnoringSafeArea(.all)
-            VStack(spacing: 15) {
-                HStack {
-                    Button(action: { isShowingStats = true }) { Image(systemName: "chart.bar.xaxis").font(.title3).foregroundColor(.neonGreen).padding(12).background(Circle().fill(Color.gray.opacity(0.15))) }
-                    Spacer()
-                    VStack(spacing: 5) {
-                        Text("FitMaks").font(.footnote).fontWeight(.bold).foregroundColor(.gray)
-                        HStack(spacing: 15) {
-                            Button(action: { changeDate(by: -1) }) { Image(systemName: "chevron.left").foregroundColor(.neonGreen).font(.title3.bold()) }
-                            Text(formatDate(selectedDate)).font(.headline).bold().foregroundColor(.neonGreen).padding(.horizontal, 12).padding(.vertical, 6).background(Color.gray.opacity(0.15)).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen.opacity(0.3), lineWidth: 1)).onTapGesture { isShowingCalendar = true }
-                            Button(action: { changeDate(by: 1) }) { Image(systemName: "chevron.right").foregroundColor(.neonGreen).font(.title3.bold()) }.opacity(Calendar.current.isDateInToday(selectedDate) ? 0 : 1).disabled(Calendar.current.isDateInToday(selectedDate))
-                        }
-                    }
-                    Spacer()
-                    Button(action: { isShowingAIAssistant = true }) {
-                        Image(systemName: "sparkles")
-                            .font(.title3)
-                            .foregroundColor(.neonCyan)
-                            .padding(12)
-                            .background(Circle().fill(Color.gray.opacity(0.15)))
-                    }
-                }.padding(.top, 10).padding(.horizontal, 20)
-                
-                VStack(spacing: 12) {
-                    HStack(spacing: 0) {
-                        let isOverCal = dailyCaloriesConsumed > maxCalories; let calColor = isOverCal ? Color.red : Color.neonGreen; let calValue = isOverCal ? (dailyCaloriesConsumed - maxCalories) : dailyCaloriesRemaining; let calFill = isOverCal ? maxCalories : dailyCaloriesRemaining
-                        let proteinColor = Color.neonCyan
-                        statCircle(title: "CALORIES", displayValue: calValue, fillValue: calFill, total: maxCalories, color: calColor, label: isOverCal ? "OVER" : "left")
-                            .contentShape(Rectangle())
-                            .onTapGesture { isShowingGoalBreakdown = true }
-                        statCircle(title: "PROTEIN", displayValue: dailyProtein, fillValue: dailyProtein, total: targetProtein, color: proteinColor, label: "of \(Int(targetProtein))g")
-                            .contentShape(Rectangle())
-                            .onTapGesture { isShowingGoalBreakdown = true }
-                        statCircle(title: "STEPS", displayValue: dailySteps, fillValue: dailySteps, total: targetSteps, color: getStepsColor(steps: dailySteps, target: targetSteps), label: "of \(Int(targetSteps/1000))k")
-                    }
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity)
-                    .background(statsPanelBackground)
-                    .overlay(statsPanelCelebrationOverlay)
-                    .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.45) : .clear, radius: 18, x: 0, y: 0)
-                    .padding(.horizontal, 15)
-                    HStack(spacing: 10) { ForEach(DayMode.allCases, id: \.self) { mode in Button(action: { withAnimation(.spring()) { setDayMode(mode) } }) { Text(mode.rawValue).font(.caption).bold().frame(maxWidth: .infinity).padding(.vertical, 10).background(currentDayMode == mode ? Color.neonCyan.opacity(0.2) : Color.black.opacity(0.3)).foregroundColor(currentDayMode == mode ? .neonCyan : .gray).cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(currentDayMode == mode ? Color.neonCyan.opacity(0.5) : Color.gray.opacity(0.2), lineWidth: 1)) } } }.padding(.horizontal, 15)
-                }
-                
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(processingItems) { item in loadingRow(item: item) }
-                        if dailyFeed.isEmpty && processingItems.isEmpty {
-                            Button(action: { isShowingSourceDialog = true }) {
-                                VStack(spacing: 15) {
-                                    Image(systemName: "fork.knife.circle")
-                                        .font(.system(size: 45))
-                                        .foregroundColor(.gray.opacity(0.3))
-                                    Text("Add your food\nor a workout screenshot here")
-                                        .font(.subheadline)
-                                        .multilineTextAlignment(.center)
-                                        .foregroundColor(.gray)
-                                        .lineSpacing(4)
-                                }
-                                .padding(.top, 60)
-                                .frame(maxWidth: .infinity)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        } else {
-                            ForEach(dailyFeed.reversed()) { item in
-                                switch item {
-                                case .food(let entry): foodRow(entry: entry).onTapGesture { withAnimation(.spring()) { selectedEntryForEdit = entry } }.swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
-                                case .training(let entry): trainingRow(entry: entry).swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
-                                }
-                            }
-                        }
-                    }.padding(15)
-                }.background(Color.black.opacity(0.2)).cornerRadius(20).overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonGreen.opacity(0.8), lineWidth: 1.5).shadow(color: .neonGreen.opacity(0.7), radius: 12)).padding(.horizontal, 15).padding(.bottom, 5)
+            homeBackground
 
-                ZStack {
-                    HStack {
-                        Button(action: { isSelectionModeForFridge = false; initialMyFoodTab = 0; isShowingMyFood = true }) { Image(systemName: "takeoutbag.and.cup.and.straw").font(.system(size: 22)).foregroundColor(.neonCyan).frame(width: 55, height: 55).background(Circle().fill(Color.black)).shadow(color: .neonCyan.opacity(0.5), radius: 8, x: 0, y: 0) }.padding(.leading, 30)
-                        Spacer()
-                        Button(action: { isShowingProfile = true }) { Image(systemName: "person.crop.circle").font(.system(size: 24)).foregroundColor(Color(red: 0.8, green: 0.2, blue: 1.0)).frame(width: 55, height: 55).background(Circle().fill(Color.black)).shadow(color: Color(red: 0.8, green: 0.2, blue: 1.0).opacity(0.5), radius: 8, x: 0, y: 0) }.padding(.trailing, 30)
-                    }
-                    Button(action: { isShowingSourceDialog = true }) { Image(systemName: "plus.circle.fill").font(.system(size: 70)).foregroundColor(.neonGreen).background(Circle().fill(Color.black)).shadow(color: .neonGreen.opacity(0.5), radius: 10, x: 0, y: 0) }
-                }.padding(.bottom, 20)
-            }.blur(radius: selectedEntryForEdit != nil ? 15 : 0)
+            VStack(spacing: 14) {
+                homeHeader
+                dailyCommandCard
+                timelinePanel
+                bottomDock
+            }
+            .padding(.top, 8)
+            .blur(radius: selectedEntryForEdit != nil ? 15 : 0)
             
             if let entry = selectedEntryForEdit { Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedEntryForEdit = nil } }; AIChatEditView(entry: entry, onDelete: { modelContext.delete(entry); withAnimation { selectedEntryForEdit = nil } }, onDone: { withAnimation { selectedEntryForEdit = nil } }).transition(.scale(scale: 0.9).combined(with: .opacity)) }
         }
@@ -207,20 +146,567 @@ struct ContentView: View {
     func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); if let icon = UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 60, weight: .bold))?.withTintColor(UIColor(color), renderingMode: .alwaysOriginal) { icon.draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: (size.height - icon.size.height) / 2)) } } }
     func generateEmojiIcon(emoji: String) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); let safeEmoji = emoji.isEmpty ? "🍽️" : emoji; let nsString = safeEmoji as NSString; let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 75)]; let stringSize = nsString.size(withAttributes: attributes); nsString.draw(at: CGPoint(x: (size.width - stringSize.width) / 2, y: (size.height - stringSize.height) / 2), withAttributes: attributes) } }
 
-    func foodRow(entry: FoodEntry) -> some View {
-        return HStack(spacing: 15) {
-            if let img = entry.uiImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)) }
-            VStack(alignment: .leading) {
-                HStack(spacing: 6) { Text(entry.name).font(.subheadline).bold().foregroundColor(.white) }
-                Text("-\(Int(entry.calories)) kcal • +\(Int(entry.protein))g protein").font(.caption).foregroundColor(.gray)
+    private var homeBackground: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 7/255, green: 11/255, blue: 15/255),
+                Color.darkGrey,
+                Color.black.opacity(0.96)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+        .overlay(alignment: .topTrailing) {
+            Circle()
+                .fill(Color.neonCyan.opacity(0.12))
+                .frame(width: 220, height: 220)
+                .blur(radius: 45)
+                .offset(x: 80, y: -95)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Circle()
+                .fill(Color.neonGreen.opacity(0.10))
+                .frame(width: 260, height: 260)
+                .blur(radius: 55)
+                .offset(x: -120, y: 80)
+        }
+    }
+
+    private var homeHeader: some View {
+        HStack(spacing: 14) {
+            homeIconButton(systemName: "chart.bar.xaxis", color: .neonGreen) {
+                isShowingStats = true
             }
+
             Spacer()
-            Image(systemName: "info.circle").foregroundColor(.gray).font(.subheadline)
-        }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.gray.opacity(0.15))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+
+            HStack(spacing: 10) {
+                Button(action: { changeDate(by: -1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.neonGreen)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.white.opacity(0.07)))
+                }
+
+                VStack(spacing: 2) {
+                    Text("FitMaks")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.gray)
+                        .tracking(1.2)
+
+                    Text(formatDate(selectedDate))
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.neonGreen)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.black.opacity(0.32)))
+                .overlay(Capsule().stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
+                .onTapGesture { isShowingCalendar = true }
+
+                Button(action: { changeDate(by: 1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.neonGreen)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.white.opacity(0.07)))
+                }
+                .opacity(Calendar.current.isDateInToday(selectedDate) ? 0 : 1)
+                .disabled(Calendar.current.isDateInToday(selectedDate))
+            }
+
+            Spacer()
+
+            homeIconButton(systemName: "sparkles", color: .neonCyan) {
+                isShowingAIAssistant = true
+            }
+        }
+        .padding(.horizontal, 18)
+    }
+
+    private var dailyCommandCard: some View {
+        VStack(spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Calendar.current.isDateInToday(selectedDate) ? "TODAY'S RUN" : "DAY REPLAY")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.gray)
+                        .tracking(1)
+
+                    Text(dayStatusTitle)
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                if isPerfectPastDay {
+                    Label("Perfect", systemImage: "sparkles")
+                        .font(.caption.bold())
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+            }
+
+            HStack(spacing: 10) {
+                let caloriesOver = dailyCaloriesConsumed > maxCalories
+                metricTile(
+                    title: "Calories",
+                    value: caloriesOver ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
+                    subtitle: caloriesOver ? "over" : "left",
+                    progress: dailyCaloriesConsumed / max(maxCalories, 1),
+                    color: caloriesOver ? .red : .neonGreen,
+                    systemName: caloriesOver ? "exclamationmark.triangle.fill" : "leaf.fill"
+                )
+                .onTapGesture { isShowingGoalBreakdown = true }
+
+                metricTile(
+                    title: "Protein",
+                    value: "\(Int(dailyProtein))g",
+                    subtitle: "of \(Int(targetProtein))g",
+                    progress: dailyProtein / max(targetProtein, 1),
+                    color: .neonCyan,
+                    systemName: "drop.fill"
+                )
+                .onTapGesture { isShowingGoalBreakdown = true }
+
+                metricTile(
+                    title: "Steps",
+                    value: "\(Int(dailySteps))",
+                    subtitle: "of 10k",
+                    progress: dailySteps / max(targetSteps, 1),
+                    color: getStepsColor(steps: dailySteps, target: targetSteps),
+                    systemName: "shoeprints.fill"
+                )
+            }
+
+            modeSelector
+        }
+        .padding(18)
+        .background(statsPanelBackground)
+        .overlay(statsPanelCelebrationOverlay)
+        .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.45) : Color.black.opacity(0.18), radius: isPerfectPastDay ? 20 : 14, x: 0, y: 10)
+        .padding(.horizontal, 15)
+    }
+
+    private var modeSelector: some View {
+        HStack(spacing: 9) {
+            ForEach(DayMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        setDayMode(mode)
+                    }
+                } label: {
+                    VStack(spacing: 3) {
+                        Text(mode.emoji)
+                            .font(.system(size: 17))
+                        Text(modeLabel(mode))
+                            .font(.system(size: 10, weight: .heavy))
+                    }
+                    .foregroundColor(currentDayMode == mode ? .black : .gray)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(currentDayMode == mode ? Color.neonCyan : Color.white.opacity(0.055))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(currentDayMode == mode ? Color.white.opacity(0.25) : Color.white.opacity(0.07), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var timelinePanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Diary")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Text("\(dailyFeed.count) entries")
+                    .font(.caption.bold())
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.06)))
+            }
+            .padding(.horizontal, 3)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    ForEach(processingItems) { item in loadingRow(item: item) }
+
+                    if dailyFeed.isEmpty && processingItems.isEmpty {
+                        emptyDiaryCard
+                    } else {
+                        ForEach(dailyFeed.reversed()) { item in
+                            switch item {
+                            case .food(let entry):
+                                foodRow(entry: entry)
+                                    .onTapGesture { withAnimation(.spring()) { selectedEntryForEdit = entry } }
+                                    .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
+                            case .training(let entry):
+                                trainingRow(entry: entry)
+                                    .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(Color.black.opacity(0.26))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 15)
+    }
+
+    private var emptyDiaryCard: some View {
+        Button(action: { isShowingSourceDialog = true }) {
+            VStack(spacing: 15) {
+                ZStack {
+                    Circle()
+                        .fill(Color.neonGreen.opacity(0.12))
+                        .frame(width: 78, height: 78)
+
+                    Image(systemName: "fork.knife.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(.neonGreen.opacity(0.85))
+                }
+
+                VStack(spacing: 5) {
+                    Text("Start this day")
+                        .font(.headline)
+                        .fontWeight(.black)
+                        .foregroundColor(.white)
+
+                    Text("Add food, scan a label, or drop a workout screenshot.")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 46)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.neonGreen.opacity(0.08), Color.white.opacity(0.035)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var bottomDock: some View {
+        HStack {
+            dockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
+                isSelectionModeForFridge = false
+                initialMyFoodTab = 0
+                isShowingMyFood = true
+            }
+
+            Spacer()
+
+            Button(action: { isShowingSourceDialog = true }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.neonGreen)
+                        .frame(width: 72, height: 72)
+                        .shadow(color: Color.neonGreen.opacity(0.45), radius: 18, x: 0, y: 8)
+
+                    Image(systemName: "plus")
+                        .font(.system(size: 28, weight: .black))
+                        .foregroundColor(.black)
+                }
+            }
+            .buttonStyle(.plain)
+            .offset(y: -8)
+
+            Spacer()
+
+            dockButton(title: "Profile", systemName: "person.crop.circle.fill", color: Color(red: 0.8, green: 0.2, blue: 1.0)) {
+                isShowingProfile = true
+            }
+        }
+        .padding(.horizontal, 30)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
+        .background(
+            Rectangle()
+                .fill(Color.black.opacity(0.42))
+                .ignoresSafeArea(edges: .bottom)
+                .blur(radius: 0.5)
+        )
+    }
+
+    private var dayStatusTitle: String {
+        if isPerfectPastDay {
+            return "Collected clean."
+        }
+
+        if dailyFeed.isEmpty {
+            return "Ready when you are."
+        }
+
+        if dailyCaloriesConsumed > maxCalories {
+            return "Watch the finish."
+        }
+
+        if dailyProtein >= targetProtein {
+            return "Protein locked."
+        }
+
+        return "Build the win."
+    }
+
+    private func homeIconButton(systemName: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(color)
+                .frame(width: 46, height: 46)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.07))
+                        .overlay(Circle().stroke(color.opacity(0.16), lineWidth: 1))
+                )
+                .shadow(color: color.opacity(0.18), radius: 10)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func metricTile(title: String, value: String, subtitle: String, progress: Double, color: Color, systemName: String) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Image(systemName: systemName)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundColor(color)
+
+                Spacer()
+
+                Text(title.uppercased())
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(.gray)
+                    .tracking(0.5)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 21, weight: .black))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+
+                Text(subtitle)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+
+                    Capsule()
+                        .fill(color)
+                        .frame(width: proxy.size.width * CGFloat(min(max(progress, 0), 1)))
+                        .shadow(color: color.opacity(0.45), radius: 8)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.black.opacity(0.25))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.12), lineWidth: 1))
+        )
+    }
+
+    private func modeLabel(_ mode: DayMode) -> String {
+        switch mode {
+        case .chill:
+            return "Chill"
+        case .padel:
+            return "Padel"
+        case .gym:
+            return "Gym"
+        }
+    }
+
+    private func dockButton(title: String, systemName: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: systemName)
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundColor(color)
+                    .frame(width: 50, height: 50)
+                    .background(Circle().fill(Color.white.opacity(0.07)))
+                    .overlay(Circle().stroke(color.opacity(0.18), lineWidth: 1))
+
+                Text(title)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.gray)
+            }
+            .frame(width: 76)
+        }
+        .buttonStyle(.plain)
+    }
+
+    func foodRow(entry: FoodEntry) -> some View {
+        HStack(spacing: 13) {
+            if let image = entry.uiImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.neonGreen.opacity(0.12))
+                    Image(systemName: "fork.knife")
+                        .foregroundColor(.neonGreen)
+                }
+                .frame(width: 56, height: 56)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(entry.name)
+                    .font(.subheadline)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    Label("\(Int(entry.calories)) kcal", systemImage: "flame.fill")
+                        .foregroundColor(.neonGreen)
+                    Label("\(Int(entry.protein))g", systemImage: "drop.fill")
+                        .foregroundColor(.neonCyan)
+                }
+                .font(.caption.bold())
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(.gray)
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color.white.opacity(0.055))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        )
     }
     
-    func trainingRow(entry: TrainingEntry) -> some View { HStack(spacing: 15) { if let img = entry.uiImage { Image(uiImage: img).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)) }; VStack(alignment: .leading) { Text(entry.name).font(.subheadline).bold().foregroundColor(.white); Text("\(Int(entry.caloriesBurned)) kcal burned • \(entry.duration)").font(.caption).foregroundColor(.gray) }; Spacer(); Image(systemName: "flame.fill").foregroundColor(.blue).font(.subheadline) }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.blue.opacity(0.1))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.blue.opacity(0.5), lineWidth: 1)) }
-    func loadingRow(item: ProcessingItem) -> some View { HStack(spacing: 15) { if let firstImg = item.images.first { Image(uiImage: firstImg).resizable().scaledToFill().frame(width: 50, height: 50).clipShape(RoundedRectangle(cornerRadius: 10)).overlay(Color.black.opacity(0.2).cornerRadius(10)) }; VStack(alignment: .leading, spacing: 6) { Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...").font(.subheadline).bold().foregroundColor(.white); RoundedRectangle(cornerRadius: 4).fill(Color.gray.opacity(0.3)).frame(width: 120, height: 10) }; Spacer(); ProgressView().tint(item.isTraining ? .blue : .neonGreen) }.padding().background(RoundedRectangle(cornerRadius: 15).fill(Color.gray.opacity(0.15)).overlay(RoundedRectangle(cornerRadius: 15).stroke(item.isTraining ? Color.blue.opacity(0.5) : Color.neonGreen.opacity(0.5), lineWidth: 1)).shadow(color: item.isTraining ? .blue.opacity(0.2) : .neonGreen.opacity(0.2), radius: 5)) }
+    func trainingRow(entry: TrainingEntry) -> some View {
+        HStack(spacing: 13) {
+            if let image = entry.uiImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.25), lineWidth: 1))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.blue.opacity(0.14))
+                    Image(systemName: "figure.run")
+                        .foregroundColor(.blue)
+                }
+                .frame(width: 56, height: 56)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(entry.name)
+                    .font(.subheadline)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                Label("\(Int(entry.caloriesBurned)) kcal burned · \(entry.duration)", systemImage: "flame.fill")
+                    .font(.caption.bold())
+                    .foregroundColor(.blue)
+            }
+
+            Spacer()
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color.blue.opacity(0.09))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.blue.opacity(0.20), lineWidth: 1))
+        )
+    }
+
+    func loadingRow(item: ProcessingItem) -> some View {
+        let color: Color = item.isTraining ? .blue : .neonGreen
+
+        return HStack(spacing: 13) {
+            if let firstImage = item.images.first {
+                Image(uiImage: firstImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .overlay(Color.black.opacity(0.18).clipShape(RoundedRectangle(cornerRadius: 15)))
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...")
+                    .font(.subheadline)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.white)
+
+                HStack(spacing: 4) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Capsule()
+                            .fill(color.opacity(0.55))
+                            .frame(width: 32, height: 5)
+                    }
+                }
+            }
+
+            Spacer()
+            ProgressView().tint(color)
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(color.opacity(0.10))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.24), lineWidth: 1))
+        )
+    }
 
     func processQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { let (result, error) = await analyzeTextAsync(text: text); return (item.id, result, error) } else { let (result, error) = await analyzeImagesAsync(images: item.images); return (item.id, result, error) } } }; for await (id, result, error) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result {
         let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage

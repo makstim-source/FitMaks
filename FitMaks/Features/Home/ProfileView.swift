@@ -376,8 +376,18 @@ struct ProfileView: View {
     }
 
     private var proteinDetail: String {
-        let gramsPerKg = goal == "Build Muscle" ? 2.2 : 2.0
-        return "\(String(format: "%.1f", gramsPerKg))g/kg, minimum 180g"
+        let gramsPerKg: Double
+
+        switch goal {
+        case "Build Muscle":
+            gramsPerKg = 2.2
+        case "Lose Weight":
+            gramsPerKg = 2.0
+        default:
+            gramsPerKg = 1.8
+        }
+
+        return "\(String(format: "%.1f", gramsPerKg))g/kg based on body weight"
     }
 
     private var cardBackground: some View {

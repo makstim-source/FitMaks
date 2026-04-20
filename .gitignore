@@ -1,0 +1,11 @@
+.DS_Store
+
+.derivedData/
+
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+FitMaks.xcodeproj/project.xcworkspace/xcuserdata/
+FitMaks.xcodeproj/xcuserdata/

@@ -38,6 +38,15 @@ struct DailySummaryResult: Codable {
     let ai_summary: String
 }
 
+private struct GeminiAPIErrorResponse: Decodable {
+    struct APIError: Decodable {
+        let code: Int?
+        let message: String?
+    }
+
+    let error: APIError
+}
+
 // MARK: - СЕРВИС GEMINI
 class GeminiService {
     static let shared = GeminiService()
@@ -111,7 +120,7 @@ class GeminiService {
     }
     
     // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
-    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?) -> Void) {
+    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?, String?) -> Void) {
         
         let dayContext = isPastDay
             ? "You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire day. DO NOT suggest what to eat or do 'later today'."
@@ -142,29 +151,120 @@ class GeminiService {
         {"ai_summary": "your response here"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self) { result, _ in
-            completion(result?.ai_summary)
+        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self) { result, error in
+            completion(result?.ai_summary, error)
         }
     }
 
     private func sendToGemini<T: Decodable>(images: [UIImage], prompt: String, responseType: T.Type, completion: @escaping (T?, String?) -> Void) {
+        func finish(_ result: T?, _ error: String?) {
+            DispatchQueue.main.async {
+                completion(result, error)
+            }
+        }
+
+        let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedAPIKey.isEmpty else {
+            finish(nil, "Gemini API key is missing.")
+            return
+        }
+
         var parts: [[String: Any]] = [["text": prompt]]
         for image in images { if let data = image.resized(toMaxDimension: 768).jpegData(compressionQuality: 0.5)?.base64EncodedString() { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": data]]) } }
-        guard let url = URL(string: "\(baseUrl)?key=\(apiKey)") else { return }
+
+        guard
+            var components = URLComponents(string: baseUrl)
+        else {
+            finish(nil, "Gemini URL is invalid.")
+            return
+        }
+
+        components.queryItems = [URLQueryItem(name: "key", value: trimmedAPIKey)]
+
+        guard let url = components.url else {
+            finish(nil, "Gemini URL is invalid.")
+            return
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 60
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": ["response_mime_type": "application/json"]]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+            finish(nil, "Failed to encode Gemini request.")
+            return
+        }
+
+        request.httpBody = bodyData
+
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error { DispatchQueue.main.async { completion(nil, error.localizedDescription) }; return }
-            guard let data = data else { return }
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let candidates = json["candidates"] as? [[String: Any]], let content = candidates.first?["content"] as? [String: Any], let resultParts = content["parts"] as? [[String: Any]], let rawText = resultParts.first?["text"] as? String else { DispatchQueue.main.async { completion(nil, "Invalid API Response") }; return }
+            if let error = error {
+                finish(nil, error.localizedDescription)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                finish(nil, "No response from Gemini.")
+                return
+            }
+
+            guard let data = data else {
+                finish(nil, "Gemini returned an empty response.")
+                return
+            }
+
+            if !(200...299).contains(httpResponse.statusCode) {
+                if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
+                    finish(nil, apiError.error.message ?? "Gemini request failed with code \(httpResponse.statusCode).")
+                    return
+                }
+
+                let responseText = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                finish(nil, responseText?.isEmpty == false ? responseText : "Gemini request failed with code \(httpResponse.statusCode).")
+                return
+            }
+
+            guard
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let candidates = json["candidates"] as? [[String: Any]],
+                let content = candidates.first?["content"] as? [String: Any],
+                let resultParts = content["parts"] as? [[String: Any]],
+                let rawText = resultParts.first?["text"] as? String
+            else {
+                if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
+                    finish(nil, apiError.error.message ?? "Invalid Gemini response.")
+                } else {
+                    finish(nil, "Invalid Gemini response.")
+                }
+                return
+            }
+
             var cleanText = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
             let mdQuotes = "`" + "`" + "`"
-            if cleanText.contains(mdQuotes) { cleanText = cleanText.replacingOccurrences(of: mdQuotes + "json", with: ""); cleanText = cleanText.replacingOccurrences(of: mdQuotes, with: "") }
-            guard let start = cleanText.firstIndex(of: "{"), let end = cleanText.lastIndex(of: "}"), let finalData = String(cleanText[start...end]).data(using: .utf8) else { DispatchQueue.main.async { completion(nil, "Parse Error") }; return }
-            do { let decoded = try JSONDecoder().decode(T.self, from: finalData); DispatchQueue.main.async { completion(decoded, nil) } } catch { DispatchQueue.main.async { completion(nil, "Decode Error") } }
+            if cleanText.contains(mdQuotes) {
+                cleanText = cleanText.replacingOccurrences(of: mdQuotes + "json", with: "")
+                cleanText = cleanText.replacingOccurrences(of: mdQuotes, with: "")
+            }
+
+            guard
+                let start = cleanText.firstIndex(of: "{"),
+                let end = cleanText.lastIndex(of: "}"),
+                let finalData = String(cleanText[start...end]).data(using: .utf8)
+            else {
+                finish(nil, "Gemini returned invalid JSON.")
+                return
+            }
+
+            do {
+                let decoded = try JSONDecoder().decode(T.self, from: finalData)
+                finish(decoded, nil)
+            } catch {
+                finish(nil, "Failed to decode Gemini response.")
+            }
         }.resume()
     }
 }

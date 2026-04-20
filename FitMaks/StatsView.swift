@@ -177,7 +177,9 @@ struct StatsView: View {
                         fuelChart
                         challengeCard
                     }
-                    .padding()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 42)
                 }
             }
             .navigationTitle("Progress Arena")
@@ -388,7 +390,7 @@ struct StatsView: View {
     }
 
     private var challengeCard: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
                     .fill(Color.neonCyan.opacity(0.14))
@@ -407,10 +409,12 @@ struct StatsView: View {
                 Text(streakObjectiveText)
                     .font(.subheadline)
                     .foregroundColor(.gray)
-                    .lineLimit(2)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(16)
         .background(

@@ -6,6 +6,7 @@ import CryptoKit
 struct FoodResult: Codable {
     let food_name: String
     let emoji: String?
+    var source_photo_number: Int? = nil
     let calories: Double
     let protein: Double
     let ingredients_breakdown: String
@@ -152,6 +153,8 @@ class GeminiService {
         - If one photo is a nutrition label for another visible product, use the label data for that same item.
         - Do NOT split a single dish into separate top-level items. Put its ingredients in ingredients_breakdown.
         - If there are clearly multiple separate dishes/products, return multiple items.
+        - For every returned item, set source_photo_number to the 1-based photo number that best visually represents that item: 1 for the first uploaded photo, 2 for the second, etc.
+        - If an item uses a front photo and a label photo, choose the front/visible product photo as source_photo_number. Use the label only for nutrition data.
 
         ESTIMATION RULES:
         - Estimate the visible edible portion only unless the image clearly shows packaged nutrition for a known serving.
@@ -164,7 +167,7 @@ class GeminiService {
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"items":[{"food_name":"Dish Name","emoji":"🍽️","calories":0,"protein":0,"ingredients_breakdown":"Item1;100g;100;10\\nItem2;50g;50;5","ai_response_text":""}]}
+        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"ingredients_breakdown":"Item1;100g;100;10\\nItem2;50g;50;5","ai_response_text":""}]}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
         """
 
@@ -423,6 +426,7 @@ class GeminiService {
             FoodResult(
                 food_name: result.food_name,
                 emoji: result.emoji,
+                source_photo_number: result.source_photo_number,
                 calories: calories,
                 protein: protein,
                 ingredients_breakdown: result.ingredients_breakdown,
@@ -435,6 +439,7 @@ class GeminiService {
         FoodResult(
             food_name: result.food_name,
             emoji: result.emoji,
+            source_photo_number: result.source_photo_number,
             calories: (result.calories / 5).rounded() * 5,
             protein: result.protein.rounded(),
             ingredients_breakdown: result.ingredients_breakdown,

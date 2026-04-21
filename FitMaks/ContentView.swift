@@ -621,6 +621,13 @@ struct ContentView: View {
             return generateEmojiIcon(emoji: result.emoji ?? "🍽️")
         }
 
+        if let sourcePhotoNumber = result.source_photo_number {
+            let imageIndex = sourcePhotoNumber - 1
+            if item.images.indices.contains(imageIndex) {
+                return item.images[imageIndex]
+            }
+        }
+
         return item.images.indices.contains(resultIndex)
             ? item.images[resultIndex]
             : fallbackImage

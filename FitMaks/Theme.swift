@@ -43,8 +43,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
                 name: "Morning",
                 subtitle: "Warm clean light",
                 description: "Quiet oatmeal, sage and ink-blue. Softer for daytime use without feeling medical.",
-                primary: Color(red: 68/255, green: 137/255, blue: 113/255),
-                secondary: Color(red: 50/255, green: 98/255, blue: 157/255),
+                primary: Color(red: 92/255, green: 156/255, blue: 38/255),
+                secondary: Color(red: 0/255, green: 126/255, blue: 191/255),
                 action: Color(red: 201/255, green: 115/255, blue: 65/255),
                 purple: Color(red: 129/255, green: 92/255, blue: 161/255),
                 backgroundStart: Color(red: 251/255, green: 247/255, blue: 238/255),
@@ -63,8 +63,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
                 name: "Midnight",
                 subtitle: "Premium low contrast",
                 description: "Deep graphite with mineral green and quiet blue. Still dark, but less aggressive.",
-                primary: Color(red: 145/255, green: 214/255, blue: 177/255),
-                secondary: Color(red: 111/255, green: 159/255, blue: 215/255),
+                primary: Color(red: 180/255, green: 238/255, blue: 88/255),
+                secondary: Color(red: 43/255, green: 177/255, blue: 242/255),
                 action: Color(red: 223/255, green: 160/255, blue: 107/255),
                 purple: Color(red: 174/255, green: 143/255, blue: 222/255),
                 backgroundStart: Color(red: 12/255, green: 16/255, blue: 20/255),
@@ -83,8 +83,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
                 name: "Dune",
                 subtitle: "Warm editorial",
                 description: "Espresso, amber and muted teal. Cozy evening mode without turning everything orange.",
-                primary: Color(red: 232/255, green: 181/255, blue: 83/255),
-                secondary: Color(red: 87/255, green: 178/255, blue: 168/255),
+                primary: Color(red: 170/255, green: 209/255, blue: 89/255),
+                secondary: Color(red: 71/255, green: 190/255, blue: 196/255),
                 action: Color(red: 214/255, green: 103/255, blue: 70/255),
                 purple: Color(red: 183/255, green: 116/255, blue: 166/255),
                 backgroundStart: Color(red: 24/255, green: 18/255, blue: 15/255),
@@ -103,8 +103,18 @@ enum AppTheme: String, CaseIterable, Identifiable {
 }
 
 enum AppRules {
-    static let caloriePerfectTolerance: Double = 5
+    static let caloriePerfectToleranceRatio: Double = 0.03
     static let weeklyStreakTarget: Double = 7
+
+    static var calorieGraceLabel: String { "+3% calorie grace" }
+
+    static func calorieGrace(for target: Double) -> Double {
+        max(target * caloriePerfectToleranceRatio, 0)
+    }
+
+    static func caloriePerfectLimit(for target: Double) -> Double {
+        target + calorieGrace(for: target)
+    }
 }
 
 struct AppPalette {

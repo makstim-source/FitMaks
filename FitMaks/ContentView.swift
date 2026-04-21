@@ -68,7 +68,7 @@ struct ContentView: View {
         && selectedDate < Date()
         && dailyProtein >= targetProtein
         && dailySteps >= targetSteps
-        && dailyCaloriesConsumed <= maxCalories + AppRules.caloriePerfectTolerance
+        && dailyCaloriesConsumed <= AppRules.caloriePerfectLimit(for: maxCalories)
     }
 
     var body: some View {
@@ -228,14 +228,15 @@ struct ContentView: View {
     private var dailyCommandCard: some View {
         VStack(spacing: 11) {
             HStack(spacing: 6) {
-                let caloriesOver = dailyCaloriesConsumed > maxCalories + AppRules.caloriePerfectTolerance
+                let caloriesAboveTarget = dailyCaloriesConsumed > maxCalories
+                let caloriesOutsideGrace = dailyCaloriesConsumed > AppRules.caloriePerfectLimit(for: maxCalories)
                 metricTile(
                     title: "Calories",
-                    value: caloriesOver ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
-                    subtitle: caloriesOver ? "over" : "left",
+                    value: caloriesAboveTarget ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
+                    subtitle: caloriesAboveTarget ? (caloriesOutsideGrace ? "over" : "grace") : "left",
                     progress: dailyCaloriesConsumed / max(maxCalories, 1),
-                    color: caloriesOver ? .red : .neonGreen,
-                    systemName: caloriesOver ? "exclamationmark.triangle.fill" : "leaf.fill"
+                    color: caloriesOutsideGrace ? .red : .neonGreen,
+                    systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"
                 )
                 .onTapGesture { isShowingGoalBreakdown = true }
 

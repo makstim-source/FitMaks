@@ -275,14 +275,14 @@ struct StatsView: View {
                             .font(.system(size: animateStreakFlame ? 68 : 60, weight: .black))
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [Color.fitOrange.opacity(0.62), Color.yellow.opacity(0.46), Color.neonGreen.opacity(0.30)],
+                                    colors: [Color.red.opacity(0.78), Color.fitOrange.opacity(0.62), Color.yellow.opacity(0.34)],
                                     startPoint: .bottom,
                                     endPoint: .top
                                 )
                             )
                             .scaleEffect(animateStreakFlame ? 1.06 : 0.95)
                             .rotationEffect(.degrees(animateStreakFlame ? 2.5 : -2))
-                            .shadow(color: Color.fitOrange.opacity(animateStreakFlame ? 0.48 : 0.22), radius: animateStreakFlame ? 18 : 9)
+                            .shadow(color: Color.red.opacity(animateStreakFlame ? 0.58 : 0.26), radius: animateStreakFlame ? 18 : 9)
 
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text("\(currentPerfectStreak)")
@@ -328,7 +328,7 @@ struct StatsView: View {
 
                 Spacer()
 
-                Text("+\(Int(AppRules.caloriePerfectTolerance)) kcal grace")
+                Text(AppRules.calorieGraceLabel)
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.black.opacity(0.56))
@@ -359,7 +359,7 @@ struct StatsView: View {
 
     private var metricGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: "+\(Int(AppRules.caloriePerfectTolerance)) kcal grace", color: .neonGreen)
+            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: AppRules.calorieGraceLabel, color: .neonGreen)
             metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: "goal reached", color: .neonCyan)
             metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(Int(totalSteps)) total steps", color: .yellow)
             metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
@@ -399,7 +399,7 @@ struct StatsView: View {
 
                 Spacer()
 
-                Text("+\(Int(AppRules.caloriePerfectTolerance)) kcal grace")
+                Text(AppRules.calorieGraceLabel)
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.neonGreen)
@@ -408,7 +408,7 @@ struct StatsView: View {
                     .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
             }
 
-            Text("One clean read per day: under target is green, tiny overages stay in grace, bigger overages turn red.")
+            Text("One clean read per day: under target is green, up to 3% over stays in grace, bigger overages turn red.")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.appMuted)
@@ -596,7 +596,7 @@ struct StatsView: View {
 
     private func calorieBalanceRow(_ stat: WeekStat) -> some View {
         let hasFood = stat.consumed > 0
-        let graceLimit = stat.target + AppRules.caloriePerfectTolerance
+        let graceLimit = AppRules.caloriePerfectLimit(for: stat.target)
         let isGrace = hasFood && stat.consumed > stat.target && stat.consumed <= graceLimit
         let isOver = hasFood && stat.consumed > graceLimit
         let statusColor: Color = !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
@@ -608,7 +608,7 @@ struct StatsView: View {
         } else if isOver {
             statusText = "\(Int(stat.consumed - stat.target)) over"
         } else if isGrace {
-            statusText = "within grace"
+            statusText = "within 3% grace"
         } else {
             statusText = "\(Int(stat.target - stat.consumed)) left"
         }
@@ -680,7 +680,7 @@ struct StatsView: View {
     }
 
     private func calorieWin(_ stat: WeekStat) -> Bool {
-        stat.consumed > 0 && stat.consumed <= stat.target + AppRules.caloriePerfectTolerance
+        stat.consumed > 0 && stat.consumed <= AppRules.caloriePerfectLimit(for: stat.target)
     }
 
     private func proteinWin(_ stat: WeekStat) -> Bool {

@@ -68,7 +68,7 @@ struct CustomCalendarView: View {
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
                             let mode = dayMode(for: date)
-                            let calorieGoalMet = !dailyEntries.isEmpty && totalCal <= calorieTarget(for: mode) + AppRules.caloriePerfectTolerance
+                            let calorieGoalMet = !dailyEntries.isEmpty && totalCal <= AppRules.caloriePerfectLimit(for: calorieTarget(for: mode))
                             let proteinGoalMet = !dailyEntries.isEmpty && totalProt >= proteinTarget(for: mode)
                             let stepsGoalMet = steps >= targetSteps
                             let isPerfectDay = isPastDay && calorieGoalMet && proteinGoalMet && stepsGoalMet

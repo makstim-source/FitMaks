@@ -301,13 +301,27 @@ struct AIAssistantView: View {
         formatter.timeStyle = .short
         let timeString = formatter.string(from: Date())
 
-        let isPastDay = !Calendar.current.isDateInToday(selectedDate)
+        let calendar = Calendar.current
+        let isPastDay = !calendar.isDateInToday(selectedDate)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
+        let selectedDateDescription = dateFormatter.string(from: selectedDate)
+
+        let selectedDateRelation: String
+        if calendar.isDateInToday(selectedDate) {
+            selectedDateRelation = "today"
+        } else if calendar.isDateInYesterday(selectedDate) {
+            selectedDateRelation = "yesterday"
+        } else {
+            selectedDateRelation = "older past date, not yesterday"
+        }
 
         let mealNames = foods.map { "\($0.name) (\(Int($0.calories)) kcal, \(Int($0.protein))g P)" }
         let workoutNames = trainings.map { "\($0.name) (\(Int($0.caloriesBurned)) kcal burned)" }
         let fridgeNames = favorites.map { "\($0.name) (\(Int($0.calories))kcal, \(Int($0.protein))g protein)" }
 
-        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames) { result, error in
+        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames) { result, error in
             DispatchQueue.main.async {
                 self.isWaiting = false
                 let aiText = result ?? error ?? "Oops, something went wrong connecting to the AI. Try again!"

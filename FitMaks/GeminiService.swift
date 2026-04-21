@@ -241,11 +241,11 @@ class GeminiService {
     }
     
     // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
-    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?, String?) -> Void) {
+    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?, String?) -> Void) {
         
         let dayContext = isPastDay
-            ? "You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire day. DO NOT suggest what to eat or do 'later today'."
-            : "Current time: \(timeOfDay). The day is still ongoing."
+            ? "Selected date: \(selectedDateDescription). Date relation: \(selectedDateRelation). You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire selected date. DO NOT suggest what to eat or do 'later today'."
+            : "Selected date: \(selectedDateDescription). Date relation: \(selectedDateRelation). Current time: \(timeOfDay). The day is still ongoing."
             
         let fridgeContext = (!isPastDay && !fridgeItems.isEmpty)
             ? "Available food in their Fridge: \(fridgeItems.joined(separator: ", ")). Recommend SPECIFIC items from this list if they need to hit their protein or calorie goals today."
@@ -260,13 +260,14 @@ class GeminiService {
         Workouts done: \(workouts.isEmpty ? "None" : workouts.joined(separator: ", ")).
         \(fridgeContext)
 
-        \(isInitial ? (isPastDay ? "Give a quick summary of their performance for this past day." : "The user just opened the app. Give them a quick daily summary and motivation based on current time.") : "The user says/shows: '\(message)'. Reply to them directly.")
+        \(isInitial ? (isPastDay ? "Give a quick summary of their performance for this selected past date." : "The user just opened the app. Give them a quick daily summary and motivation based on current time.") : "The user says/shows: '\(message)'. Reply to them directly in the context of the selected date.")
 
         CRITICAL RULES:
         1. Evaluate food quality. If they ate junk food, sugar, or excess fat, scold them slightly but constructively. Praise good protein intake.
         2. If it's a PAST DAY, summarize their success or failure. If it's the CURRENT DAY, motivate them and suggest exact foods from their Fridge to hit remaining goals.
         3. Be direct, use quick humor, and don't sugar-coat.
         4. Keep it concise (under 5 sentences). Use emojis.
+        5. Never call the selected date "yesterday" unless Date relation is exactly "yesterday". For older dates, use the exact selected date or say "that day".
 
         Return ONLY a single JSON object:
         {"ai_summary": "your response here"}

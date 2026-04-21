@@ -275,14 +275,18 @@ struct StatsView: View {
                             .font(.system(size: animateStreakFlame ? 68 : 60, weight: .black))
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [Color.red.opacity(0.78), Color.fitOrange.opacity(0.62), Color.yellow.opacity(0.34)],
+                                    colors: [
+                                        Color(red: 1.0, green: 0.02, blue: 0.0).opacity(0.95),
+                                        Color.red.opacity(0.82),
+                                        Color.fitOrange.opacity(0.30)
+                                    ],
                                     startPoint: .bottom,
                                     endPoint: .top
                                 )
                             )
                             .scaleEffect(animateStreakFlame ? 1.06 : 0.95)
                             .rotationEffect(.degrees(animateStreakFlame ? 2.5 : -2))
-                            .shadow(color: Color.red.opacity(animateStreakFlame ? 0.58 : 0.26), radius: animateStreakFlame ? 18 : 9)
+                            .shadow(color: Color.red.opacity(animateStreakFlame ? 0.82 : 0.38), radius: animateStreakFlame ? 20 : 10)
 
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text("\(currentPerfectStreak)")
@@ -360,8 +364,8 @@ struct StatsView: View {
     private var metricGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
             metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: AppRules.calorieGraceLabel, color: .neonGreen)
-            metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: "goal reached", color: .neonCyan)
-            metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(Int(totalSteps)) total steps", color: .yellow)
+            metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: AppRules.completionGraceLabel, color: .neonCyan)
+            metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(compactSteps(totalSteps)) total", color: .yellow)
             metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
         }
     }
@@ -572,7 +576,9 @@ struct StatsView: View {
                     .font(.caption2)
                     .foregroundColor(.gray)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.78)
             }
+            .layoutPriority(1)
 
             Spacer()
 
@@ -684,11 +690,11 @@ struct StatsView: View {
     }
 
     private func proteinWin(_ stat: WeekStat) -> Bool {
-        stat.protein >= stat.proteinTarget
+        stat.protein >= AppRules.completionMinimum(for: stat.proteinTarget)
     }
 
     private func stepWin(_ stat: WeekStat) -> Bool {
-        stat.steps >= stepTarget
+        stat.steps >= AppRules.completionMinimum(for: stepTarget)
     }
 
     private func isPerfectDay(_ stat: WeekStat) -> Bool {
@@ -696,7 +702,7 @@ struct StatsView: View {
     }
 
     private func daySubtitle(_ stat: WeekStat) -> String {
-        "\(Int(stat.consumed))/\(Int(stat.target)) kcal · \(Int(stat.protein))/\(Int(stat.proteinTarget))g · \(Int(stat.steps)) steps"
+        "\(Int(stat.consumed))/\(Int(stat.target)) kcal · \(Int(stat.protein))/\(Int(stat.proteinTarget))g · \(compactSteps(stat.steps)) steps"
     }
 
     private func stat(for date: Date) -> WeekStat {
@@ -757,5 +763,16 @@ struct StatsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
+    }
+
+    private func compactSteps(_ value: Double) -> String {
+        guard value >= 1000 else { return "\(Int(value.rounded()))" }
+
+        let thousands = value / 1000
+        if thousands >= 10 || thousands.rounded() == thousands {
+            return "\(Int(thousands.rounded()))k"
+        }
+
+        return String(format: "%.1fk", thousands)
     }
 }

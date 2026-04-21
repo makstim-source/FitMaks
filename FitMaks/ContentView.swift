@@ -66,8 +66,8 @@ struct ContentView: View {
     var isPerfectPastDay: Bool {
         !Calendar.current.isDateInToday(selectedDate)
         && selectedDate < Date()
-        && dailyProtein >= targetProtein
-        && dailySteps >= targetSteps
+        && dailyProtein >= AppRules.completionMinimum(for: targetProtein)
+        && dailySteps >= AppRules.completionMinimum(for: targetSteps)
         && dailyCaloriesConsumed <= AppRules.caloriePerfectLimit(for: maxCalories)
     }
 
@@ -452,7 +452,7 @@ struct ContentView: View {
             return "Watch the finish."
         }
 
-        if dailyProtein >= targetProtein {
+        if dailyProtein >= AppRules.completionMinimum(for: targetProtein) {
             return "Protein locked."
         }
 
@@ -871,8 +871,10 @@ struct AIAssistantView: View {
                     title: "Calories",
                     value: consumedCalories,
                     target: targetCalories,
-                    color: consumedCalories > targetCalories ? .red : .neonGreen,
-                    detail: consumedCalories > targetCalories ? "\(Int(consumedCalories - targetCalories)) over" : "\(Int(max(targetCalories - consumedCalories, 0))) left"
+                    color: consumedCalories > AppRules.caloriePerfectLimit(for: targetCalories) ? .red : .neonGreen,
+                    detail: consumedCalories > targetCalories
+                        ? (consumedCalories > AppRules.caloriePerfectLimit(for: targetCalories) ? "\(Int(consumedCalories - targetCalories)) over" : "\(Int(consumedCalories - targetCalories)) over · grace")
+                        : "\(Int(max(targetCalories - consumedCalories, 0))) left"
                 )
 
                 miniGoal(
@@ -880,7 +882,9 @@ struct AIAssistantView: View {
                     value: consumedProtein,
                     target: targetProtein,
                     color: .neonCyan,
-                    detail: consumedProtein >= targetProtein ? "closed" : "\(Int(max(targetProtein - consumedProtein, 0)))g missing"
+                    detail: consumedProtein >= targetProtein
+                        ? "closed"
+                        : (consumedProtein >= AppRules.completionMinimum(for: targetProtein) ? "within 3% grace" : "\(Int(max(targetProtein - consumedProtein, 0)))g missing")
                 )
             }
         }
@@ -908,7 +912,9 @@ struct AIAssistantView: View {
 
     private var coachHeadline: String {
         if Calendar.current.isDateInToday(selectedDate) {
-            if consumedProtein >= targetProtein && consumedCalories <= targetCalories && consumedCalories > 0 {
+            if consumedProtein >= AppRules.completionMinimum(for: targetProtein)
+                && consumedCalories <= AppRules.caloriePerfectLimit(for: targetCalories)
+                && consumedCalories > 0 {
                 return "Strong day. Protect the win."
             }
 

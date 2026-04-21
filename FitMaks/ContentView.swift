@@ -68,7 +68,7 @@ struct ContentView: View {
         && selectedDate < Date()
         && dailyProtein >= targetProtein
         && dailySteps >= targetSteps
-        && dailyCaloriesConsumed <= maxCalories
+        && dailyCaloriesConsumed <= maxCalories + AppRules.caloriePerfectTolerance
     }
 
     var body: some View {
@@ -228,7 +228,7 @@ struct ContentView: View {
     private var dailyCommandCard: some View {
         VStack(spacing: 11) {
             HStack(spacing: 6) {
-                let caloriesOver = dailyCaloriesConsumed > maxCalories
+                let caloriesOver = dailyCaloriesConsumed > maxCalories + AppRules.caloriePerfectTolerance
                 metricTile(
                     title: "Calories",
                     value: caloriesOver ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",

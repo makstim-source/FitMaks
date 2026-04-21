@@ -11,6 +11,7 @@ struct StatsView: View {
 
     @State private var weeklySteps: [String: Double] = [:]
     @State private var showBars = false
+    @State private var animateStreakFlame = false
     @State private var weekOffset = 0
 
     private let stepTarget: Double = 10000
@@ -198,6 +199,9 @@ struct StatsView: View {
                     }
                 }
                 animateBars()
+                withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
+                    animateStreakFlame = true
+                }
             }
             .onChange(of: weekOffset) { _, _ in
                 animateBars()
@@ -246,7 +250,10 @@ struct StatsView: View {
     }
 
     private var heroScoreCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        let cappedStreak = min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
+        let weeklyProgress = cappedStreak / AppRules.weeklyStreakTarget
+
+        return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("STREAK MODE", systemImage: "flame.fill")
@@ -263,13 +270,30 @@ struct StatsView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text("\(currentPerfectStreak)")
-                            .font(.system(size: 52, weight: .black))
-                        Text("d")
-                            .font(.system(size: 20, weight: .black))
+                    ZStack {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: animateStreakFlame ? 68 : 60, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.fitOrange.opacity(0.62), Color.yellow.opacity(0.46), Color.neonGreen.opacity(0.30)],
+                                    startPoint: .bottom,
+                                    endPoint: .top
+                                )
+                            )
+                            .scaleEffect(animateStreakFlame ? 1.06 : 0.95)
+                            .rotationEffect(.degrees(animateStreakFlame ? 2.5 : -2))
+                            .shadow(color: Color.fitOrange.opacity(animateStreakFlame ? 0.48 : 0.22), radius: animateStreakFlame ? 18 : 9)
+
+                        HStack(alignment: .firstTextBaseline, spacing: 1) {
+                            Text("\(currentPerfectStreak)")
+                                .font(.system(size: 52, weight: .black))
+                            Text("d")
+                                .font(.system(size: 20, weight: .black))
+                        }
+                        .foregroundColor(.black)
+                        .shadow(color: .white.opacity(0.34), radius: 2, x: 0, y: 1)
                     }
-                    .foregroundColor(.black)
+                    .frame(width: 104, height: 70, alignment: .trailing)
 
                     Text("current streak")
                         .font(.caption)
@@ -281,14 +305,34 @@ struct StatsView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.black.opacity(0.13))
+                        .fill(Color.black.opacity(0.12))
 
                     Capsule()
-                        .fill(Color.black.opacity(0.82))
-                        .frame(width: proxy.size.width * CGFloat(min(Double(currentPerfectStreak) / Double(max(bestPerfectStreak30, 1)), 1.0)))
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.86), Color.neonGreen.opacity(0.86)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: currentPerfectStreak > 0 ? max(CGFloat(12), proxy.size.width * CGFloat(weeklyProgress)) : 0)
                 }
             }
-            .frame(height: 9)
+            .frame(height: 10)
+
+            HStack {
+                Text("\(Int(cappedStreak))/\(Int(AppRules.weeklyStreakTarget)) weekly flame")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.black.opacity(0.62))
+
+                Spacer()
+
+                Text("+\(Int(AppRules.caloriePerfectTolerance)) kcal grace")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.black.opacity(0.56))
+            }
 
             HStack(spacing: 10) {
                 scorePill(title: "Best 30d", value: "\(bestPerfectStreak30)d", icon: "flame.fill")
@@ -315,7 +359,7 @@ struct StatsView: View {
 
     private var metricGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: "under daily target", color: .neonGreen)
+            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: "+\(Int(AppRules.caloriePerfectTolerance)) kcal grace", color: .neonGreen)
             metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: "goal reached", color: .neonCyan)
             metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(Int(totalSteps)) total steps", color: .yellow)
             metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
@@ -347,46 +391,38 @@ struct StatsView: View {
     }
 
     private var fuelChart: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Fuel Chart")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Calorie Balance")
                     .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Spacer()
 
-                HStack(spacing: 10) {
-                    chartLegend(color: .neonGreen, text: "kcal")
-                    chartLegend(color: .neonCyan, text: "protein")
-                    chartLegend(color: .yellow, text: "steps")
-                }
+                Text("+\(Int(AppRules.caloriePerfectTolerance)) kcal grace")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.neonGreen)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
             }
 
-            HStack(alignment: .bottom, spacing: 10) {
-                ForEach(stats, id: \.date) { stat in
-                    VStack(spacing: 7) {
-                        HStack(alignment: .bottom, spacing: 4) {
-                            chartBar(
-                                value: stat.consumed,
-                                target: stat.target,
-                                color: stat.consumed > stat.target && stat.consumed > 0 ? .red : .neonGreen
-                            )
-                            chartBar(value: stat.protein, target: stat.proteinTarget, color: .neonCyan)
-                            chartBar(value: stat.steps, target: stepTarget, color: .yellow)
-                        }
-                        .frame(height: 118, alignment: .bottom)
+            Text("One clean read per day: under target is green, tiny overages stay in grace, bigger overages turn red.")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .fixedSize(horizontal: false, vertical: true)
 
-                        Text(dayName(stat.date))
-                            .font(.system(size: 9, weight: .heavy))
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 11) {
+                ForEach(stats, id: \.date) { stat in
+                    calorieBalanceRow(stat)
                 }
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 26).fill(Color.black.opacity(0.28)))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private var challengeCard: some View {
@@ -558,6 +594,61 @@ struct StatsView: View {
         )
     }
 
+    private func calorieBalanceRow(_ stat: WeekStat) -> some View {
+        let hasFood = stat.consumed > 0
+        let graceLimit = stat.target + AppRules.caloriePerfectTolerance
+        let isGrace = hasFood && stat.consumed > stat.target && stat.consumed <= graceLimit
+        let isOver = hasFood && stat.consumed > graceLimit
+        let statusColor: Color = !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
+        let fillRatio = min(max(stat.consumed / max(stat.target, 1), 0), 1)
+        let statusText: String
+
+        if !hasFood {
+            statusText = "no food logged"
+        } else if isOver {
+            statusText = "\(Int(stat.consumed - stat.target)) over"
+        } else if isGrace {
+            statusText = "within grace"
+        } else {
+            statusText = "\(Int(stat.target - stat.consumed)) left"
+        }
+
+        return VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 10) {
+                Text(dayName(stat.date))
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .frame(width: 34, alignment: .leading)
+
+                Text("\(Int(stat.consumed)) / \(Int(stat.target)) kcal")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(.appText)
+
+                Spacer()
+
+                Text(statusText)
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(statusColor)
+                    .lineLimit(1)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.07))
+
+                    Capsule()
+                        .fill(statusColor.opacity(hasFood ? 0.95 : 0.22))
+                        .frame(width: hasFood ? max(CGFloat(8), proxy.size.width * CGFloat(showBars ? fillRatio : 0.04)) : 8)
+                }
+            }
+            .frame(height: 8)
+        }
+        .padding(11)
+        .background(RoundedRectangle(cornerRadius: 17).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(statusColor.opacity(hasFood ? 0.22 : 0.10), lineWidth: 1))
+    }
+
     private func badgeChip(text: String, isOn: Bool, color: Color) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .black))
@@ -589,7 +680,7 @@ struct StatsView: View {
     }
 
     private func calorieWin(_ stat: WeekStat) -> Bool {
-        stat.consumed > 0 && stat.consumed <= stat.target
+        stat.consumed > 0 && stat.consumed <= stat.target + AppRules.caloriePerfectTolerance
     }
 
     private func proteinWin(_ stat: WeekStat) -> Bool {

@@ -5,7 +5,6 @@ enum AppTheme: String, CaseIterable, Identifiable {
     case morningAir
     case midnight
     case dune
-    case glacier
 
     static let storageKey = "selectedThemeID"
     static let defaultID = AppTheme.neonPulse.rawValue
@@ -42,85 +41,70 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .morningAir:
             return AppPalette(
                 name: "Morning",
-                subtitle: "Soft light mode",
-                description: "Creamy, calmer, less aggressive for people who dislike hard contrast.",
-                primary: Color(red: 58/255, green: 132/255, blue: 91/255),
-                secondary: Color(red: 61/255, green: 132/255, blue: 184/255),
-                action: Color(red: 224/255, green: 132/255, blue: 73/255),
-                purple: Color(red: 149/255, green: 91/255, blue: 180/255),
-                backgroundStart: Color(red: 249/255, green: 244/255, blue: 232/255),
-                backgroundMid: Color(red: 236/255, green: 242/255, blue: 226/255),
-                backgroundEnd: Color(red: 226/255, green: 236/255, blue: 237/255),
-                surface: Color.white.opacity(0.72),
-                elevated: Color.white.opacity(0.86),
-                text: Color(red: 31/255, green: 38/255, blue: 41/255),
-                muted: Color(red: 94/255, green: 104/255, blue: 109/255),
-                border: Color.black.opacity(0.09),
-                accentText: .white,
+                subtitle: "Warm clean light",
+                description: "Quiet oatmeal, sage and ink-blue. Softer for daytime use without feeling medical.",
+                primary: Color(red: 68/255, green: 137/255, blue: 113/255),
+                secondary: Color(red: 50/255, green: 98/255, blue: 157/255),
+                action: Color(red: 201/255, green: 115/255, blue: 65/255),
+                purple: Color(red: 129/255, green: 92/255, blue: 161/255),
+                backgroundStart: Color(red: 251/255, green: 247/255, blue: 238/255),
+                backgroundMid: Color(red: 239/255, green: 234/255, blue: 220/255),
+                backgroundEnd: Color(red: 226/255, green: 232/255, blue: 225/255),
+                surface: Color.white.opacity(0.78),
+                elevated: Color.white.opacity(0.92),
+                text: Color(red: 28/255, green: 34/255, blue: 36/255),
+                muted: Color(red: 92/255, green: 101/255, blue: 103/255),
+                border: Color(red: 31/255, green: 38/255, blue: 41/255).opacity(0.10),
+                accentText: Color(red: 248/255, green: 246/255, blue: 239/255),
                 preferredScheme: .light
             )
         case .midnight:
             return AppPalette(
                 name: "Midnight",
-                subtitle: "Calm dark mode",
-                description: "A softer dark palette with less laser-neon and more premium focus.",
-                primary: Color(red: 125/255, green: 211/255, blue: 167/255),
-                secondary: Color(red: 132/255, green: 169/255, blue: 255/255),
-                action: Color(red: 232/255, green: 174/255, blue: 117/255),
-                purple: Color(red: 190/255, green: 155/255, blue: 255/255),
-                backgroundStart: Color(red: 11/255, green: 18/255, blue: 27/255),
-                backgroundMid: Color(red: 18/255, green: 25/255, blue: 37/255),
-                backgroundEnd: Color(red: 5/255, green: 8/255, blue: 14/255),
-                surface: Color.white.opacity(0.065),
-                elevated: Color.black.opacity(0.28),
-                text: Color(red: 239/255, green: 244/255, blue: 248/255),
-                muted: Color(red: 137/255, green: 148/255, blue: 160/255),
-                border: Color.white.opacity(0.09),
+                subtitle: "Premium low contrast",
+                description: "Deep graphite with mineral green and quiet blue. Still dark, but less aggressive.",
+                primary: Color(red: 145/255, green: 214/255, blue: 177/255),
+                secondary: Color(red: 111/255, green: 159/255, blue: 215/255),
+                action: Color(red: 223/255, green: 160/255, blue: 107/255),
+                purple: Color(red: 174/255, green: 143/255, blue: 222/255),
+                backgroundStart: Color(red: 12/255, green: 16/255, blue: 20/255),
+                backgroundMid: Color(red: 19/255, green: 24/255, blue: 31/255),
+                backgroundEnd: Color(red: 5/255, green: 7/255, blue: 10/255),
+                surface: Color.white.opacity(0.06),
+                elevated: Color.black.opacity(0.26),
+                text: Color(red: 238/255, green: 242/255, blue: 239/255),
+                muted: Color(red: 132/255, green: 142/255, blue: 146/255),
+                border: Color.white.opacity(0.085),
                 accentText: Color(red: 8/255, green: 12/255, blue: 18/255),
                 preferredScheme: .dark
             )
         case .dune:
             return AppPalette(
                 name: "Dune",
-                subtitle: "Warm evening",
-                description: "Coffee, honey and clay tones for a warmer lifestyle feel.",
-                primary: Color(red: 232/255, green: 194/255, blue: 114/255),
-                secondary: Color(red: 110/255, green: 202/255, blue: 185/255),
-                action: Color(red: 224/255, green: 113/255, blue: 78/255),
-                purple: Color(red: 207/255, green: 126/255, blue: 190/255),
-                backgroundStart: Color(red: 27/255, green: 20/255, blue: 16/255),
-                backgroundMid: Color(red: 45/255, green: 33/255, blue: 26/255),
-                backgroundEnd: Color(red: 14/255, green: 10/255, blue: 8/255),
-                surface: Color.white.opacity(0.07),
-                elevated: Color.black.opacity(0.30),
-                text: Color(red: 250/255, green: 238/255, blue: 222/255),
-                muted: Color(red: 176/255, green: 154/255, blue: 134/255),
-                border: Color.white.opacity(0.10),
-                accentText: Color(red: 22/255, green: 14/255, blue: 9/255),
-                preferredScheme: .dark
-            )
-        case .glacier:
-            return AppPalette(
-                name: "Glacier",
-                subtitle: "Cold clean focus",
-                description: "Blue ice, lavender and coral: sharper than Morning, gentler than neon.",
-                primary: Color(red: 112/255, green: 225/255, blue: 215/255),
-                secondary: Color(red: 155/255, green: 172/255, blue: 255/255),
-                action: Color(red: 255/255, green: 130/255, blue: 117/255),
-                purple: Color(red: 184/255, green: 143/255, blue: 255/255),
-                backgroundStart: Color(red: 11/255, green: 20/255, blue: 30/255),
-                backgroundMid: Color(red: 20/255, green: 30/255, blue: 45/255),
-                backgroundEnd: Color(red: 4/255, green: 10/255, blue: 18/255),
-                surface: Color.white.opacity(0.07),
-                elevated: Color.black.opacity(0.26),
-                text: Color(red: 237/255, green: 248/255, blue: 255/255),
-                muted: Color(red: 142/255, green: 161/255, blue: 176/255),
-                border: Color.white.opacity(0.10),
-                accentText: Color(red: 5/255, green: 15/255, blue: 22/255),
+                subtitle: "Warm editorial",
+                description: "Espresso, amber and muted teal. Cozy evening mode without turning everything orange.",
+                primary: Color(red: 232/255, green: 181/255, blue: 83/255),
+                secondary: Color(red: 87/255, green: 178/255, blue: 168/255),
+                action: Color(red: 214/255, green: 103/255, blue: 70/255),
+                purple: Color(red: 183/255, green: 116/255, blue: 166/255),
+                backgroundStart: Color(red: 24/255, green: 18/255, blue: 15/255),
+                backgroundMid: Color(red: 38/255, green: 29/255, blue: 24/255),
+                backgroundEnd: Color(red: 12/255, green: 9/255, blue: 8/255),
+                surface: Color.white.opacity(0.065),
+                elevated: Color.black.opacity(0.28),
+                text: Color(red: 249/255, green: 236/255, blue: 216/255),
+                muted: Color(red: 170/255, green: 151/255, blue: 128/255),
+                border: Color.white.opacity(0.095),
+                accentText: Color(red: 24/255, green: 15/255, blue: 8/255),
                 preferredScheme: .dark
             )
         }
     }
+}
+
+enum AppRules {
+    static let caloriePerfectTolerance: Double = 5
+    static let weeklyStreakTarget: Double = 7
 }
 
 struct AppPalette {
@@ -187,6 +171,7 @@ struct ThemeSelectionView: View {
             }
         }
         .preferredColorScheme(selectedTheme.palette.preferredScheme)
+        .onAppear(perform: normalizeSelection)
     }
 
     private var header: some View {
@@ -299,6 +284,11 @@ struct ThemeSelectionView: View {
             .frame(width: 28, height: 28)
             .overlay(Circle().stroke(Color.appText.opacity(0.22), lineWidth: 1))
     }
+
+    private func normalizeSelection() {
+        guard AppTheme(rawValue: selectedThemeID) == nil else { return }
+        selectedThemeID = AppTheme.defaultID
+    }
 }
 
 struct ThemePickerGrid: View {
@@ -317,6 +307,12 @@ struct ThemePickerGrid: View {
                 }
             }
         }
+        .onAppear(perform: normalizeSelection)
+    }
+
+    private func normalizeSelection() {
+        guard AppTheme(rawValue: selectedThemeID) == nil else { return }
+        selectedThemeID = AppTheme.defaultID
     }
 }
 

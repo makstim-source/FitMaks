@@ -263,7 +263,7 @@ struct MyFoodView: View {
                 foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
                     .disabled(isGeneratingRecipe)
                 foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
-                foodActionButton(title: "Scan", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
+                foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)

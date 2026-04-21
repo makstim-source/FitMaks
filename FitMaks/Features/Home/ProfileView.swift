@@ -17,6 +17,7 @@ struct ProfileView: View {
     var calculatedProtein: Double
 
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
+    @State private var isShowingThemePicker = false
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -82,12 +83,12 @@ struct ProfileView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
                         goalsHeader
-                        themeCard
                         recommendationCard
                         goalAndGenderCard
                         activityCard
                         bodyMetricsCard
                         customGoalsCard
+                        themeCard
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -106,6 +107,12 @@ struct ProfileView: View {
             }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+        .sheet(isPresented: $isShowingThemePicker) {
+            ThemeSelectionView(isFirstRun: false) {
+                isShowingThemePicker = false
+            }
+            .presentationDetents([.large])
+        }
     }
 
     private var goalsHeader: some View {
@@ -116,38 +123,55 @@ struct ProfileView: View {
     }
 
     private var themeCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    sectionTitle("Theme")
+        let theme = AppTheme(rawValue: selectedThemeID) ?? .neonPulse
+        let palette = theme.palette
 
-                    Text("Pick the mood")
+        return Button {
+            isShowingThemePicker = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(palette.primary.opacity(0.18))
+
+                    Image(systemName: "paintpalette.fill")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(palette.primary)
+                }
+                .frame(width: 46, height: 46)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    sectionTitle("Appearance")
+
+                    Text("Theme: \(palette.name)")
                         .font(.headline)
                         .fontWeight(.heavy)
                         .foregroundColor(.appText)
+
+                    Text("Change colors without touching your body goals.")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .lineLimit(2)
                 }
 
                 Spacer()
 
-                Text((AppTheme(rawValue: selectedThemeID) ?? .neonPulse).palette.name)
-                    .font(.caption)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.neonGreen)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
+                HStack(spacing: -5) {
+                    Circle().fill(palette.primary).frame(width: 18, height: 18)
+                    Circle().fill(palette.secondary).frame(width: 18, height: 18)
+                    Circle().fill(palette.action).frame(width: 18, height: 18)
+                }
+                .overlay(Capsule().stroke(Color.appText.opacity(0.12), lineWidth: 1))
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.appMuted)
             }
-
-            Text("If the original neon feels too loud, Morning and Midnight are the calmer friend-test options.")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.appMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
-            ThemePickerGrid(selectedThemeID: $selectedThemeID)
+            .padding(16)
+            .background(cardBackground)
         }
-        .padding(18)
-        .background(cardBackground)
+        .buttonStyle(.plain)
     }
 
     private var recommendationCard: some View {

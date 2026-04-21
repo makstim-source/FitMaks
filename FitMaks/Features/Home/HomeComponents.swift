@@ -56,10 +56,16 @@ struct HomeMetricTile: View {
     var value: String
     var subtitle: String
     var progress: Double
+    var bonusProgress: Double = 0
+    var bonusColor: Color? = nil
     var color: Color
     var systemName: String
 
     var body: some View {
+        let baseProgress = CGFloat(min(max(progress, 0), 1))
+        let combinedProgress = CGFloat(min(max(progress + bonusProgress, 0), 1))
+        let highlightColor = bonusColor ?? color
+
         VStack(spacing: 6) {
             Text(title.uppercased())
                 .font(.system(size: 8, weight: .heavy))
@@ -72,13 +78,24 @@ struct HomeMetricTile: View {
                     .stroke(Color.black.opacity(0.34), lineWidth: 7)
 
                 Circle()
-                    .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                    .trim(from: 0, to: baseProgress)
                     .stroke(
                         color,
                         style: StrokeStyle(lineWidth: 7, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.55), radius: progress >= 1 ? 13 : 6)
+                    .shadow(color: color.opacity(0.55), radius: combinedProgress >= 1 ? 13 : 6)
+
+                if combinedProgress > baseProgress {
+                    Circle()
+                        .trim(from: baseProgress, to: combinedProgress)
+                        .stroke(
+                            highlightColor,
+                            style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: highlightColor.opacity(0.58), radius: combinedProgress >= 1 ? 13 : 7)
+                }
 
                 VStack(spacing: 0) {
                     Image(systemName: systemName)

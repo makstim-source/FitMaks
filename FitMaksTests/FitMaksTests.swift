@@ -101,8 +101,27 @@ struct FitMaksTests {
 
         #expect(padelTargets.calories == 2_500)
         #expect(padelTargets.protein == 195)
+        #expect(padelTargets.stepBonus == 0)
         #expect(gymTargets.calories == 2_300)
         #expect(gymTargets.protein == 205)
+        #expect(gymTargets.stepBonus == 5_000)
+    }
+
+    @Test func gymStepCreditCanCloseMovementGoal() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 2_000,
+            consumedProtein: 205,
+            hasFood: true,
+            mode: .gym,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 4_700
+        )
+
+        #expect(progress.stepBonus == 5_000)
+        #expect(progress.effectiveSteps == 9_700)
+        #expect(progress.stepWin)
     }
 
     @Test func currentStreakSkipsIncompleteToday() async throws {

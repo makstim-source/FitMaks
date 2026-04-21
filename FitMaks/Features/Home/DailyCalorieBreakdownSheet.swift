@@ -12,6 +12,9 @@ struct DailyCalorieBreakdownSheet: View {
     var proteinBonus: Double
     var targetProtein: Double
     var consumedProtein: Double
+    var actualSteps: Double
+    var stepBonus: Double
+    var targetSteps: Double
 
     @Environment(\.dismiss) private var dismiss
 
@@ -57,6 +60,8 @@ struct DailyCalorieBreakdownSheet: View {
                             accentColor: .neonCyan,
                             isMinimumGoal: true
                         )
+
+                        stepsGoalCard
 
                         if entries.isEmpty {
                             emptyFoodState
@@ -116,6 +121,52 @@ struct DailyCalorieBreakdownSheet: View {
                 goalRow("Today target", value: target, unit: unit, color: accentColor)
                 goalRow("Logged", value: consumed, unit: unit, color: statusColor)
                 goalRow(statusRowTitle(remaining: remaining, isMinimumGoal: isMinimumGoal), value: abs(remaining), unit: unit, color: statusColor)
+            }
+        }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.gray.opacity(0.15)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(statusColor.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    var stepsGoalCard: some View {
+        let effectiveSteps = actualSteps + stepBonus
+        let minimumSteps = AppRules.completionMinimum(for: targetSteps)
+        let missingSteps = max(minimumSteps - effectiveSteps, 0)
+        let isClosed = missingSteps <= 0
+        let statusColor = isClosed ? Color.yellow : Color.fitOrange
+        let statusText = isClosed ? "steps closed" : "\(Int(missingSteps)) steps short"
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("STEPS")
+                    .font(.caption.bold())
+                    .foregroundColor(statusColor)
+
+                Spacer()
+
+                Text(statusText)
+                    .font(.caption.bold())
+                    .foregroundColor(statusColor)
+            }
+
+            VStack(spacing: 10) {
+                goalRow("Health steps", value: actualSteps, unit: "steps", color: .appText)
+                goalRow("\(dayMode.rawValue) credit", value: stepBonus, unit: "steps", color: stepBonus > 0 ? .fitOrange : .appMuted, prefix: stepBonus > 0 ? "+" : "")
+                Divider().background(Color.appBorder)
+                goalRow("Counted steps", value: effectiveSteps, unit: "steps", color: statusColor)
+                goalRow("Daily target", value: targetSteps, unit: "steps", color: .yellow)
+                goalRow("3% grace minimum", value: minimumSteps, unit: "steps", color: .appMuted)
+                goalRow("Still needed", value: missingSteps, unit: "steps", color: missingSteps > 0 ? .fitOrange : .yellow)
+            }
+
+            if stepBonus > 0 {
+                Text("Gym adds a 5k step credit, so a strength day can still close the 10k movement goal without pretending you walked more.")
+                    .font(.caption)
+                    .foregroundColor(.appMuted)
+                    .lineSpacing(3)
             }
         }
         .padding()

@@ -26,6 +26,7 @@ struct DayTargets: Equatable {
     let baseProtein: Double
     let calorieBonus: Double
     let proteinBonus: Double
+    let stepBonus: Double
     let steps: Double
 
     var calories: Double { baseCalories + calorieBonus }
@@ -40,10 +41,12 @@ struct DayProgress: Equatable, Identifiable {
     let protein: Double
     let proteinTarget: Double
     let steps: Double
+    let stepBonus: Double
     let stepTarget: Double
     let hasFood: Bool
 
     var id: Date { date }
+    var effectiveSteps: Double { steps + stepBonus }
 
     var calorieGraceLimit: Double {
         AppRules.caloriePerfectLimit(for: target)
@@ -66,7 +69,7 @@ struct DayProgress: Equatable, Identifiable {
     }
 
     var stepWin: Bool {
-        steps >= stepMinimum
+        effectiveSteps >= stepMinimum
     }
 
     var isPerfect: Bool {
@@ -84,6 +87,7 @@ struct DayProgress: Equatable, Identifiable {
 
 enum DayProgressEngine {
     static let defaultStepTarget: Double = 10_000
+    static let gymStepBonus: Double = 5_000
 
     static func targets(
         baseCalories: Double,
@@ -98,6 +102,7 @@ enum DayProgressEngine {
             baseProtein: baseProtein,
             calorieBonus: bonuses.calories,
             proteinBonus: bonuses.protein,
+            stepBonus: bonuses.steps,
             steps: stepTarget
         )
     }
@@ -153,6 +158,7 @@ enum DayProgressEngine {
             protein: consumedProtein,
             proteinTarget: targets.protein,
             steps: steps,
+            stepBonus: targets.stepBonus,
             stepTarget: targets.steps,
             hasFood: hasFood
         )
@@ -205,14 +211,14 @@ enum DayProgressEngine {
         return best
     }
 
-    private static func bonuses(for mode: DayMode) -> (calories: Double, protein: Double) {
+    private static func bonuses(for mode: DayMode) -> (calories: Double, protein: Double, steps: Double) {
         switch mode {
         case .chill:
-            return (0, 0)
+            return (0, 0, 0)
         case .padel:
-            return (500, 15)
+            return (500, 15, 0)
         case .gym:
-            return (300, 25)
+            return (300, 25, gymStepBonus)
         }
     }
 }

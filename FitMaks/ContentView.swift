@@ -145,7 +145,10 @@ struct ContentView: View {
                 baseProtein: baseProteinGoal,
                 proteinBonus: proteinGoalBonus,
                 targetProtein: targetProtein,
-                consumedProtein: dailyProtein
+                consumedProtein: dailyProtein,
+                actualSteps: dailySteps,
+                stepBonus: dailyProgress.stepBonus,
+                targetSteps: targetSteps
             )
             .presentationDetents([.medium, .large])
         }
@@ -244,12 +247,15 @@ struct ContentView: View {
 
                 HomeMetricTile(
                     title: "Steps",
-                    value: "\(Int(dailySteps))",
-                    subtitle: "of 10k",
+                    value: "\(Int(dailyProgress.effectiveSteps))",
+                    subtitle: dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k",
                     progress: dailySteps / max(targetSteps, 1),
-                    color: getStepsColor(steps: dailySteps, target: targetSteps),
+                    bonusProgress: dailyProgress.stepBonus / max(targetSteps, 1),
+                    bonusColor: .fitOrange,
+                    color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                     systemName: "shoeprints.fill"
                 )
+                .onTapGesture { isShowingGoalBreakdown = true }
             }
 
             modeSelector

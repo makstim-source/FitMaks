@@ -617,9 +617,9 @@ private struct StatsDayBadgeRow: View {
                 )
                 StatsDayMetricPill(
                     title: "steps",
-                    value: "\(StatsFormatters.compactWholeSteps(stat.steps))/10k",
+                    value: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
                     isOn: stat.stepWin,
-                    color: .yellow
+                    color: stat.stepBonus > 0 ? .fitOrange : .yellow
                 )
             }
             .transaction { transaction in

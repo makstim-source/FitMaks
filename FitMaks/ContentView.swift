@@ -448,17 +448,163 @@ struct ContentView: View {
         }
     }
 
-    func processQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { let (result, error) = await analyzeTextAsync(text: text); return (item.id, result, error) } else { let (result, error) = await analyzeImagesAsync(images: item.images); return (item.id, result, error) } } }; for await (id, result, error) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let originalImage = item.images.first ?? UIImage(); let entryDate = item.targetDate ?? selectedDate; withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result {
-        let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage
-        let entry = FoodEntry(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown, date: entryDate); withAnimation(.spring()) { modelContext.insert(entry) }
-    } else { aiErrorMessage = error ?? "Food analysis failed. Please try again." } } } } } } }
-    
-    func processTrainingQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, TrainingResult?, String?).self) { group in for item in items { group.addTask { let (result, error) = await analyzeTrainingImagesAsync(images: item.images); return (item.id, result, error) } }; for await (id, result, error) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let processedImage = item.images.first ?? UIImage(); let entryDate = item.targetDate ?? selectedDate; withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result { let entry = TrainingEntry(image: processedImage, name: res.activity_name, caloriesBurned: res.calories_burned, duration: res.duration, date: entryDate); withAnimation(.spring()) { modelContext.insert(entry) } } else { aiErrorMessage = error ?? "Workout analysis failed. Please try again." } } } } } } }
-    func processFridgeQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { let (result, error) = await analyzeTextAsync(text: text); return (item.id, result, error) } else { let (result, error) = await analyzeImagesAsync(images: item.images); return (item.id, result, error) } } }; for await (id, result, error) in group { await MainActor.run { if let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) { let item = fridgeProcessingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = fridgeProcessingItems.remove(at: index) }; if let res = result { let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: res.emoji ?? "🍽️") : originalImage; if item.targetTab == 1 { modelContext.insert(SavedRecipe(image: finalImage, name: res.food_name, instructions: "", calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } else { modelContext.insert(FavoriteFood(image: finalImage, name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } } else { aiErrorMessage = error ?? "My Food analysis failed. Please try again." } } } } } } }
-    
-    func analyzeImagesAsync(images: [UIImage]) async -> (FoodResult?, String?) { await withCheckedContinuation { continuation in GeminiService.shared.analyzeImages(images: images) { result, error in continuation.resume(returning: (result, error)) } } }
-    func analyzeTextAsync(text: String) async -> (FoodResult?, String?) { await withCheckedContinuation { continuation in GeminiService.shared.analyzeText(text: text) { result, error in continuation.resume(returning: (result, error)) } } }
-    func analyzeTrainingImagesAsync(images: [UIImage]) async -> (TrainingResult?, String?) { await withCheckedContinuation { continuation in GeminiService.shared.analyzeTrainingImages(images: images) { result, error in continuation.resume(returning: (result, error)) } } }
+    func processQueue(items: [ProcessingItem]) {
+        Task {
+            await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in
+                for item in items {
+                    group.addTask {
+                        if let text = item.textPrompt {
+                            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
+                            return (item.id, result, error)
+                        }
+
+                        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images)
+                        return (item.id, result, error)
+                    }
+                }
+
+                for await (id, result, error) in group {
+                    await MainActor.run {
+                        guard let index = processingItems.firstIndex(where: { $0.id == id }) else {
+                            return
+                        }
+
+                        let item = processingItems[index]
+                        let originalImage = item.images.first ?? UIImage()
+                        let entryDate = item.targetDate ?? selectedDate
+
+                        withAnimation(.easeInOut) {
+                            _ = processingItems.remove(at: index)
+                        }
+
+                        guard let result else {
+                            aiErrorMessage = error ?? "Food analysis failed. Please try again."
+                            return
+                        }
+
+                        let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: result.emoji ?? "🍽️") : originalImage
+                        let entry = FoodEntry(
+                            image: finalImage,
+                            name: result.food_name,
+                            calories: result.calories,
+                            protein: result.protein,
+                            ingredients: result.ingredients_breakdown,
+                            date: entryDate
+                        )
+
+                        withAnimation(.spring()) {
+                            modelContext.insert(entry)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func processTrainingQueue(items: [ProcessingItem]) {
+        Task {
+            await withTaskGroup(of: (UUID, TrainingResult?, String?).self) { group in
+                for item in items {
+                    group.addTask {
+                        let (result, error) = await GeminiService.shared.analyzeTrainingImagesAsync(images: item.images)
+                        return (item.id, result, error)
+                    }
+                }
+
+                for await (id, result, error) in group {
+                    await MainActor.run {
+                        guard let index = processingItems.firstIndex(where: { $0.id == id }) else {
+                            return
+                        }
+
+                        let item = processingItems[index]
+                        let processedImage = item.images.first ?? UIImage()
+                        let entryDate = item.targetDate ?? selectedDate
+
+                        withAnimation(.easeInOut) {
+                            _ = processingItems.remove(at: index)
+                        }
+
+                        guard let result else {
+                            aiErrorMessage = error ?? "Workout analysis failed. Please try again."
+                            return
+                        }
+
+                        let entry = TrainingEntry(
+                            image: processedImage,
+                            name: result.activity_name,
+                            caloriesBurned: result.calories_burned,
+                            duration: result.duration,
+                            date: entryDate
+                        )
+
+                        withAnimation(.spring()) {
+                            modelContext.insert(entry)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func processFridgeQueue(items: [ProcessingItem]) {
+        Task {
+            await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in
+                for item in items {
+                    group.addTask {
+                        if let text = item.textPrompt {
+                            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
+                            return (item.id, result, error)
+                        }
+
+                        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images)
+                        return (item.id, result, error)
+                    }
+                }
+
+                for await (id, result, error) in group {
+                    await MainActor.run {
+                        guard let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) else {
+                            return
+                        }
+
+                        let item = fridgeProcessingItems[index]
+                        let originalImage = item.images.first ?? UIImage()
+
+                        withAnimation(.easeInOut) {
+                            _ = fridgeProcessingItems.remove(at: index)
+                        }
+
+                        guard let result else {
+                            aiErrorMessage = error ?? "My Food analysis failed. Please try again."
+                            return
+                        }
+
+                        let finalImage = item.textPrompt != nil ? generateEmojiIcon(emoji: result.emoji ?? "🍽️") : originalImage
+
+                        if item.targetTab == 1 {
+                            modelContext.insert(SavedRecipe(
+                                image: finalImage,
+                                name: result.food_name,
+                                instructions: "",
+                                calories: result.calories,
+                                protein: result.protein,
+                                ingredients: result.ingredients_breakdown
+                            ))
+                        } else {
+                            modelContext.insert(FavoriteFood(
+                                image: finalImage,
+                                name: result.food_name,
+                                calories: result.calories,
+                                protein: result.protein,
+                                ingredients: result.ingredients_breakdown
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
     func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }

@@ -463,6 +463,32 @@ class GeminiService {
     }
 }
 
+extension GeminiService {
+    func analyzeImagesAsync(images: [UIImage]) async -> (FoodResult?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeImages(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func analyzeTextAsync(text: String) async -> (FoodResult?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeText(text: text) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func analyzeTrainingImagesAsync(images: [UIImage]) async -> (TrainingResult?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeTrainingImages(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+}
+
 extension UIImage {
     func resized(toMaxDimension maxDimension: CGFloat) -> UIImage {
         let aspectRatio = size.width / size.height

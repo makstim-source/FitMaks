@@ -21,14 +21,14 @@ struct ProfileView: View {
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job, little walking", multiplier: 1.2),
-        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks, 1-2 workouts/week", multiplier: 1.375),
-        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4 workouts/week", multiplier: 1.55),
-        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training or physical job", multiplier: 1.725)
+        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job, little walking"),
+        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks, 1-2 workouts/week"),
+        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4 workouts/week"),
+        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training or physical job")
     ]
 
     private var bmr: Double {
-        (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0)
+        NutritionCalculator.bmr(gender: gender, age: age, weight: weight, height: height)
     }
 
     private var selectedActivity: ActivityOption {
@@ -36,18 +36,17 @@ struct ProfileView: View {
     }
 
     private var maintenanceCalories: Double {
-        bmr * selectedActivity.multiplier
+        NutritionCalculator.maintenanceCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityLevel
+        )
     }
 
     private var goalAdjustment: Double {
-        switch goal {
-        case "Lose Weight":
-            return -500
-        case "Build Muscle":
-            return 500
-        default:
-            return 0
-        }
+        NutritionCalculator.calorieAdjustment(for: goal)
     }
 
     private var recommendedCalories: Double {
@@ -602,7 +601,10 @@ private struct ActivityOption: Identifiable {
     let key: String
     let title: String
     let subtitle: String
-    let multiplier: Double
+
+    var multiplier: Double {
+        NutritionCalculator.activityMultiplier(for: key)
+    }
 }
 
 private struct MetricStepperCard: View {

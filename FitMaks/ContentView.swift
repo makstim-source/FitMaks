@@ -37,7 +37,16 @@ struct ContentView: View {
     var calculatedProtein: Double {
         NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
     }
-    var calculatedCalories: Double { let bmr = (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0); let multipliers: [String: Double] = ["Sedentary": 1.2, "Light": 1.375, "Moderate": 1.55, "Active": 1.725]; let tdee = bmr * (multipliers[activityLevel] ?? 1.2); if goal == "Lose Weight" { return tdee - 500 }; if goal == "Build Muscle" { return tdee + 500 }; return tdee }
+    var calculatedCalories: Double {
+        NutritionCalculator.recommendedCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityLevel,
+            goal: goal
+        )
+    }
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
     var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
     var dailyTargets: DayTargets {

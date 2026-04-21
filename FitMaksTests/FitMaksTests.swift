@@ -17,6 +17,36 @@ struct FitMaksTests {
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Build Muscle") == 176)
     }
 
+    @Test func calorieRecommendationUsesSharedFormula() async throws {
+        let bmr = NutritionCalculator.bmr(gender: "Male", age: 30, weight: 80, height: 180)
+        let maintenance = NutritionCalculator.maintenanceCalories(
+            gender: "Male",
+            age: 30,
+            weight: 80,
+            height: 180,
+            activityLevel: "Moderate"
+        )
+
+        #expect(abs(bmr - 1_780) < 0.001)
+        #expect(abs(maintenance - 2_759) < 0.001)
+        #expect(abs(NutritionCalculator.recommendedCalories(
+            gender: "Male",
+            age: 30,
+            weight: 80,
+            height: 180,
+            activityLevel: "Moderate",
+            goal: "Lose Weight"
+        ) - 2_259) < 0.001)
+        #expect(abs(NutritionCalculator.recommendedCalories(
+            gender: "Male",
+            age: 30,
+            weight: 80,
+            height: 180,
+            activityLevel: "Moderate",
+            goal: "Build Muscle"
+        ) - 3_259) < 0.001)
+    }
+
     @Test func perfectDayAcceptsThreePercentGrace() async throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21)))

@@ -163,35 +163,12 @@ struct ContentView: View {
     func generateEmojiIcon(emoji: String) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); let safeEmoji = emoji.isEmpty ? "🍽️" : emoji; let nsString = safeEmoji as NSString; let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 75)]; let stringSize = nsString.size(withAttributes: attributes); nsString.draw(at: CGPoint(x: (size.width - stringSize.width) / 2, y: (size.height - stringSize.height) / 2), withAttributes: attributes) } }
 
     private var homeBackground: some View {
-        LinearGradient(
-            colors: [
-                Color.appBackgroundStart,
-                Color.appBackgroundMid,
-                Color.appBackgroundEnd
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-        .overlay(alignment: .topTrailing) {
-            Circle()
-                .fill(Color.neonCyan.opacity(0.12))
-                .frame(width: 220, height: 220)
-                .blur(radius: 45)
-                .offset(x: 80, y: -95)
-        }
-        .overlay(alignment: .bottomLeading) {
-            Circle()
-                .fill(Color.neonGreen.opacity(0.10))
-                .frame(width: 260, height: 260)
-                .blur(radius: 55)
-                .offset(x: -120, y: 80)
-        }
+        HomeBackground()
     }
 
     private var homeHeader: some View {
         HStack(spacing: 10) {
-            homeIconButton(systemName: "chart.bar.xaxis", color: .neonGreen) {
+            HomeIconButton(systemName: "chart.bar.xaxis", color: .neonGreen) {
                 isShowingStats = true
             }
 
@@ -233,7 +210,7 @@ struct ContentView: View {
 
             Spacer()
 
-            homeIconButton(systemName: "sparkles", color: .neonCyan) {
+            HomeIconButton(systemName: "sparkles", color: .neonCyan) {
                 isShowingAIAssistant = true
             }
         }
@@ -245,7 +222,7 @@ struct ContentView: View {
             HStack(spacing: 6) {
                 let caloriesAboveTarget = dailyCaloriesConsumed > maxCalories
                 let caloriesOutsideGrace = dailyCaloriesConsumed > dailyProgress.calorieGraceLimit
-                metricTile(
+                HomeMetricTile(
                     title: "Calories",
                     value: caloriesAboveTarget ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
                     subtitle: caloriesAboveTarget ? (caloriesOutsideGrace ? "over" : "grace") : "left",
@@ -255,7 +232,7 @@ struct ContentView: View {
                 )
                 .onTapGesture { isShowingGoalBreakdown = true }
 
-                metricTile(
+                HomeMetricTile(
                     title: "Protein",
                     value: "\(Int(dailyProtein))g",
                     subtitle: "of \(Int(targetProtein))g",
@@ -265,7 +242,7 @@ struct ContentView: View {
                 )
                 .onTapGesture { isShowingGoalBreakdown = true }
 
-                metricTile(
+                HomeMetricTile(
                     title: "Steps",
                     value: "\(Int(dailySteps))",
                     subtitle: "of 10k",
@@ -278,8 +255,8 @@ struct ContentView: View {
             modeSelector
         }
         .padding(12)
-        .background(statsPanelBackground)
-        .overlay(statsPanelCelebrationOverlay)
+        .background(HomeStatsPanelBackground(isPerfectPastDay: isPerfectPastDay))
+        .overlay(HomeStatsPanelCelebrationOverlay(isPerfectPastDay: isPerfectPastDay))
         .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.36) : Color.black.opacity(0.14), radius: isPerfectPastDay ? 18 : 10, x: 0, y: 8)
         .padding(.horizontal, 15)
     }
@@ -335,7 +312,7 @@ struct ContentView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 10) {
-                    ForEach(processingItems) { item in loadingRow(item: item) }
+                    ForEach(processingItems) { item in HomeProcessingRow(item: item) }
 
                     if dailyFeed.isEmpty && processingItems.isEmpty {
                         emptyDiaryCard
@@ -343,11 +320,11 @@ struct ContentView: View {
                         ForEach(dailyFeed.reversed()) { item in
                             switch item {
                             case .food(let entry):
-                                foodRow(entry: entry)
+                                HomeFoodRow(entry: entry)
                                     .onTapGesture { withAnimation(.spring()) { selectedEntryForEdit = entry } }
                                     .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
                             case .training(let entry):
-                                trainingRow(entry: entry)
+                                HomeTrainingRow(entry: entry)
                                     .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
                             }
                         }
@@ -414,7 +391,7 @@ struct ContentView: View {
 
     private var bottomDock: some View {
         HStack {
-            dockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
+            HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
                 isSelectionModeForFridge = false
                 initialMyFoodTab = 0
                 isShowingMyFood = true
@@ -439,7 +416,7 @@ struct ContentView: View {
 
             Spacer()
 
-            dockButton(title: "Profile", systemName: "person.crop.circle.fill", color: .fitPurple) {
+            HomeDockButton(title: "Profile", systemName: "person.crop.circle.fill", color: .fitPurple) {
                 isShowingProfile = true
             }
         }
@@ -454,94 +431,6 @@ struct ContentView: View {
         )
     }
 
-    private var dayStatusTitle: String {
-        if isPerfectPastDay {
-            return "Collected clean."
-        }
-
-        if dailyFeed.isEmpty {
-            return "Ready when you are."
-        }
-
-        if dailyCaloriesConsumed > maxCalories {
-            return "Watch the finish."
-        }
-
-        if dailyProgress.proteinWin {
-            return "Protein locked."
-        }
-
-        return "Build the win."
-    }
-
-    private func homeIconButton(systemName: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 16, weight: .black))
-                .foregroundColor(color)
-                .frame(width: 42, height: 42)
-                .background(
-                    Circle()
-                        .fill(Color.appSurface)
-                        .overlay(Circle().stroke(color.opacity(0.16), lineWidth: 1))
-                )
-                .shadow(color: color.opacity(0.18), radius: 10)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func metricTile(title: String, value: String, subtitle: String, progress: Double, color: Color, systemName: String) -> some View {
-        VStack(spacing: 6) {
-            Text(title.uppercased())
-                .font(.system(size: 8, weight: .heavy))
-                .foregroundColor(.appMuted)
-                .tracking(0.7)
-                .lineLimit(1)
-
-            ZStack {
-                Circle()
-                    .stroke(Color.black.opacity(0.34), lineWidth: 7)
-
-                Circle()
-                    .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
-                    .stroke(
-                        color,
-                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.55), radius: progress >= 1 ? 13 : 6)
-
-                VStack(spacing: 0) {
-                    Image(systemName: systemName)
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundColor(color)
-                        .padding(.bottom, 1)
-
-                    Text(value)
-                        .font(.system(size: 15, weight: .black))
-                        .foregroundColor(.appText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.55)
-
-                    Text(subtitle)
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.appMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .padding(.horizontal, 5)
-            }
-            .frame(width: 74, height: 74)
-        }
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.09), lineWidth: 1))
-        )
-    }
-
     private func modeLabel(_ mode: DayMode) -> String {
         switch mode {
         case .chill:
@@ -551,154 +440,6 @@ struct ContentView: View {
         case .gym:
             return "Gym"
         }
-    }
-
-    private func dockButton(title: String, systemName: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: systemName)
-                    .font(.system(size: 20, weight: .black))
-                    .foregroundColor(color)
-                    .frame(width: 50, height: 50)
-                    .background(Circle().fill(Color.appSurface))
-                    .overlay(Circle().stroke(color.opacity(0.18), lineWidth: 1))
-
-                Text(title)
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.appMuted)
-            }
-            .frame(width: 76)
-        }
-        .buttonStyle(.plain)
-    }
-
-    func foodRow(entry: FoodEntry) -> some View {
-        HStack(spacing: 13) {
-            if let image = entry.uiImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.neonGreen.opacity(0.12))
-                    Image(systemName: "fork.knife")
-                        .foregroundColor(.neonGreen)
-                }
-                .frame(width: 56, height: 56)
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text(entry.name)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-                    .lineLimit(2)
-
-                HStack(spacing: 8) {
-                    Label("\(Int(entry.calories)) kcal", systemImage: "flame.fill")
-                        .foregroundColor(.neonGreen)
-                    Label("\(Int(entry.protein))g", systemImage: "drop.fill")
-                        .foregroundColor(.neonCyan)
-                }
-                .font(.caption.bold())
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundColor(.appMuted)
-        }
-        .padding(13)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-        )
-    }
-    
-    func trainingRow(entry: TrainingEntry) -> some View {
-        HStack(spacing: 13) {
-            if let image = entry.uiImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.25), lineWidth: 1))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.blue.opacity(0.14))
-                    Image(systemName: "figure.run")
-                        .foregroundColor(.blue)
-                }
-                .frame(width: 56, height: 56)
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text(entry.name)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-                    .lineLimit(2)
-
-                Label("\(Int(entry.caloriesBurned)) kcal burned · \(entry.duration)", systemImage: "flame.fill")
-                    .font(.caption.bold())
-                    .foregroundColor(.blue)
-            }
-
-            Spacer()
-        }
-        .padding(13)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(Color.blue.opacity(0.09))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.blue.opacity(0.20), lineWidth: 1))
-        )
-    }
-
-    func loadingRow(item: ProcessingItem) -> some View {
-        let color: Color = item.isTraining ? .blue : .neonGreen
-
-        return HStack(spacing: 13) {
-            if let firstImage = item.images.first {
-                Image(uiImage: firstImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 15))
-                    .overlay(Color.black.opacity(0.18).clipShape(RoundedRectangle(cornerRadius: 15)))
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...")
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-
-                HStack(spacing: 4) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        Capsule()
-                            .fill(color.opacity(0.55))
-                            .frame(width: 32, height: 5)
-                    }
-                }
-            }
-
-            Spacer()
-            ProgressView().tint(color)
-        }
-        .padding(13)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(color.opacity(0.10))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.24), lineWidth: 1))
-        )
     }
 
     func processQueue(items: [ProcessingItem]) { Task { await withTaskGroup(of: (UUID, FoodResult?, String?).self) { group in for item in items { group.addTask { if let text = item.textPrompt { let (result, error) = await analyzeTextAsync(text: text); return (item.id, result, error) } else { let (result, error) = await analyzeImagesAsync(images: item.images); return (item.id, result, error) } } }; for await (id, result, error) in group { await MainActor.run { if let index = processingItems.firstIndex(where: { $0.id == id }) { let item = processingItems[index]; let originalImage = item.images.first ?? UIImage(); withAnimation(.easeInOut) { _ = processingItems.remove(at: index) }; if let res = result {
@@ -713,58 +454,6 @@ struct ContentView: View {
     func analyzeTextAsync(text: String) async -> (FoodResult?, String?) { await withCheckedContinuation { continuation in GeminiService.shared.analyzeText(text: text) { result, error in continuation.resume(returning: (result, error)) } } }
     func analyzeTrainingImagesAsync(images: [UIImage]) async -> (TrainingResult?, String?) { await withCheckedContinuation { continuation in GeminiService.shared.analyzeTrainingImages(images: images) { result, error in continuation.resume(returning: (result, error)) } } }
 
-    @ViewBuilder
-    var statsPanelBackground: some View {
-        if isPerfectPastDay {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.neonGreen.opacity(0.24),
-                            Color.neonCyan.opacity(0.18),
-                            Color.appElevated
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        } else {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.appSurface)
-        }
-    }
-
-    @ViewBuilder
-    var statsPanelCelebrationOverlay: some View {
-        ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
-                    isPerfectPastDay
-                    ? LinearGradient(colors: [.neonGreen, .neonCyan, .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(colors: [Color.clear], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: isPerfectPastDay ? 2 : 0
-                )
-
-            if isPerfectPastDay {
-                HStack(spacing: 5) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .bold))
-
-                    Text("PERFECT DAY")
-                        .font(.system(size: 10, weight: .heavy))
-                        .tracking(0.8)
-                }
-                .foregroundColor(.appAccentText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.neonGreen))
-                .shadow(color: .neonGreen.opacity(0.8), radius: 8, x: 0, y: 0)
-                .offset(x: -12, y: -10)
-            }
-        }
-    }
-    
-    func statCircle(title: String, displayValue: Double, fillValue: Double, total: Double, color: Color, label: String) -> some View { VStack(spacing: 12) { Text(title).font(.caption2).bold().foregroundColor(.appMuted); ZStack { Circle().stroke(lineWidth: 7).foregroundColor(Color.appText.opacity(0.18)); let isCompleted = fillValue >= total; let glowRadius: CGFloat = isCompleted ? 15 : 4; let glowOpacity: Double = isCompleted ? 0.9 : 0.4; Circle().trim(from: 0, to: CGFloat(min(fillValue/total, 1.0))).stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round)).foregroundColor(color).rotationEffect(.degrees(-90)).shadow(color: color.opacity(glowOpacity), radius: glowRadius, x: 0, y: 0); VStack(spacing: 0) { Text("\(Int(displayValue))").font(.headline).bold().foregroundColor(.appText); Text(label).font(.system(size: 10, weight: .medium)).foregroundColor(.appMuted) } }.frame(width: 75, height: 75) }.frame(maxWidth: .infinity) }
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
     func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }
     func formatDate(_ date: Date) -> String {

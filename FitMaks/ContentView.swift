@@ -35,18 +35,7 @@ struct ContentView: View {
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
     
     var calculatedProtein: Double {
-        let gramsPerKg: Double
-
-        switch goal {
-        case "Build Muscle":
-            gramsPerKg = 2.2
-        case "Lose Weight":
-            gramsPerKg = 2.0
-        default:
-            gramsPerKg = 1.8
-        }
-
-        return weight * gramsPerKg
+        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
     }
     var calculatedCalories: Double { let bmr = (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0); let multipliers: [String: Double] = ["Sedentary": 1.2, "Light": 1.375, "Moderate": 1.55, "Active": 1.725]; let tdee = bmr * (multipliers[activityLevel] ?? 1.2); if goal == "Lose Weight" { return tdee - 500 }; if goal == "Build Muscle" { return tdee + 500 }; return tdee }
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }

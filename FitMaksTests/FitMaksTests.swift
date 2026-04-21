@@ -11,6 +11,12 @@ import Testing
 
 struct FitMaksTests {
 
+    @Test func proteinRecommendationUsesSustainableGoalMultipliers() async throws {
+        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Maintain") == 144)
+        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Lose Weight") == 160)
+        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Build Muscle") == 160)
+    }
+
     @Test func perfectDayAcceptsThreePercentGrace() async throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21)))

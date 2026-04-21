@@ -438,18 +438,7 @@ struct ProfileView: View {
     }
 
     private var proteinDetail: String {
-        let gramsPerKg: Double
-
-        switch goal {
-        case "Build Muscle":
-            gramsPerKg = 2.2
-        case "Lose Weight":
-            gramsPerKg = 2.0
-        default:
-            gramsPerKg = 1.8
-        }
-
-        return "\(String(format: "%.1f", gramsPerKg))g/kg based on body weight"
+        NutritionCalculator.proteinDetail(for: goal)
     }
 
     private var cardBackground: some View {

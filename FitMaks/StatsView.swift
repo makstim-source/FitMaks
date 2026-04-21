@@ -599,10 +599,13 @@ struct StatsView: View {
                 )
                 dayMetricPill(
                     title: "steps",
-                    value: "\(compactSteps(stat.steps))/10k",
+                    value: "\(compactWholeSteps(stat.steps))/10k",
                     isOn: stepWin(stat),
                     color: .yellow
                 )
+            }
+            .transaction { transaction in
+                transaction.animation = nil
             }
         }
         .padding(12)
@@ -629,6 +632,11 @@ struct StatsView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
+                .contentTransition(.identity)
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
+                .animation(nil, value: value)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
@@ -817,5 +825,10 @@ struct StatsView: View {
         }
 
         return String(format: "%.1fk", thousands)
+    }
+
+    private func compactWholeSteps(_ value: Double) -> String {
+        guard value >= 1000 else { return "\(Int(value.rounded()))" }
+        return "\(Int((value / 1000).rounded()))k"
     }
 }

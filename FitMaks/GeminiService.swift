@@ -35,6 +35,10 @@ struct GroceryListResult: Codable {
     let items: [FoodResult]
 }
 
+struct FoodItemsResult: Codable {
+    let items: [FoodResult]
+}
+
 struct DailySummaryResult: Codable {
     let ai_summary: String
 }
@@ -56,6 +60,7 @@ class GeminiService {
     private let baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     private let foodCacheQueue = DispatchQueue(label: "FitMaks.foodEstimateCache")
     private var foodImageEstimateCache: [String: FoodResult] = [:]
+    private var foodImageItemsCache: [String: [FoodResult]] = [:]
     private var foodTextEstimateCache: [String: FoodResult] = [:]
     
     func analyzeImages(images: [UIImage], completion: @escaping (FoodResult?, String?) -> Void) {
@@ -124,6 +129,55 @@ class GeminiService {
             completion(stabilized, error)
         }
     }
+
+    func analyzeFoodItems(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
+        let cacheKey = foodImageCacheKey(images: images)
+
+        if let cacheKey, let cached = cachedFoodImageItems(for: cacheKey) {
+            completion(cached, nil)
+            return
+        }
+
+        let prompt = """
+        Analyze uploaded food photos as a deterministic nutrition estimator.
+
+        The upload may contain:
+        - One dish/product photographed from multiple angles.
+        - Several different dishes/products.
+        - A product photo plus a nutrition label photo for the same product.
+
+        GROUPING RULES:
+        - Return one JSON item per distinct edible dish/product.
+        - If two or more photos show the same physical item, merge them into ONE item.
+        - If one photo is a nutrition label for another visible product, use the label data for that same item.
+        - Do NOT split a single dish into separate top-level items. Put its ingredients in ingredients_breakdown.
+        - If there are clearly multiple separate dishes/products, return multiple items.
+
+        ESTIMATION RULES:
+        - Estimate the visible edible portion only unless the image clearly shows packaged nutrition for a known serving.
+        - Break each dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
+        - Estimate every ingredient weight in grams using the visible plate size.
+        - Use normal cooked-food nutrition values.
+        - If uncertain, choose the most likely midpoint, not an extreme.
+        - The top-level calories and protein for each item MUST equal the sum of its ingredient rows.
+        - If the same images are analyzed again, return the same items, ingredient weights, and totals.
+
+        Return ONLY a single JSON object.
+        CRITICAL RULE: You MUST use exactly this structure:
+        {"items":[{"food_name":"Dish Name","emoji":"🍽️","calories":0,"protein":0,"ingredients_breakdown":"Item1;100g;100;10\\nItem2;50g;50;5","ai_response_text":""}]}
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
+        """
+
+        sendToGemini(images: images, prompt: prompt, responseType: FoodItemsResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+            let stabilized = result?.items.map { self?.stabilizedFoodResult($0) ?? $0 }
+
+            if let cacheKey, let stabilized {
+                self?.cacheFoodImageItems(stabilized, for: cacheKey)
+            }
+
+            completion(stabilized, error)
+        }
+    }
     
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
         let prompt = """
@@ -170,6 +224,17 @@ class GeminiService {
         {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;100g;0;0", "ai_response_text": ""}]}
         """
         sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self, temperature: 0.1, topP: 0.3, topK: 1) { result, err in completion(result?.items, err) }
+    }
+
+    func invalidateFoodImageCache(for image: UIImage?) {
+        guard let image, let key = foodImageCacheKey(images: [image]) else {
+            return
+        }
+
+        foodCacheQueue.async {
+            self.foodImageEstimateCache.removeValue(forKey: key)
+            self.foodImageItemsCache.removeValue(forKey: key)
+        }
     }
     
     // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
@@ -410,23 +475,68 @@ class GeminiService {
     }
 
     private func foodImageCacheKey(images: [UIImage]) -> String? {
-        var combinedData = Data()
+        let fingerprints = images.compactMap { perceptualFingerprint(for: $0) }
 
-        for image in images {
-            guard let data = image.resized(toMaxDimension: 320).jpegData(compressionQuality: 0.65) else {
-                continue
-            }
-
-            combinedData.append(data)
-        }
-
-        guard !combinedData.isEmpty else {
+        guard !fingerprints.isEmpty else {
             return nil
         }
 
-        return SHA256.hash(data: combinedData)
+        let combined = fingerprints.joined(separator: "|")
+
+        return SHA256.hash(data: Data(combined.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
+    }
+
+    private func perceptualFingerprint(for image: UIImage) -> String? {
+        let size = CGSize(width: 16, height: 16)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+
+        guard let cgImage = resized.cgImage else {
+            return nil
+        }
+
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        var pixels = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        var brightness: [Double] = []
+        brightness.reserveCapacity(width * height)
+
+        for pixel in stride(from: 0, to: pixels.count, by: bytesPerPixel) {
+            let red = Double(pixels[pixel])
+            let green = Double(pixels[pixel + 1])
+            let blue = Double(pixels[pixel + 2])
+            brightness.append((red * 0.299) + (green * 0.587) + (blue * 0.114))
+        }
+
+        guard !brightness.isEmpty else {
+            return nil
+        }
+
+        let average = brightness.reduce(0, +) / Double(brightness.count)
+        return brightness.map { $0 >= average ? "1" : "0" }.joined()
     }
 
     private func normalizedFoodTextCacheKey(_ text: String) -> String {
@@ -447,6 +557,18 @@ class GeminiService {
     private func cacheFoodImageEstimate(_ result: FoodResult, for key: String) {
         foodCacheQueue.async {
             self.foodImageEstimateCache[key] = result
+        }
+    }
+
+    private func cachedFoodImageItems(for key: String) -> [FoodResult]? {
+        foodCacheQueue.sync {
+            foodImageItemsCache[key]
+        }
+    }
+
+    private func cacheFoodImageItems(_ result: [FoodResult], for key: String) {
+        foodCacheQueue.async {
+            self.foodImageItemsCache[key] = result
         }
     }
 
@@ -472,6 +594,14 @@ extension GeminiService {
         }
     }
 
+    func analyzeFoodItemsAsync(images: [UIImage]) async -> ([FoodResult]?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeFoodItems(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
     func analyzeTextAsync(text: String) async -> (FoodResult?, String?) {
         await withCheckedContinuation { continuation in
             analyzeText(text: text) { result, error in
@@ -483,6 +613,14 @@ extension GeminiService {
     func analyzeTrainingImagesAsync(images: [UIImage]) async -> (TrainingResult?, String?) {
         await withCheckedContinuation { continuation in
             analyzeTrainingImages(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func scanGroceriesAsync(images: [UIImage]) async -> ([FoodResult]?, String?) {
+        await withCheckedContinuation { continuation in
+            scanGroceries(images: images) { result, error in
                 continuation.resume(returning: (result, error))
             }
         }

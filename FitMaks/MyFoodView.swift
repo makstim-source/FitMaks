@@ -14,6 +14,7 @@ struct MyFoodView: View {
     var selectedDate: Date
     @Binding var processingItems: [ProcessingItem]
     var onProcessQueue: ([ProcessingItem]) -> Void
+    var onScanReceiptQueue: ([ProcessingItem]) -> Void
     
     @State private var isShowingSourceDialog = false
     @State private var isShowingReceiptSourceDialog = false
@@ -99,7 +100,7 @@ struct MyFoodView: View {
             .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
             .onChange(of: selectedCameraImage) { _, newValue in
                 if let img = newValue {
-                    if isScanningReceipt { processReceipt(img) } else { let item = ProcessingItem(images: [img], targetTab: currentTab); processingItems.append(item); onProcessQueue([item]) }
+                    if isScanningReceipt { queueReceiptScan(images: [img]) } else { let item = ProcessingItem(images: [img], targetTab: currentTab); processingItems.append(item); onProcessQueue([item]) }
                     selectedCameraImage = nil; isScanningReceipt = false
                 }
             }
@@ -112,7 +113,7 @@ struct MyFoodView: View {
                     await MainActor.run {
                         selectedPhotoItems.removeAll()
                         if !loadedImages.isEmpty {
-                            if isScanningReceipt { processReceipt(loadedImages.first!) } else { let newItem = ProcessingItem(images: loadedImages, targetTab: currentTab); withAnimation { processingItems.append(newItem) }; onProcessQueue([newItem]) }
+                            if isScanningReceipt { queueReceiptScan(images: loadedImages) } else { let newItem = ProcessingItem(images: loadedImages, targetTab: currentTab); withAnimation { processingItems.append(newItem) }; onProcessQueue([newItem]) }
                         }
                     }
                 }
@@ -245,9 +246,9 @@ struct MyFoodView: View {
                                 Button { addFavoriteToDiary(fav); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
                                 Button { withAnimation(.spring()) { selectedFavoriteForEdit = fav } } label: { Label("Edit in Chat", systemImage: "pencil") }
                                 Button { moveFavToMeals(fav) } label: { Label("Move to Meals", systemImage: "fork.knife") }
-                                Button(role: .destructive) { modelContext.delete(fav) } label: { Label("Delete", systemImage: "trash") }
+                                Button(role: .destructive) { deleteFavorite(fav) } label: { Label("Delete", systemImage: "trash") }
                             }
-                            .swipeToDelete { withAnimation { modelContext.delete(fav) } }
+                            .swipeToDelete { withAnimation { deleteFavorite(fav) } }
                     }
                 }.padding()
             }.blur(radius: selectedFavoriteForEdit != nil ? 15 : 0)
@@ -286,9 +287,9 @@ struct MyFoodView: View {
                             Button { moveMealToFav(r) } label: { Label("Move to Fridge", systemImage: "snowflake") }
                             if !r.instructions.isEmpty { Button { selectedRecipeToShow = r.asResult } label: { Label("View Recipe", systemImage: "doc.text") } }
                             Button { withAnimation(.spring()) { selectedMealForEdit = r } } label: { Label("Edit in Chat", systemImage: "pencil") }
-                            Button(role: .destructive) { modelContext.delete(r) } label: { Label("Delete", systemImage: "trash") }
+                            Button(role: .destructive) { deleteMeal(r) } label: { Label("Delete", systemImage: "trash") }
                         }
-                        .swipeToDelete { withAnimation { modelContext.delete(r) } }
+                        .swipeToDelete { withAnimation { deleteMeal(r) } }
                     }
                 }.padding()
             }.blur(radius: selectedMealForEdit != nil ? 15 : 0)
@@ -534,7 +535,7 @@ struct MyFoodView: View {
             Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedFavoriteForEdit = nil } }
             FavoriteChatEditView(
                 favorite: fav,
-                onDelete: { modelContext.delete(fav); withAnimation { selectedFavoriteForEdit = nil } },
+                onDelete: { deleteFavorite(fav); withAnimation { selectedFavoriteForEdit = nil } },
                 onDone: { withAnimation { selectedFavoriteForEdit = nil } },
                 onMove: { moveFavToMeals(fav); withAnimation { selectedFavoriteForEdit = nil } }
             )
@@ -544,7 +545,7 @@ struct MyFoodView: View {
             Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedMealForEdit = nil } }
             MealChatEditView(
                 recipe: meal,
-                onDelete: { modelContext.delete(meal); withAnimation { selectedMealForEdit = nil } },
+                onDelete: { deleteMeal(meal); withAnimation { selectedMealForEdit = nil } },
                 onDone: { withAnimation { selectedMealForEdit = nil } },
                 onMove: { moveMealToFav(meal); withAnimation { selectedMealForEdit = nil } }
             )
@@ -740,35 +741,14 @@ struct MyFoodView: View {
         }
     }
 
-    func processReceipt(_ image: UIImage) {
-        let item = ProcessingItem(images: [image], targetTab: 0)
+    func queueReceiptScan(images: [UIImage]) {
+        let item = ProcessingItem(images: images, targetTab: 0)
 
         withAnimation {
             processingItems.append(item)
         }
 
-        GeminiService.shared.scanGroceries(images: [image]) { results, error in
-            DispatchQueue.main.async {
-                if let index = processingItems.firstIndex(where: { $0.id == item.id }) {
-                    processingItems.remove(at: index)
-                }
-
-                guard let items = results else {
-                    aiErrorMessage = error ?? "Receipt scan failed. Please try again."
-                    return
-                }
-
-                for result in items {
-                    modelContext.insert(FavoriteFood(
-                        image: UIImage(systemName: "cart"),
-                        name: result.food_name,
-                        calories: result.calories,
-                        protein: result.protein,
-                        ingredients: result.ingredients_breakdown
-                    ))
-                }
-            }
-        }
+        onScanReceiptQueue([item])
     }
 
     func cookSomething() {
@@ -786,5 +766,15 @@ struct MyFoodView: View {
             suggestedRecipes = result
             showRecipeSuggestions = true
         }
+    }
+
+    private func deleteFavorite(_ favorite: FavoriteFood) {
+        GeminiService.shared.invalidateFoodImageCache(for: favorite.uiImage)
+        modelContext.delete(favorite)
+    }
+
+    private func deleteMeal(_ recipe: SavedRecipe) {
+        GeminiService.shared.invalidateFoodImageCache(for: recipe.uiImage)
+        modelContext.delete(recipe)
     }
 }

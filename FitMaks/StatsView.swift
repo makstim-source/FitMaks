@@ -49,17 +49,16 @@ struct StatsView: View {
         }
     }
 
-    var calorieWins: Int { stats.filter(calorieWin).count }
-    var proteinWins: Int { stats.filter(proteinWin).count }
-    var stepWins: Int { stats.filter(stepWin).count }
-    var perfectDays: Int { stats.filter(isPerfectDay).count }
+    var calorieWins: Int { stats.filter { $0.calorieWin }.count }
+    var proteinWins: Int { stats.filter { $0.proteinWin }.count }
+    var stepWins: Int { stats.filter { $0.stepWin }.count }
     var completedChecks: Int { calorieWins + proteinWins + stepWins }
     var totalChecks: Int { stats.count * 3 }
     var weeklyScore: Int { Int((Double(completedChecks) / Double(max(totalChecks, 1)) * 100).rounded()) }
     var avgCalories: Double { stats.map { $0.consumed }.reduce(0, +) / Double(max(stats.count, 1)) }
     var totalSteps: Double { stats.map { $0.steps }.reduce(0, +) }
     var remainingChecks: Int { max(totalChecks - completedChecks, 0) }
-    var perfectDays30: Int { last30Stats.filter(isPerfectDay).count }
+    var perfectDays30: Int { last30Stats.filter { $0.isPerfect }.count }
 
     var currentPerfectStreak: Int {
         DayProgressEngine.currentPerfectStreak(in: last30Stats)
@@ -67,10 +66,6 @@ struct StatsView: View {
 
     var bestPerfectStreak30: Int {
         DayProgressEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true)
-    }
-
-    var bestPerfectRun: Int {
-        DayProgressEngine.bestPerfectStreak(in: stats)
     }
 
     var body: some View {
@@ -89,12 +84,31 @@ struct StatsView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
-                        weekSwitcher
-                        heroScoreCard
-                        metricGrid
-                        weeklyArena
-                        fuelChart
-                        challengeCard
+                        StatsWeekSwitcher(
+                            dateRangeText: dateRangeText,
+                            weekDateRange: weekDateRange,
+                            weekOffset: $weekOffset
+                        )
+                        StatsHeroScoreCard(
+                            currentPerfectStreak: currentPerfectStreak,
+                            bestPerfectStreak30: bestPerfectStreak30,
+                            perfectDays30: perfectDays30,
+                            animateStreakFlame: animateStreakFlame
+                        )
+                        StatsMetricGrid(
+                            calorieWins: calorieWins,
+                            proteinWins: proteinWins,
+                            stepWins: stepWins,
+                            weeklyScore: weeklyScore,
+                            avgCalories: avgCalories,
+                            totalSteps: totalSteps
+                        )
+                        StatsWeeklyArena(stats: stats)
+                        StatsFuelChart(stats: stats, showBars: showBars)
+                        StatsChallengeCard(
+                            currentPerfectStreak: currentPerfectStreak,
+                            remainingChecks: remainingChecks
+                        )
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -128,7 +142,48 @@ struct StatsView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private var weekSwitcher: some View {
+    private var weekDateRange: String {
+        guard let first = stats.first?.date, let last = stats.last?.date else {
+            return ""
+        }
+
+        return "\(StatsFormatters.shortDay(first)) - \(StatsFormatters.shortDay(last))"
+    }
+
+    private func stat(for date: Date) -> WeekStat {
+        let calendar = Calendar.current
+        let dateID = DateFormatter.yyyyMMdd.string(from: date)
+        let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
+        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+
+        return DayProgressEngine.progress(
+            date: date,
+            foodEntries: dayFood,
+            mode: mode,
+            baseCalories: baseCalories,
+            baseProtein: baseProtein,
+            steps: weeklySteps[dateID] ?? 0,
+            stepTarget: stepTarget
+        )
+    }
+
+    private func animateBars() {
+        showBars = false
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) {
+                showBars = true
+            }
+        }
+    }
+}
+
+private struct StatsWeekSwitcher: View {
+    let dateRangeText: String
+    let weekDateRange: String
+    @Binding var weekOffset: Int
+
+    var body: some View {
         HStack {
             Button(action: { withAnimation(.spring()) { weekOffset += 1 } }) {
                 Image(systemName: "chevron.left")
@@ -166,12 +221,37 @@ struct StatsView: View {
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.appElevated))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
     }
+}
 
-    private var heroScoreCard: some View {
-        let cappedStreak = min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
-        let weeklyProgress = cappedStreak / AppRules.weeklyStreakTarget
+private struct StatsHeroScoreCard: View {
+    let currentPerfectStreak: Int
+    let bestPerfectStreak30: Int
+    let perfectDays30: Int
+    let animateStreakFlame: Bool
 
-        return VStack(alignment: .leading, spacing: 16) {
+    private var cappedStreak: Double {
+        min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
+    }
+
+    private var weeklyProgress: Double {
+        cappedStreak / AppRules.weeklyStreakTarget
+    }
+
+    private var scoreMessage: String {
+        switch currentPerfectStreak {
+        case 7...:
+            return "You are on a serious run."
+        case 3..<7:
+            return "Momentum is real now."
+        case 1..<3:
+            return "Protect the streak."
+        default:
+            return "One perfect day starts it."
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("STREAK MODE", systemImage: "flame.fill")
@@ -257,8 +337,8 @@ struct StatsView: View {
             }
 
             HStack(spacing: 10) {
-                scorePill(title: "Best 30d", value: "\(bestPerfectStreak30)d", icon: "flame.fill")
-                scorePill(title: "Perfect days", value: "\(perfectDays30)/30", icon: "sparkles")
+                StatsScorePill(title: "Best 30d", value: "\(bestPerfectStreak30)d", icon: "flame.fill")
+                StatsScorePill(title: "Perfect days", value: "\(perfectDays30)/30", icon: "sparkles")
             }
         }
         .padding(20)
@@ -278,17 +358,30 @@ struct StatsView: View {
         )
         .shadow(color: Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
     }
+}
 
-    private var metricGrid: some View {
+private struct StatsMetricGrid: View {
+    let calorieWins: Int
+    let proteinWins: Int
+    let stepWins: Int
+    let weeklyScore: Int
+    let avgCalories: Double
+    let totalSteps: Double
+
+    var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: AppRules.calorieGraceLabel, color: .neonGreen)
-            metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: AppRules.completionGraceLabel, color: .neonCyan)
-            metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(compactSteps(totalSteps)) total", color: .yellow)
-            metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
+            StatsMetricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: AppRules.calorieGraceLabel, color: .neonGreen)
+            StatsMetricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: AppRules.completionGraceLabel, color: .neonCyan)
+            StatsMetricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(StatsFormatters.compactSteps(totalSteps)) total", color: .yellow)
+            StatsMetricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
         }
     }
+}
 
-    private var weeklyArena: some View {
+private struct StatsWeeklyArena: View {
+    let stats: [DayProgress]
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("7-Day Streak Board")
@@ -304,15 +397,20 @@ struct StatsView: View {
             }
 
             ForEach(stats, id: \.date) { stat in
-                dayBadgeRow(stat)
+                StatsDayBadgeRow(stat: stat)
             }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 26).fill(Color.black.opacity(0.28)))
         .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
+}
 
-    private var fuelChart: some View {
+private struct StatsFuelChart: View {
+    let stats: [DayProgress]
+    let showBars: Bool
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Calorie Balance")
@@ -338,7 +436,7 @@ struct StatsView: View {
 
             VStack(spacing: 11) {
                 ForEach(stats, id: \.date) { stat in
-                    calorieBalanceRow(stat)
+                    StatsCalorieBalanceRow(stat: stat, showBars: showBars)
                 }
             }
         }
@@ -346,8 +444,25 @@ struct StatsView: View {
         .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
         .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
     }
+}
 
-    private var challengeCard: some View {
+private struct StatsChallengeCard: View {
+    let currentPerfectStreak: Int
+    let remainingChecks: Int
+
+    private var title: String {
+        currentPerfectStreak == 0 ? "Start the next streak." : "Keep the chain alive."
+    }
+
+    private var text: String {
+        if currentPerfectStreak == 0 {
+            return "A missed day does not kill the week. Close calories, protein, and 10k once to light the chain again."
+        }
+
+        return "Today is not a test of the whole week. It is just the next link: calories, protein, 10k."
+    }
+
+    var body: some View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
@@ -359,12 +474,12 @@ struct StatsView: View {
             .frame(width: 52, height: 52)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(streakObjectiveTitle)
+                Text(title)
                     .font(.headline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)
 
-                Text(streakObjectiveText)
+                Text(text)
                     .font(.subheadline)
                     .foregroundColor(.gray)
                     .lineLimit(4)
@@ -387,41 +502,14 @@ struct StatsView: View {
         )
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
     }
+}
 
-    private var scoreMessage: String {
-        switch currentPerfectStreak {
-        case 7...:
-            return "You are on a serious run."
-        case 3..<7:
-            return "Momentum is real now."
-        case 1..<3:
-            return "Protect the streak."
-        default:
-            return "One perfect day starts it."
-        }
-    }
+private struct StatsScorePill: View {
+    let title: String
+    let value: String
+    let icon: String
 
-    private var streakObjectiveTitle: String {
-        currentPerfectStreak == 0 ? "Start the next streak." : "Keep the chain alive."
-    }
-
-    private var streakObjectiveText: String {
-        if currentPerfectStreak == 0 {
-            return "A missed day does not kill the week. Close calories, protein, and 10k once to light the chain again."
-        }
-
-        return "Today is not a test of the whole week. It is just the next link: calories, protein, 10k."
-    }
-
-    private var weekDateRange: String {
-        guard let first = stats.first?.date, let last = stats.last?.date else {
-            return ""
-        }
-
-        return "\(shortDay(first)) - \(shortDay(last))"
-    }
-
-    private func scorePill(title: String, value: String, icon: String) -> some View {
+    var body: some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
             VStack(alignment: .leading, spacing: 0) {
@@ -437,8 +525,16 @@ struct StatsView: View {
         .padding(.vertical, 8)
         .background(Capsule().fill(Color.black.opacity(0.12)))
     }
+}
 
-    private func metricCard(icon: String, title: String, value: String, subtitle: String, color: Color) -> some View {
+private struct StatsMetricCard: View {
+    let icon: String
+    let title: String
+    let value: String
+    let subtitle: String
+    let color: Color
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: icon)
                 .font(.headline)
@@ -466,16 +562,20 @@ struct StatsView: View {
         .background(RoundedRectangle(cornerRadius: 24).fill(Color.black.opacity(0.28)))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(color.opacity(0.16), lineWidth: 1))
     }
+}
 
-    private func dayBadgeRow(_ stat: WeekStat) -> some View {
+private struct StatsDayBadgeRow: View {
+    let stat: DayProgress
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 VStack(spacing: 2) {
-                    Text(dayName(stat.date))
+                    Text(StatsFormatters.dayName(stat.date))
                         .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(.gray)
 
-                    Text(dayNumber(stat.date))
+                    Text(StatsFormatters.dayNumber(stat.date))
                         .font(.system(size: 20, weight: .black))
                         .foregroundColor(.white)
                 }
@@ -486,14 +586,14 @@ struct StatsView: View {
                     .frame(width: 30)
 
                 HStack(spacing: 6) {
-                    badgeChip(text: "C", isOn: calorieWin(stat), color: .neonGreen)
-                    badgeChip(text: "P", isOn: proteinWin(stat), color: .neonCyan)
-                    badgeChip(text: "S", isOn: stepWin(stat), color: .yellow)
+                    StatsBadgeChip(text: "C", isOn: stat.calorieWin, color: .neonGreen)
+                    StatsBadgeChip(text: "P", isOn: stat.proteinWin, color: .neonCyan)
+                    StatsBadgeChip(text: "S", isOn: stat.stepWin, color: .yellow)
                 }
 
                 Spacer(minLength: 6)
 
-                if isPerfectDay(stat) {
+                if stat.isPerfect {
                     Image(systemName: "sparkles")
                         .foregroundColor(.yellow)
                         .font(.headline)
@@ -503,22 +603,22 @@ struct StatsView: View {
             }
 
             HStack(spacing: 7) {
-                dayMetricPill(
+                StatsDayMetricPill(
                     title: "kcal",
                     value: "\(Int(stat.consumed))/\(Int(stat.target))",
-                    isOn: calorieWin(stat),
+                    isOn: stat.calorieWin,
                     color: .neonGreen
                 )
-                dayMetricPill(
+                StatsDayMetricPill(
                     title: "prot",
                     value: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
-                    isOn: proteinWin(stat),
+                    isOn: stat.proteinWin,
                     color: .neonCyan
                 )
-                dayMetricPill(
+                StatsDayMetricPill(
                     title: "steps",
-                    value: "\(compactWholeSteps(stat.steps))/10k",
-                    isOn: stepWin(stat),
+                    value: "\(StatsFormatters.compactWholeSteps(stat.steps))/10k",
+                    isOn: stat.stepWin,
                     color: .yellow
                 )
             }
@@ -529,15 +629,22 @@ struct StatsView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(isPerfectDay(stat) ? Color.neonGreen.opacity(0.13) : Color.white.opacity(0.045))
+                .fill(stat.isPerfect ? Color.neonGreen.opacity(0.13) : Color.white.opacity(0.045))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(isPerfectDay(stat) ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(stat.isPerfect ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
         )
     }
+}
 
-    private func dayMetricPill(title: String, value: String, isOn: Bool, color: Color) -> some View {
+private struct StatsDayMetricPill: View {
+    let title: String
+    let value: String
+    let isOn: Bool
+    let color: Color
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
                 .font(.system(size: 7, weight: .heavy))
@@ -568,29 +675,48 @@ struct StatsView: View {
                 .stroke(isOn ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
         )
     }
+}
 
-    private func calorieBalanceRow(_ stat: WeekStat) -> some View {
-        let hasFood = stat.consumed > 0
-        let graceLimit = AppRules.caloriePerfectLimit(for: stat.target)
-        let isGrace = hasFood && stat.consumed > stat.target && stat.consumed <= graceLimit
-        let isOver = hasFood && stat.consumed > graceLimit
-        let statusColor: Color = !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
-        let fillRatio = min(max(stat.consumed / max(stat.target, 1), 0), 1)
-        let statusText: String
+private struct StatsCalorieBalanceRow: View {
+    let stat: DayProgress
+    let showBars: Bool
 
+    private var hasFood: Bool {
+        stat.hasFood
+    }
+
+    private var isGrace: Bool {
+        hasFood && stat.consumed > stat.target && stat.consumed <= stat.calorieGraceLimit
+    }
+
+    private var isOver: Bool {
+        hasFood && stat.consumed > stat.calorieGraceLimit
+    }
+
+    private var statusColor: Color {
+        !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
+    }
+
+    private var statusText: String {
         if !hasFood {
-            statusText = "no food logged"
+            return "no food logged"
         } else if isOver {
-            statusText = "\(Int(stat.consumed - stat.target)) over"
+            return "\(Int(stat.consumed - stat.target)) over"
         } else if isGrace {
-            statusText = "within 3% grace"
+            return "within 3% grace"
         } else {
-            statusText = "\(Int(stat.target - stat.consumed)) left"
+            return "\(Int(stat.target - stat.consumed)) left"
         }
+    }
 
-        return VStack(alignment: .leading, spacing: 7) {
+    private var fillRatio: Double {
+        min(max(stat.consumed / max(stat.target, 1), 0), 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 10) {
-                Text(dayName(stat.date))
+                Text(StatsFormatters.dayName(stat.date))
                     .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(.appMuted)
                     .frame(width: 34, alignment: .leading)
@@ -623,8 +749,14 @@ struct StatsView: View {
         .background(RoundedRectangle(cornerRadius: 17).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 17).stroke(statusColor.opacity(hasFood ? 0.22 : 0.10), lineWidth: 1))
     }
+}
 
-    private func badgeChip(text: String, isOn: Bool, color: Color) -> some View {
+private struct StatsBadgeChip: View {
+    let text: String
+    let isOn: Bool
+    let color: Color
+
+    var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .black))
             .foregroundColor(isOn ? .black : .gray)
@@ -632,92 +764,26 @@ struct StatsView: View {
             .background(Capsule().fill(isOn ? color : Color.white.opacity(0.07)))
             .shadow(color: isOn ? color.opacity(0.45) : .clear, radius: 7)
     }
+}
 
-    private func chartLegend(color: Color, text: String) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
-            Text(text)
-                .font(.caption2)
-                .foregroundColor(.gray)
-        }
-    }
-
-    private func chartBar(value: Double, target: Double, color: Color) -> some View {
-        let ratio = min(max(value / max(target, 1), 0), 1.35)
-        let height = showBars && value > 0 ? CGFloat(ratio * 86) : 5
-
-        return RoundedRectangle(cornerRadius: 5)
-            .fill(color.opacity(value > 0 ? 0.95 : 0.2))
-            .frame(width: 8, height: height)
-            .shadow(color: color.opacity(value > 0 ? 0.35 : 0), radius: 7)
-    }
-
-    private func calorieWin(_ stat: WeekStat) -> Bool {
-        stat.calorieWin
-    }
-
-    private func proteinWin(_ stat: WeekStat) -> Bool {
-        stat.proteinWin
-    }
-
-    private func stepWin(_ stat: WeekStat) -> Bool {
-        stat.stepWin
-    }
-
-    private func isPerfectDay(_ stat: WeekStat) -> Bool {
-        stat.isPerfect
-    }
-
-    private func daySubtitle(_ stat: WeekStat) -> String {
-        "\(Int(stat.consumed))/\(Int(stat.target)) kcal · \(Int(stat.protein))/\(Int(stat.proteinTarget))g · \(compactSteps(stat.steps)) steps"
-    }
-
-    private func stat(for date: Date) -> WeekStat {
-        let calendar = Calendar.current
-        let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
-        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-
-        return DayProgressEngine.progress(
-            date: date,
-            foodEntries: dayFood,
-            mode: mode,
-            baseCalories: baseCalories,
-            baseProtein: baseProtein,
-            steps: weeklySteps[dateID] ?? 0,
-            stepTarget: stepTarget
-        )
-    }
-
-    private func animateBars() {
-        showBars = false
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) {
-                showBars = true
-            }
-        }
-    }
-
-    private func dayName(_ date: Date) -> String {
+private enum StatsFormatters {
+    static func dayName(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE"
         return formatter.string(from: date).uppercased()
     }
 
-    private func dayNumber(_ date: Date) -> String {
+    static func dayNumber(_ date: Date) -> String {
         "\(Calendar.current.component(.day, from: date))"
     }
 
-    private func shortDay(_ date: Date) -> String {
+    static func shortDay(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
     }
 
-    private func compactSteps(_ value: Double) -> String {
+    static func compactSteps(_ value: Double) -> String {
         guard value >= 1000 else { return "\(Int(value.rounded()))" }
 
         let thousands = value / 1000
@@ -728,7 +794,7 @@ struct StatsView: View {
         return String(format: "%.1fk", thousands)
     }
 
-    private func compactWholeSteps(_ value: Double) -> String {
+    static func compactWholeSteps(_ value: Double) -> String {
         guard value >= 1000 else { return "\(Int(value.rounded()))" }
         return "\(Int((value / 1000).rounded()))k"
     }

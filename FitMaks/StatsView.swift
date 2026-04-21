@@ -550,43 +550,59 @@ struct StatsView: View {
     }
 
     private func dayBadgeRow(_ stat: WeekStat) -> some View {
-        HStack(spacing: 12) {
-            VStack(spacing: 2) {
-                Text(dayName(stat.date))
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.gray)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                VStack(spacing: 2) {
+                    Text(dayName(stat.date))
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(.gray)
 
-                Text(dayNumber(stat.date))
-                    .font(.system(size: 20, weight: .black))
-                    .foregroundColor(.white)
-            }
-            .frame(width: 42)
+                    Text(dayNumber(stat.date))
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundColor(.white)
+                }
+                .frame(width: 42)
 
-            Text(stat.mode.emoji)
-                .font(.title3)
+                Text(stat.mode.emoji)
+                    .font(.title3)
+                    .frame(width: 30)
 
-            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     badgeChip(text: "C", isOn: calorieWin(stat), color: .neonGreen)
                     badgeChip(text: "P", isOn: proteinWin(stat), color: .neonCyan)
                     badgeChip(text: "S", isOn: stepWin(stat), color: .yellow)
                 }
 
-                Text(daySubtitle(stat))
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                Spacer(minLength: 6)
+
+                if isPerfectDay(stat) {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.yellow)
+                        .font(.headline)
+                        .frame(width: 24)
+                        .shadow(color: .yellow.opacity(0.8), radius: 8)
+                }
             }
-            .layoutPriority(1)
 
-            Spacer()
-
-            if isPerfectDay(stat) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                    .font(.headline)
-                    .shadow(color: .yellow.opacity(0.8), radius: 8)
+            HStack(spacing: 7) {
+                dayMetricPill(
+                    title: "kcal",
+                    value: "\(Int(stat.consumed))/\(Int(stat.target))",
+                    isOn: calorieWin(stat),
+                    color: .neonGreen
+                )
+                dayMetricPill(
+                    title: "prot",
+                    value: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
+                    isOn: proteinWin(stat),
+                    color: .neonCyan
+                )
+                dayMetricPill(
+                    title: "steps",
+                    value: "\(compactSteps(stat.steps))/10k",
+                    isOn: stepWin(stat),
+                    color: .yellow
+                )
             }
         }
         .padding(12)
@@ -597,6 +613,33 @@ struct StatsView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 18)
                 .stroke(isPerfectDay(stat) ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func dayMetricPill(title: String, value: String, isOn: Bool, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.system(size: 7, weight: .heavy))
+                .foregroundColor(isOn ? color : .gray)
+                .tracking(0.5)
+
+            Text(value)
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundColor(.white.opacity(isOn ? 0.92 : 0.58))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isOn ? color.opacity(0.12) : Color.white.opacity(0.045))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isOn ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
         )
     }
 

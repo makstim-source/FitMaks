@@ -228,7 +228,7 @@ struct MyFoodView: View {
 
     @ViewBuilder
     private var fridgeTab: some View {
-        if favorites.isEmpty && processingItems.isEmpty {
+        if favorites.isEmpty && processingItems(for: 0).isEmpty {
             libraryEmptyState(
                 systemName: "snowflake",
                 title: "Fridge is empty",
@@ -238,7 +238,7 @@ struct MyFoodView: View {
         } else {
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(processingItems) { item in loadingRow(item: item) }
+                    ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
                     ForEach(favorites.reversed()) { fav in
                         favoriteRow(fav)
                             .contextMenu {
@@ -268,7 +268,7 @@ struct MyFoodView: View {
 
     @ViewBuilder
     private var mealsTab: some View {
-        if savedRecipes.isEmpty && processingItems.isEmpty {
+        if savedRecipes.isEmpty && processingItems(for: 1).isEmpty {
             libraryEmptyState(
                 systemName: "fork.knife",
                 title: "No saved meals",
@@ -278,7 +278,7 @@ struct MyFoodView: View {
         } else {
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(processingItems) { item in loadingRow(item: item) }
+                    ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
                     ForEach(savedRecipes.reversed()) { r in
                         mealRow(r)
                         .contextMenu {
@@ -669,10 +669,122 @@ struct MyFoodView: View {
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.24), lineWidth: 1))
         )
     }
-    func moveFavToMeals(_ fav: FavoriteFood) { let newMeal = SavedRecipe(image: fav.uiImage, name: fav.name, instructions: "", calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients); modelContext.insert(newMeal); modelContext.delete(fav) }
-    func moveMealToFav(_ r: SavedRecipe) { let newFav = FavoriteFood(image: r.uiImage, name: r.name, calories: r.calories, protein: r.protein, ingredients: r.ingredients.isEmpty ? "Meal;1 portion;\(r.calories);\(r.protein)" : r.ingredients); modelContext.insert(newFav); modelContext.delete(r) }
-    func addFavoriteToDiary(_ fav: FavoriteFood) { let safeName = fav.name.hasPrefix("❄️") ? fav.name : "❄️ " + fav.name; UIImpactFeedbackGenerator(style: .medium).impactOccurred(); withAnimation(.spring()) { modelContext.insert(FoodEntry(image: fav.uiImage ?? UIImage(), name: safeName, calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients, date: selectedDate)) } }
-    func addMealToDiary(_ r: SavedRecipe) { let safeName = r.name.hasPrefix("👨‍🍳") ? r.name : "👨‍🍳 " + r.name; let ing = r.ingredients.isEmpty ? "Meal;1 portion;\(r.calories);\(r.protein)" : r.ingredients; UIImpactFeedbackGenerator(style: .medium).impactOccurred(); withAnimation(.spring()) { modelContext.insert(FoodEntry(image: r.uiImage ?? UIImage(systemName: "fork.knife") ?? UIImage(), name: safeName, calories: r.calories, protein: r.protein, ingredients: ing, date: selectedDate)) } }
-    func processReceipt(_ img: UIImage) { let item = ProcessingItem(images: [img]); withAnimation { processingItems.append(item) }; GeminiService.shared.scanGroceries(images: [img]) { results, error in DispatchQueue.main.async { if let index = processingItems.firstIndex(where: { $0.id == item.id }) { processingItems.remove(at: index) }; if let items = results { for res in items { modelContext.insert(FavoriteFood(image: UIImage(systemName: "cart"), name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } } else { aiErrorMessage = error ?? "Receipt scan failed. Please try again." } } } }
-    func cookSomething() { isGeneratingRecipe = true; let items = favorites.map { "\($0.name)" }; GeminiService.shared.generateRecipes(from: items) { res, error in isGeneratingRecipe = false; if let res = res, !res.isEmpty { suggestedRecipes = res; showRecipeSuggestions = true } else { aiErrorMessage = error ?? "Recipe generation failed. Please try again." } } }
+
+    private func processingItems(for tab: Int) -> [ProcessingItem] {
+        processingItems.filter { $0.targetTab == tab }
+    }
+
+    func moveFavToMeals(_ fav: FavoriteFood) {
+        let newMeal = SavedRecipe(
+            image: fav.uiImage,
+            name: fav.name,
+            instructions: "",
+            calories: fav.calories,
+            protein: fav.protein,
+            ingredients: fav.ingredients
+        )
+
+        modelContext.insert(newMeal)
+        modelContext.delete(fav)
+    }
+
+    func moveMealToFav(_ recipe: SavedRecipe) {
+        let ingredients = recipe.ingredients.isEmpty
+            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein)"
+            : recipe.ingredients
+        let newFavorite = FavoriteFood(
+            image: recipe.uiImage,
+            name: recipe.name,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            ingredients: ingredients
+        )
+
+        modelContext.insert(newFavorite)
+        modelContext.delete(recipe)
+    }
+
+    func addFavoriteToDiary(_ fav: FavoriteFood) {
+        let safeName = fav.name.hasPrefix("❄️") ? fav.name : "❄️ " + fav.name
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        withAnimation(.spring()) {
+            modelContext.insert(FoodEntry(
+                image: fav.uiImage ?? UIImage(),
+                name: safeName,
+                calories: fav.calories,
+                protein: fav.protein,
+                ingredients: fav.ingredients,
+                date: selectedDate
+            ))
+        }
+    }
+
+    func addMealToDiary(_ recipe: SavedRecipe) {
+        let safeName = recipe.name.hasPrefix("👨‍🍳") ? recipe.name : "👨‍🍳 " + recipe.name
+        let ingredients = recipe.ingredients.isEmpty
+            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein)"
+            : recipe.ingredients
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        withAnimation(.spring()) {
+            modelContext.insert(FoodEntry(
+                image: recipe.uiImage ?? UIImage(systemName: "fork.knife") ?? UIImage(),
+                name: safeName,
+                calories: recipe.calories,
+                protein: recipe.protein,
+                ingredients: ingredients,
+                date: selectedDate
+            ))
+        }
+    }
+
+    func processReceipt(_ image: UIImage) {
+        let item = ProcessingItem(images: [image], targetTab: 0)
+
+        withAnimation {
+            processingItems.append(item)
+        }
+
+        GeminiService.shared.scanGroceries(images: [image]) { results, error in
+            DispatchQueue.main.async {
+                if let index = processingItems.firstIndex(where: { $0.id == item.id }) {
+                    processingItems.remove(at: index)
+                }
+
+                guard let items = results else {
+                    aiErrorMessage = error ?? "Receipt scan failed. Please try again."
+                    return
+                }
+
+                for result in items {
+                    modelContext.insert(FavoriteFood(
+                        image: UIImage(systemName: "cart"),
+                        name: result.food_name,
+                        calories: result.calories,
+                        protein: result.protein,
+                        ingredients: result.ingredients_breakdown
+                    ))
+                }
+            }
+        }
+    }
+
+    func cookSomething() {
+        isGeneratingRecipe = true
+        let items = favorites.map { $0.name }
+
+        GeminiService.shared.generateRecipes(from: items) { result, error in
+            isGeneratingRecipe = false
+
+            guard let result, !result.isEmpty else {
+                aiErrorMessage = error ?? "Recipe generation failed. Please try again."
+                return
+            }
+
+            suggestedRecipes = result
+            showRecipeSuggestions = true
+        }
+    }
 }

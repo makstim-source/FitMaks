@@ -646,10 +646,12 @@ struct MyFoodView: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(item.textPrompt != nil ? "Reading text..." : "Analyzing...")
+                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "Analyzing..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { _ in

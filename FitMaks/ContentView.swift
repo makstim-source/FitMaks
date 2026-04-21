@@ -453,12 +453,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        if let text = item.textPrompt {
-                            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
-                            return (item.id, result.map { [$0] }, error)
-                        }
-
-                        let (results, error) = await GeminiService.shared.analyzeFoodItemsAsync(images: item.images)
+                        let (results, error) = await analyzeFoodResults(for: item)
                         return (item.id, results, error)
                     }
                 }
@@ -482,24 +477,12 @@ struct ContentView: View {
                             return
                         }
 
-                        withAnimation(.spring()) {
-                            for (resultIndex, result) in results.enumerated() {
-                                let image = imageForAnalyzedResult(
-                                    item: item,
-                                    result: result,
-                                    resultIndex: resultIndex,
-                                    fallbackImage: originalImage
-                                )
-                                modelContext.insert(FoodEntry(
-                                    image: image,
-                                    name: result.food_name,
-                                    calories: result.calories,
-                                    protein: result.protein,
-                                    ingredients: result.ingredients_breakdown,
-                                    date: entryDate
-                                ))
-                            }
-                        }
+                        stageFoodResultsIfNeeded(
+                            results,
+                            originalItem: item,
+                            originalImage: originalImage,
+                            targetDate: entryDate
+                        )
                     }
                 }
             }
@@ -557,12 +540,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        if let text = item.textPrompt {
-                            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
-                            return (item.id, result.map { [$0] }, error)
-                        }
-
-                        let (results, error) = await GeminiService.shared.analyzeFoodItemsAsync(images: item.images)
+                        let (results, error) = await analyzeFoodResults(for: item)
                         return (item.id, results, error)
                     }
                 }
@@ -585,33 +563,11 @@ struct ContentView: View {
                             return
                         }
 
-                        for (resultIndex, result) in results.enumerated() {
-                            let image = imageForAnalyzedResult(
-                                item: item,
-                                result: result,
-                                resultIndex: resultIndex,
-                                fallbackImage: originalImage
-                            )
-
-                            if item.targetTab == 1 {
-                                modelContext.insert(SavedRecipe(
-                                    image: image,
-                                    name: result.food_name,
-                                    instructions: "",
-                                    calories: result.calories,
-                                    protein: result.protein,
-                                    ingredients: result.ingredients_breakdown
-                                ))
-                            } else {
-                                modelContext.insert(FavoriteFood(
-                                    image: image,
-                                    name: result.food_name,
-                                    calories: result.calories,
-                                    protein: result.protein,
-                                    ingredients: result.ingredients_breakdown
-                                ))
-                            }
-                        }
+                        stageLibraryResultsIfNeeded(
+                            results,
+                            originalItem: item,
+                            originalImage: originalImage
+                        )
                     }
                 }
             }
@@ -643,17 +599,7 @@ struct ContentView: View {
                             return
                         }
 
-                        withAnimation(.spring()) {
-                            for result in results {
-                                modelContext.insert(FavoriteFood(
-                                    image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
-                                    name: result.food_name,
-                                    calories: result.calories,
-                                    protein: result.protein,
-                                    ingredients: result.ingredients_breakdown
-                                ))
-                            }
-                        }
+                        stageReceiptResultsIfNeeded(results)
                     }
                 }
             }
@@ -678,6 +624,205 @@ struct ContentView: View {
         return item.images.indices.contains(resultIndex)
             ? item.images[resultIndex]
             : fallbackImage
+    }
+
+    private func analyzeFoodResults(for item: ProcessingItem) async -> ([FoodResult]?, String?) {
+        if let text = item.textPrompt {
+            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
+            return (result.map { [$0] }, error)
+        }
+
+        if item.images.count > 1 {
+            return await GeminiService.shared.analyzeFoodItemsAsync(images: item.images)
+        }
+
+        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images)
+        return (result.map { [$0] }, error)
+    }
+
+    private func stageFoodResultsIfNeeded(
+        _ results: [FoodResult],
+        originalItem: ProcessingItem,
+        originalImage: UIImage,
+        targetDate: Date
+    ) {
+        let stagedItems = stagedProcessingItems(
+            for: results,
+            originalItem: originalItem,
+            originalImage: originalImage,
+            prefix: "Found"
+        )
+
+        if stagedItems.count > 1 {
+            withAnimation(.spring()) {
+                processingItems.append(contentsOf: stagedItems)
+            }
+        }
+
+        Task {
+            if stagedItems.count > 1 {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+            }
+
+            await MainActor.run {
+                if stagedItems.count > 1 {
+                    removeProcessingItems(ids: stagedItems.map(\.id), from: &processingItems)
+                }
+
+                withAnimation(.spring()) {
+                    for (resultIndex, result) in results.enumerated() {
+                        let image = imageForAnalyzedResult(
+                            item: originalItem,
+                            result: result,
+                            resultIndex: resultIndex,
+                            fallbackImage: originalImage
+                        )
+                        modelContext.insert(FoodEntry(
+                            image: image,
+                            name: result.food_name,
+                            calories: result.calories,
+                            protein: result.protein,
+                            ingredients: result.ingredients_breakdown,
+                            date: targetDate
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
+    private func stageLibraryResultsIfNeeded(
+        _ results: [FoodResult],
+        originalItem: ProcessingItem,
+        originalImage: UIImage
+    ) {
+        let stagedItems = stagedProcessingItems(
+            for: results,
+            originalItem: originalItem,
+            originalImage: originalImage,
+            prefix: "Found"
+        )
+
+        if stagedItems.count > 1 {
+            withAnimation(.spring()) {
+                fridgeProcessingItems.append(contentsOf: stagedItems)
+            }
+        }
+
+        Task {
+            if stagedItems.count > 1 {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+            }
+
+            await MainActor.run {
+                if stagedItems.count > 1 {
+                    removeProcessingItems(ids: stagedItems.map(\.id), from: &fridgeProcessingItems)
+                }
+
+                withAnimation(.spring()) {
+                    for (resultIndex, result) in results.enumerated() {
+                        let image = imageForAnalyzedResult(
+                            item: originalItem,
+                            result: result,
+                            resultIndex: resultIndex,
+                            fallbackImage: originalImage
+                        )
+
+                        if originalItem.targetTab == 1 {
+                            modelContext.insert(SavedRecipe(
+                                image: image,
+                                name: result.food_name,
+                                instructions: "",
+                                calories: result.calories,
+                                protein: result.protein,
+                                ingredients: result.ingredients_breakdown
+                            ))
+                        } else {
+                            modelContext.insert(FavoriteFood(
+                                image: image,
+                                name: result.food_name,
+                                calories: result.calories,
+                                protein: result.protein,
+                                ingredients: result.ingredients_breakdown
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func stageReceiptResultsIfNeeded(_ results: [FoodResult]) {
+        let stagedItems = results.map { result in
+            ProcessingItem(
+                images: [generateEmojiIcon(emoji: result.emoji ?? "🛒")],
+                targetTab: 0,
+                statusTitle: "Found \(result.food_name)"
+            )
+        }
+
+        if stagedItems.count > 1 {
+            withAnimation(.spring()) {
+                fridgeProcessingItems.append(contentsOf: stagedItems)
+            }
+        }
+
+        Task {
+            if stagedItems.count > 1 {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+            }
+
+            await MainActor.run {
+                if stagedItems.count > 1 {
+                    removeProcessingItems(ids: stagedItems.map(\.id), from: &fridgeProcessingItems)
+                }
+
+                withAnimation(.spring()) {
+                    for result in results {
+                        modelContext.insert(FavoriteFood(
+                            image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
+                            name: result.food_name,
+                            calories: result.calories,
+                            protein: result.protein,
+                            ingredients: result.ingredients_breakdown
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
+    private func stagedProcessingItems(
+        for results: [FoodResult],
+        originalItem: ProcessingItem,
+        originalImage: UIImage,
+        prefix: String
+    ) -> [ProcessingItem] {
+        guard results.count > 1 else {
+            return []
+        }
+
+        return results.enumerated().map { index, result in
+            ProcessingItem(
+                images: [imageForAnalyzedResult(
+                    item: originalItem,
+                    result: result,
+                    resultIndex: index,
+                    fallbackImage: originalImage
+                )],
+                isTraining: originalItem.isTraining,
+                targetTab: originalItem.targetTab,
+                targetDate: originalItem.targetDate,
+                statusTitle: "\(prefix) \(result.food_name)"
+            )
+        }
+    }
+
+    private func removeProcessingItems(ids: [UUID], from items: inout [ProcessingItem]) {
+        let idSet = Set(ids)
+        withAnimation(.easeInOut) {
+            items.removeAll { idSet.contains($0.id) }
+        }
     }
 
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }

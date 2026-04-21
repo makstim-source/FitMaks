@@ -270,10 +270,12 @@ struct HomeProcessingRow: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(item.textPrompt != nil ? "Reading text..." : "AI is analyzing...")
+                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "AI is analyzing..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { _ in

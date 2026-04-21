@@ -9,6 +9,7 @@ struct ProcessingItem: Identifiable {
     var isTraining: Bool = false
     var targetTab: Int = 0
     var targetDate: Date? = nil
+    var statusTitle: String? = nil
 }
 
 enum EntryMode {

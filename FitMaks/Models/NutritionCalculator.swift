@@ -10,7 +10,7 @@ enum NutritionCalculator {
         case "Lose Weight":
             return 2.0
         case "Build Muscle":
-            return 2.0
+            return 2.2
         default:
             return 1.8
         }
@@ -25,7 +25,7 @@ enum NutritionCalculator {
         case "Lose Weight":
             return "higher to protect muscle in a deficit"
         case "Build Muscle":
-            return "strong growth target without going extreme"
+            return "aggressive growth target"
         default:
             return "steady target for maintenance"
         }

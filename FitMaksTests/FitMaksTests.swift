@@ -14,7 +14,7 @@ struct FitMaksTests {
     @Test func proteinRecommendationUsesSustainableGoalMultipliers() async throws {
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Maintain") == 144)
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Lose Weight") == 160)
-        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Build Muscle") == 160)
+        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Build Muscle") == 176)
     }
 
     @Test func perfectDayAcceptsThreePercentGrace() async throws {

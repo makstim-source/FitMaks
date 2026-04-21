@@ -51,11 +51,18 @@ struct ContentView: View {
     var calculatedCalories: Double { let bmr = (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0); let multipliers: [String: Double] = ["Sedentary": 1.2, "Light": 1.375, "Moderate": 1.55, "Active": 1.725]; let tdee = bmr * (multipliers[activityLevel] ?? 1.2); if goal == "Lose Weight" { return tdee - 500 }; if goal == "Build Muscle" { return tdee + 500 }; return tdee }
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
     var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
-    var calorieGoalBonus: Double { switch currentDayMode { case .chill: return 0; case .padel: return 500; case .gym: return 300 } }
-    var proteinGoalBonus: Double { switch currentDayMode { case .chill: return 0; case .padel: return 15; case .gym: return 25 } }
-    var targetProtein: Double { baseProteinGoal + proteinGoalBonus }
-    var maxCalories: Double { baseCaloriesGoal + calorieGoalBonus }
-    let targetSteps: Double = 10000.0
+    var dailyTargets: DayTargets {
+        DayProgressEngine.targets(
+            baseCalories: baseCaloriesGoal,
+            baseProtein: baseProteinGoal,
+            mode: currentDayMode
+        )
+    }
+    var calorieGoalBonus: Double { dailyTargets.calorieBonus }
+    var proteinGoalBonus: Double { dailyTargets.proteinBonus }
+    var targetProtein: Double { dailyTargets.protein }
+    var maxCalories: Double { dailyTargets.calories }
+    let targetSteps: Double = DayProgressEngine.defaultStepTarget
     
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
@@ -63,12 +70,22 @@ struct ContentView: View {
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
+    var dailyProgress: DayProgress {
+        DayProgressEngine.progress(
+            date: selectedDate,
+            consumedCalories: dailyCaloriesConsumed,
+            consumedProtein: dailyProtein,
+            hasFood: !dailyFoodEntries.isEmpty,
+            mode: currentDayMode,
+            baseCalories: baseCaloriesGoal,
+            baseProtein: baseProteinGoal,
+            steps: dailySteps,
+            stepTarget: targetSteps
+        )
+    }
+
     var isPerfectPastDay: Bool {
-        !Calendar.current.isDateInToday(selectedDate)
-        && selectedDate < Date()
-        && dailyProtein >= AppRules.completionMinimum(for: targetProtein)
-        && dailySteps >= AppRules.completionMinimum(for: targetSteps)
-        && dailyCaloriesConsumed <= AppRules.caloriePerfectLimit(for: maxCalories)
+        dailyProgress.isPerfectPastDay()
     }
 
     var body: some View {
@@ -229,7 +246,7 @@ struct ContentView: View {
         VStack(spacing: 11) {
             HStack(spacing: 6) {
                 let caloriesAboveTarget = dailyCaloriesConsumed > maxCalories
-                let caloriesOutsideGrace = dailyCaloriesConsumed > AppRules.caloriePerfectLimit(for: maxCalories)
+                let caloriesOutsideGrace = dailyCaloriesConsumed > dailyProgress.calorieGraceLimit
                 metricTile(
                     title: "Calories",
                     value: caloriesAboveTarget ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
@@ -452,7 +469,7 @@ struct ContentView: View {
             return "Watch the finish."
         }
 
-        if dailyProtein >= AppRules.completionMinimum(for: targetProtein) {
+        if dailyProgress.proteinWin {
             return "Protein locked."
         }
 

@@ -58,20 +58,26 @@ struct CustomCalendarView: View {
                     ForEach(Array(extractDates().enumerated()), id: \.offset) { _, date in
                         if let date {
                             let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                            let isPastDay = date < Calendar.current.startOfDay(for: Date())
                             let isFuture = date > Date()
                             let dailyEntries = allEntries.filter {
                                 Calendar.current.isDate($0.date, inSameDayAs: date)
                             }
-                            let totalCal = dailyEntries.reduce(0) { $0 + $1.calories }
-                            let totalProt = dailyEntries.reduce(0) { $0 + $1.protein }
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
                             let mode = dayMode(for: date)
-                            let calorieGoalMet = !dailyEntries.isEmpty && totalCal <= AppRules.caloriePerfectLimit(for: calorieTarget(for: mode))
-                            let proteinGoalMet = !dailyEntries.isEmpty && totalProt >= AppRules.completionMinimum(for: proteinTarget(for: mode))
-                            let stepsGoalMet = steps >= AppRules.completionMinimum(for: targetSteps)
-                            let isPerfectDay = isPastDay && calorieGoalMet && proteinGoalMet && stepsGoalMet
+                            let progress = DayProgressEngine.progress(
+                                date: date,
+                                foodEntries: dailyEntries,
+                                mode: mode,
+                                baseCalories: baseCalories,
+                                baseProtein: baseProtein,
+                                steps: steps,
+                                stepTarget: targetSteps
+                            )
+                            let calorieGoalMet = progress.calorieWin
+                            let proteinGoalMet = progress.proteinWin
+                            let stepsGoalMet = progress.stepWin
+                            let isPerfectDay = progress.isPerfectPastDay()
 
                             CalendarDayCell(
                                 date: date,
@@ -147,28 +153,6 @@ struct CustomCalendarView: View {
         let modeString = allSetups.first(where: { $0.dateID == dateID })?.mode
 
         return DayMode.fromStoredValue(modeString)
-    }
-
-    private func calorieTarget(for mode: DayMode) -> Double {
-        switch mode {
-        case .chill:
-            return baseCalories
-        case .padel:
-            return baseCalories + 500
-        case .gym:
-            return baseCalories + 300
-        }
-    }
-
-    private func proteinTarget(for mode: DayMode) -> Double {
-        switch mode {
-        case .chill:
-            return baseProtein
-        case .padel:
-            return baseProtein + 15
-        case .gym:
-            return baseProtein + 25
-        }
     }
 
     private func loadStepsForVisibleMonth() {

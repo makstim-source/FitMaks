@@ -1,0 +1,218 @@
+import Foundation
+
+enum AppRules {
+    static let caloriePerfectToleranceRatio: Double = 0.03
+    static let completionToleranceRatio: Double = 0.03
+    static let weeklyStreakTarget: Double = 7
+
+    static var calorieGraceLabel: String { "+3% calorie grace" }
+    static var completionGraceLabel: String { "3% grace" }
+
+    static func calorieGrace(for target: Double) -> Double {
+        max(target * caloriePerfectToleranceRatio, 0)
+    }
+
+    static func caloriePerfectLimit(for target: Double) -> Double {
+        target + calorieGrace(for: target)
+    }
+
+    static func completionMinimum(for target: Double) -> Double {
+        max(target * (1 - completionToleranceRatio), 0)
+    }
+}
+
+struct DayTargets: Equatable {
+    let baseCalories: Double
+    let baseProtein: Double
+    let calorieBonus: Double
+    let proteinBonus: Double
+    let steps: Double
+
+    var calories: Double { baseCalories + calorieBonus }
+    var protein: Double { baseProtein + proteinBonus }
+}
+
+struct DayProgress: Equatable, Identifiable {
+    let date: Date
+    let consumed: Double
+    let target: Double
+    let mode: DayMode
+    let protein: Double
+    let proteinTarget: Double
+    let steps: Double
+    let stepTarget: Double
+    let hasFood: Bool
+
+    var id: Date { date }
+
+    var calorieGraceLimit: Double {
+        AppRules.caloriePerfectLimit(for: target)
+    }
+
+    var proteinMinimum: Double {
+        AppRules.completionMinimum(for: proteinTarget)
+    }
+
+    var stepMinimum: Double {
+        AppRules.completionMinimum(for: stepTarget)
+    }
+
+    var calorieWin: Bool {
+        hasFood && consumed > 0 && consumed <= calorieGraceLimit
+    }
+
+    var proteinWin: Bool {
+        hasFood && protein >= proteinMinimum
+    }
+
+    var stepWin: Bool {
+        steps >= stepMinimum
+    }
+
+    var isPerfect: Bool {
+        calorieWin && proteinWin && stepWin
+    }
+
+    func isPastDay(relativeTo now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        date < calendar.startOfDay(for: now)
+    }
+
+    func isPerfectPastDay(relativeTo now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        isPastDay(relativeTo: now, calendar: calendar) && isPerfect
+    }
+}
+
+enum DayProgressEngine {
+    static let defaultStepTarget: Double = 10_000
+
+    static func targets(
+        baseCalories: Double,
+        baseProtein: Double,
+        mode: DayMode,
+        stepTarget: Double = defaultStepTarget
+    ) -> DayTargets {
+        let bonuses = bonuses(for: mode)
+
+        return DayTargets(
+            baseCalories: baseCalories,
+            baseProtein: baseProtein,
+            calorieBonus: bonuses.calories,
+            proteinBonus: bonuses.protein,
+            steps: stepTarget
+        )
+    }
+
+    static func progress(
+        date: Date,
+        foodEntries: [FoodEntry],
+        mode: DayMode,
+        baseCalories: Double,
+        baseProtein: Double,
+        steps: Double,
+        stepTarget: Double = defaultStepTarget
+    ) -> DayProgress {
+        let consumed = foodEntries.reduce(0) { $0 + $1.calories }
+        let protein = foodEntries.reduce(0) { $0 + $1.protein }
+
+        return progress(
+            date: date,
+            consumedCalories: consumed,
+            consumedProtein: protein,
+            hasFood: !foodEntries.isEmpty,
+            mode: mode,
+            baseCalories: baseCalories,
+            baseProtein: baseProtein,
+            steps: steps,
+            stepTarget: stepTarget
+        )
+    }
+
+    static func progress(
+        date: Date,
+        consumedCalories: Double,
+        consumedProtein: Double,
+        hasFood: Bool,
+        mode: DayMode,
+        baseCalories: Double,
+        baseProtein: Double,
+        steps: Double,
+        stepTarget: Double = defaultStepTarget
+    ) -> DayProgress {
+        let targets = targets(
+            baseCalories: baseCalories,
+            baseProtein: baseProtein,
+            mode: mode,
+            stepTarget: stepTarget
+        )
+
+        return DayProgress(
+            date: date,
+            consumed: consumedCalories,
+            target: targets.calories,
+            mode: mode,
+            protein: consumedProtein,
+            proteinTarget: targets.protein,
+            steps: steps,
+            stepTarget: targets.steps,
+            hasFood: hasFood
+        )
+    }
+
+    static func currentPerfectStreak(
+        in days: [DayProgress],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        var count = 0
+
+        for day in days.sorted(by: { $0.date > $1.date }) {
+            if calendar.isDate(day.date, inSameDayAs: now) && !day.isPerfect {
+                continue
+            }
+
+            if day.isPerfect {
+                count += 1
+            } else {
+                break
+            }
+        }
+
+        return count
+    }
+
+    static func bestPerfectStreak(
+        in days: [DayProgress],
+        skipIncompleteToday: Bool = false,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        var best = 0
+        var current = 0
+
+        for day in days.sorted(by: { $0.date < $1.date }) {
+            if skipIncompleteToday && calendar.isDate(day.date, inSameDayAs: now) && !day.isPerfect {
+                continue
+            }
+
+            if day.isPerfect {
+                current += 1
+                best = max(best, current)
+            } else {
+                current = 0
+            }
+        }
+
+        return best
+    }
+
+    private static func bonuses(for mode: DayMode) -> (calories: Double, protein: Double) {
+        switch mode {
+        case .chill:
+            return (0, 0)
+        case .padel:
+            return (500, 15)
+        case .gym:
+            return (300, 25)
+        }
+    }
+}

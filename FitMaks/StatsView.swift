@@ -14,17 +14,9 @@ struct StatsView: View {
     @State private var animateStreakFlame = false
     @State private var weekOffset = 0
 
-    private let stepTarget: Double = 10000
+    private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
-    typealias WeekStat = (
-        date: Date,
-        consumed: Double,
-        target: Double,
-        mode: DayMode,
-        protein: Double,
-        proteinTarget: Double,
-        steps: Double
-    )
+    typealias WeekStat = DayProgress
 
     var dateRangeText: String {
         if weekOffset == 0 { return "Last 7 Days" }
@@ -33,42 +25,12 @@ struct StatsView: View {
     }
 
     var stats: [WeekStat] {
-        var result: [WeekStat] = []
         let calendar = Calendar.current
         let startDaysAgo = weekOffset * 7
 
-        for index in 0..<7 {
+        let result = (0..<7).map { index in
             let date = calendar.date(byAdding: .day, value: -(index + startDaysAgo), to: Date()) ?? Date()
-            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-            let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
-            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            let consumed = dayFood.reduce(0) { $0 + $1.calories }
-            let protein = dayFood.reduce(0) { $0 + $1.protein }
-
-            let targetCalories: Double
-            let targetProtein: Double
-
-            switch mode {
-            case .chill:
-                targetCalories = baseCalories
-                targetProtein = baseProtein
-            case .padel:
-                targetCalories = baseCalories + 500
-                targetProtein = baseProtein + 15
-            case .gym:
-                targetCalories = baseCalories + 300
-                targetProtein = baseProtein + 25
-            }
-
-            result.append((
-                date: date,
-                consumed: consumed,
-                target: targetCalories,
-                mode: mode,
-                protein: protein,
-                proteinTarget: targetProtein,
-                steps: weeklySteps[dateID] ?? 0
-            ))
+            return stat(for: date)
         }
 
         return result.reversed()
@@ -100,59 +62,15 @@ struct StatsView: View {
     var perfectDays30: Int { last30Stats.filter(isPerfectDay).count }
 
     var currentPerfectStreak: Int {
-        let calendar = Calendar.current
-        var count = 0
-
-        for stat in last30Stats.reversed() {
-            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
-                continue
-            }
-
-            if isPerfectDay(stat) {
-                count += 1
-            } else {
-                break
-            }
-        }
-
-        return count
+        DayProgressEngine.currentPerfectStreak(in: last30Stats)
     }
 
     var bestPerfectStreak30: Int {
-        let calendar = Calendar.current
-        var best = 0
-        var current = 0
-
-        for stat in last30Stats {
-            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
-                continue
-            }
-
-            if isPerfectDay(stat) {
-                current += 1
-                best = max(best, current)
-            } else {
-                current = 0
-            }
-        }
-
-        return best
+        DayProgressEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true)
     }
 
     var bestPerfectRun: Int {
-        var best = 0
-        var current = 0
-
-        for stat in stats {
-            if isPerfectDay(stat) {
-                current += 1
-                best = max(best, current)
-            } else {
-                current = 0
-            }
-        }
-
-        return best
+        DayProgressEngine.bestPerfectStreak(in: stats)
     }
 
     var body: some View {
@@ -737,19 +655,19 @@ struct StatsView: View {
     }
 
     private func calorieWin(_ stat: WeekStat) -> Bool {
-        stat.consumed > 0 && stat.consumed <= AppRules.caloriePerfectLimit(for: stat.target)
+        stat.calorieWin
     }
 
     private func proteinWin(_ stat: WeekStat) -> Bool {
-        stat.protein >= AppRules.completionMinimum(for: stat.proteinTarget)
+        stat.proteinWin
     }
 
     private func stepWin(_ stat: WeekStat) -> Bool {
-        stat.steps >= AppRules.completionMinimum(for: stepTarget)
+        stat.stepWin
     }
 
     private func isPerfectDay(_ stat: WeekStat) -> Bool {
-        calorieWin(stat) && proteinWin(stat) && stepWin(stat)
+        stat.isPerfect
     }
 
     private func daySubtitle(_ stat: WeekStat) -> String {
@@ -761,32 +679,15 @@ struct StatsView: View {
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
         let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
         let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-        let consumed = dayFood.reduce(0) { $0 + $1.calories }
-        let protein = dayFood.reduce(0) { $0 + $1.protein }
 
-        let targetCalories: Double
-        let targetProtein: Double
-
-        switch mode {
-        case .chill:
-            targetCalories = baseCalories
-            targetProtein = baseProtein
-        case .padel:
-            targetCalories = baseCalories + 500
-            targetProtein = baseProtein + 15
-        case .gym:
-            targetCalories = baseCalories + 300
-            targetProtein = baseProtein + 25
-        }
-
-        return (
+        return DayProgressEngine.progress(
             date: date,
-            consumed: consumed,
-            target: targetCalories,
+            foodEntries: dayFood,
             mode: mode,
-            protein: protein,
-            proteinTarget: targetProtein,
-            steps: weeklySteps[dateID] ?? 0
+            baseCalories: baseCalories,
+            baseProtein: baseProtein,
+            steps: weeklySteps[dateID] ?? 0,
+            stepTarget: stepTarget
         )
     }
 

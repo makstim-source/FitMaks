@@ -102,27 +102,6 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
-enum AppRules {
-    static let caloriePerfectToleranceRatio: Double = 0.03
-    static let completionToleranceRatio: Double = 0.03
-    static let weeklyStreakTarget: Double = 7
-
-    static var calorieGraceLabel: String { "+3% calorie grace" }
-    static var completionGraceLabel: String { "3% grace" }
-
-    static func calorieGrace(for target: Double) -> Double {
-        max(target * caloriePerfectToleranceRatio, 0)
-    }
-
-    static func caloriePerfectLimit(for target: Double) -> Double {
-        target + calorieGrace(for: target)
-    }
-
-    static func completionMinimum(for target: Double) -> Double {
-        max(target * (1 - completionToleranceRatio), 0)
-    }
-}
-
 struct AppPalette {
     let name: String
     let subtitle: String

@@ -45,6 +45,13 @@ struct AIChatEditView: View {
                 Spacer()
 
                 HStack(spacing: 14) {
+                    Button(action: recalculateFresh) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.neonGreen)
+                            .font(.system(size: 17, weight: .bold))
+                    }
+                    .disabled(isWaiting)
+
                     Button(action: { isShowingSaveDialog = true }) {
                         Image(systemName: "square.and.arrow.down")
                             .foregroundColor(.neonCyan)
@@ -227,6 +234,33 @@ struct AIChatEditView: View {
                 messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
+
+    func recalculateFresh() {
+        guard let image = entry.uiImage else {
+            messages.append(ChatMessage(text: "I need the original photo to recalculate this one.", isUser: false, shouldTypewrite: true))
+            return
+        }
+
+        isWaiting = true
+        messages.append(ChatMessage(text: "Recalculating from the photo and ignoring previous memory...", isUser: true, attachedImage: image))
+
+        GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in
+            isWaiting = false
+
+            if let result {
+                entry.name = result.food_name
+                entry.calories = result.calories
+                entry.protein = result.protein
+                entry.ingredients = result.ingredients_breakdown
+                originalIngredients = result.ingredients_breakdown
+                originalCalories = result.calories
+                originalProtein = result.protein
+                messages.append(ChatMessage(text: "Fresh calculation applied. If it still looks off, tell me what the food really is.", isUser: false, ingredients: result.ingredients_breakdown, calories: result.calories, protein: result.protein, shouldTypewrite: true))
+            } else {
+                messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true))
             }
         }
     }

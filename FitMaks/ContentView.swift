@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var isShowingAIAssistant = false
     @State private var isShowingGoalBreakdown = false
     @State private var aiErrorMessage: String?
+    @State private var pendingAIReview: AIResultReview?
 
     var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
@@ -159,6 +160,19 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(aiErrorMessage ?? "The AI request failed.")
+        }
+        .sheet(item: $pendingAIReview) { review in
+            AIResultReviewSheet(
+                review: review,
+                onCancel: { pendingAIReview = nil },
+                onRecalculate: { retryReviewIgnoringCache(review) },
+                onConfirm: { items in
+                    confirmAIReview(review, selectedItems: items)
+                    pendingAIReview = nil
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -473,7 +487,7 @@ struct ContentView: View {
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = error ?? "Food analysis failed. Please try again."
+                            aiErrorMessage = friendlyAIError(error, fallback: "Food analysis failed. Please try again.")
                             return
                         }
 
@@ -514,7 +528,7 @@ struct ContentView: View {
                         }
 
                         guard let result else {
-                            aiErrorMessage = error ?? "Workout analysis failed. Please try again."
+                            aiErrorMessage = friendlyAIError(error, fallback: "Workout analysis failed. Please try again.")
                             return
                         }
 
@@ -559,7 +573,7 @@ struct ContentView: View {
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = error ?? "My Food analysis failed. Please try again."
+                            aiErrorMessage = friendlyAIError(error, fallback: "My Food analysis failed. Please try again.")
                             return
                         }
 
@@ -590,16 +604,18 @@ struct ContentView: View {
                             return
                         }
 
+                        let item = fridgeProcessingItems[index]
+
                         withAnimation(.easeInOut) {
                             _ = fridgeProcessingItems.remove(at: index)
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = error ?? "Receipt scan failed. Please try again."
+                            aiErrorMessage = friendlyAIError(error, fallback: "Receipt scan failed. Please try again.")
                             return
                         }
 
-                        stageReceiptResultsIfNeeded(results)
+                        stageReceiptResultsIfNeeded(results, originalItem: item)
                     }
                 }
             }
@@ -633,17 +649,17 @@ struct ContentView: View {
             : fallbackImage
     }
 
-    private func analyzeFoodResults(for item: ProcessingItem) async -> ([FoodResult]?, String?) {
+    private func analyzeFoodResults(for item: ProcessingItem, ignoreCache: Bool = false) async -> ([FoodResult]?, String?) {
         if let text = item.textPrompt {
             let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
             return (result.map { [$0] }, error)
         }
 
         if item.images.count > 1 {
-            return await GeminiService.shared.analyzeFoodItemsAsync(images: item.images)
+            return await GeminiService.shared.analyzeFoodItemsAsync(images: item.images, ignoreCache: ignoreCache)
         }
 
-        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images)
+        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images, ignoreCache: ignoreCache)
         return (result.map { [$0] }, error)
     }
 
@@ -653,49 +669,17 @@ struct ContentView: View {
         originalImage: UIImage,
         targetDate: Date
     ) {
-        let stagedItems = stagedProcessingItems(
-            for: results,
-            originalItem: originalItem,
-            originalImage: originalImage,
-            prefix: "Found"
-        )
-
-        if stagedItems.count > 1 {
-            withAnimation(.spring()) {
-                processingItems.append(contentsOf: stagedItems)
-            }
+        if results.count > 1 {
+            presentAIReview(
+                results: results,
+                originalItem: originalItem,
+                originalImage: originalImage,
+                destination: .diary(targetDate)
+            )
+            return
         }
 
-        Task {
-            if stagedItems.count > 1 {
-                try? await Task.sleep(nanoseconds: 700_000_000)
-            }
-
-            await MainActor.run {
-                if stagedItems.count > 1 {
-                    removeProcessingItems(ids: stagedItems.map(\.id), from: &processingItems)
-                }
-
-                withAnimation(.spring()) {
-                    for (resultIndex, result) in results.enumerated() {
-                        let image = imageForAnalyzedResult(
-                            item: originalItem,
-                            result: result,
-                            resultIndex: resultIndex,
-                            fallbackImage: originalImage
-                        )
-                        modelContext.insert(FoodEntry(
-                            image: image,
-                            name: result.food_name,
-                            calories: result.calories,
-                            protein: result.protein,
-                            ingredients: result.ingredients_breakdown,
-                            date: targetDate
-                        ))
-                    }
-                }
-            }
-        }
+        addFoodResults(results, originalItem: originalItem, originalImage: originalImage, targetDate: targetDate)
     }
 
     private func stageLibraryResultsIfNeeded(
@@ -703,126 +687,311 @@ struct ContentView: View {
         originalItem: ProcessingItem,
         originalImage: UIImage
     ) {
-        let stagedItems = stagedProcessingItems(
-            for: results,
-            originalItem: originalItem,
-            originalImage: originalImage,
-            prefix: "Found"
-        )
-
-        if stagedItems.count > 1 {
-            withAnimation(.spring()) {
-                fridgeProcessingItems.append(contentsOf: stagedItems)
-            }
-        }
-
-        Task {
-            if stagedItems.count > 1 {
-                try? await Task.sleep(nanoseconds: 700_000_000)
-            }
-
-            await MainActor.run {
-                if stagedItems.count > 1 {
-                    removeProcessingItems(ids: stagedItems.map(\.id), from: &fridgeProcessingItems)
-                }
-
-                withAnimation(.spring()) {
-                    for (resultIndex, result) in results.enumerated() {
-                        let image = imageForAnalyzedResult(
-                            item: originalItem,
-                            result: result,
-                            resultIndex: resultIndex,
-                            fallbackImage: originalImage
-                        )
-
-                        if originalItem.targetTab == 1 {
-                            modelContext.insert(SavedRecipe(
-                                image: image,
-                                name: result.food_name,
-                                instructions: "",
-                                calories: result.calories,
-                                protein: result.protein,
-                                ingredients: result.ingredients_breakdown
-                            ))
-                        } else {
-                            modelContext.insert(FavoriteFood(
-                                image: image,
-                                name: result.food_name,
-                                calories: result.calories,
-                                protein: result.protein,
-                                ingredients: result.ingredients_breakdown
-                            ))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func stageReceiptResultsIfNeeded(_ results: [FoodResult]) {
-        let stagedItems = results.map { result in
-            ProcessingItem(
-                images: [generateEmojiIcon(emoji: result.emoji ?? "🛒")],
-                targetTab: 0,
-                statusTitle: "Found \(result.food_name)"
+        if results.count > 1 {
+            presentAIReview(
+                results: results,
+                originalItem: originalItem,
+                originalImage: originalImage,
+                destination: originalItem.targetTab == 1 ? .meals : .fridge
             )
+            return
         }
 
-        if stagedItems.count > 1 {
-            withAnimation(.spring()) {
-                fridgeProcessingItems.append(contentsOf: stagedItems)
-            }
-        }
-
-        Task {
-            if stagedItems.count > 1 {
-                try? await Task.sleep(nanoseconds: 700_000_000)
-            }
-
-            await MainActor.run {
-                if stagedItems.count > 1 {
-                    removeProcessingItems(ids: stagedItems.map(\.id), from: &fridgeProcessingItems)
-                }
-
-                withAnimation(.spring()) {
-                    for result in results {
-                        modelContext.insert(FavoriteFood(
-                            image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
-                            name: result.food_name,
-                            calories: result.calories,
-                            protein: result.protein,
-                            ingredients: result.ingredients_breakdown
-                        ))
-                    }
-                }
-            }
-        }
+        addLibraryResults(results, originalItem: originalItem, originalImage: originalImage)
     }
 
-    private func stagedProcessingItems(
-        for results: [FoodResult],
+    private func stageReceiptResultsIfNeeded(_ results: [FoodResult], originalItem: ProcessingItem) {
+        if results.count > 1 {
+            presentAIReview(
+                results: results,
+                originalItem: originalItem,
+                originalImage: originalItem.images.first ?? UIImage(),
+                destination: .receipt
+            )
+            return
+        }
+
+        addReceiptResults(results)
+    }
+
+    private func presentAIReview(
+        results: [FoodResult],
         originalItem: ProcessingItem,
         originalImage: UIImage,
-        prefix: String
-    ) -> [ProcessingItem] {
-        guard results.count > 1 else {
-            return []
-        }
-
-        return results.enumerated().map { index, result in
-            ProcessingItem(
-                images: [imageForAnalyzedResult(
+        destination: AIResultDestination
+    ) {
+        let items = results.enumerated().map { index, result in
+            AIReviewFoodItem(
+                image: imageForAnalyzedResult(
                     item: originalItem,
                     result: result,
                     resultIndex: index,
                     fallbackImage: originalImage
-                )],
-                isTraining: originalItem.isTraining,
-                targetTab: originalItem.targetTab,
-                targetDate: originalItem.targetDate,
-                statusTitle: "\(prefix) \(result.food_name)"
+                ),
+                name: result.food_name,
+                calories: result.calories,
+                protein: result.protein,
+                ingredients: result.ingredients_breakdown
             )
         }
+
+        let review = AIResultReview(
+            title: "Review \(items.count) items",
+            subtitle: "\(destination.reviewSubtitle). Uncheck anything wrong before adding.",
+            actionTitle: destination.actionTitle(count: items.count),
+            addingStatus: destination.addingStatus,
+            destination: destination,
+            originalItem: originalItem,
+            originalImage: originalImage,
+            items: items
+        )
+
+        let status = ProcessingItem(
+            images: [originalImage],
+            targetTab: originalItem.targetTab,
+            targetDate: originalItem.targetDate,
+            statusTitle: "Found \(items.count) items"
+        )
+
+        withAnimation(.spring()) {
+            if destination.usesFridgeQueue {
+                fridgeProcessingItems.append(status)
+            } else {
+                processingItems.append(status)
+            }
+        }
+
+        Task {
+            try? await Task.sleep(nanoseconds: 650_000_000)
+
+            await MainActor.run {
+                if destination.usesFridgeQueue {
+                    removeProcessingItems(ids: [status.id], from: &fridgeProcessingItems)
+                } else {
+                    removeProcessingItems(ids: [status.id], from: &processingItems)
+                }
+
+                pendingAIReview = review
+            }
+        }
+    }
+
+    private func retryReviewIgnoringCache(_ review: AIResultReview) {
+        pendingAIReview = nil
+
+        let status = ProcessingItem(
+            images: [review.originalImage],
+            targetTab: review.originalItem.targetTab,
+            targetDate: review.originalItem.targetDate,
+            statusTitle: "Recalculating fresh..."
+        )
+
+        withAnimation(.spring()) {
+            if review.destination.usesFridgeQueue {
+                fridgeProcessingItems.append(status)
+            } else {
+                processingItems.append(status)
+            }
+        }
+
+        Task {
+            let (results, error) = review.destination == .receipt
+                ? await GeminiService.shared.scanGroceriesAsync(images: review.originalItem.images)
+                : await analyzeFoodResults(for: review.originalItem, ignoreCache: true)
+
+            await MainActor.run {
+                if review.destination.usesFridgeQueue {
+                    removeProcessingItems(ids: [status.id], from: &fridgeProcessingItems)
+                } else {
+                    removeProcessingItems(ids: [status.id], from: &processingItems)
+                }
+
+                guard let results, !results.isEmpty else {
+                    aiErrorMessage = friendlyAIError(error, fallback: "Fresh AI analysis failed. Please try again.")
+                    return
+                }
+
+                if results.count > 1 {
+                    presentAIReview(
+                        results: results,
+                        originalItem: review.originalItem,
+                        originalImage: review.originalImage,
+                        destination: review.destination
+                    )
+                } else {
+                    switch review.destination {
+                    case .diary(let targetDate):
+                        addFoodResults(results, originalItem: review.originalItem, originalImage: review.originalImage, targetDate: targetDate)
+                    case .fridge, .meals:
+                        addLibraryResults(results, originalItem: review.originalItem, originalImage: review.originalImage)
+                    case .receipt:
+                        addReceiptResults(results)
+                    }
+                }
+            }
+        }
+    }
+
+    private func confirmAIReview(_ review: AIResultReview, selectedItems: [AIReviewFoodItem]) {
+        guard !selectedItems.isEmpty else { return }
+
+        showAddingStatus(review.addingStatus, image: review.originalImage, usesFridgeQueue: review.destination.usesFridgeQueue)
+
+        withAnimation(.spring()) {
+            for item in selectedItems {
+                switch review.destination {
+                case .diary(let targetDate):
+                    modelContext.insert(FoodEntry(
+                        image: item.image,
+                        name: item.name,
+                        calories: item.calories,
+                        protein: item.protein,
+                        ingredients: item.ingredients,
+                        date: targetDate
+                    ))
+                case .fridge, .receipt:
+                    modelContext.insert(FavoriteFood(
+                        image: item.image,
+                        name: item.name,
+                        calories: item.calories,
+                        protein: item.protein,
+                        ingredients: item.ingredients
+                    ))
+                case .meals:
+                    modelContext.insert(SavedRecipe(
+                        image: item.image,
+                        name: item.name,
+                        instructions: "",
+                        calories: item.calories,
+                        protein: item.protein,
+                        ingredients: item.ingredients
+                    ))
+                }
+            }
+        }
+    }
+
+    private func addFoodResults(
+        _ results: [FoodResult],
+        originalItem: ProcessingItem,
+        originalImage: UIImage,
+        targetDate: Date
+    ) {
+        showAddingStatus("Adding to \(shortDayLabel(targetDate))", image: originalImage, usesFridgeQueue: false)
+
+        withAnimation(.spring()) {
+            for (resultIndex, result) in results.enumerated() {
+                let image = imageForAnalyzedResult(
+                    item: originalItem,
+                    result: result,
+                    resultIndex: resultIndex,
+                    fallbackImage: originalImage
+                )
+                modelContext.insert(FoodEntry(
+                    image: image,
+                    name: result.food_name,
+                    calories: result.calories,
+                    protein: result.protein,
+                    ingredients: result.ingredients_breakdown,
+                    date: targetDate
+                ))
+            }
+        }
+    }
+
+    private func addLibraryResults(_ results: [FoodResult], originalItem: ProcessingItem, originalImage: UIImage) {
+        showAddingStatus(originalItem.targetTab == 1 ? "Saving to Meals" : "Saving to Fridge", image: originalImage, usesFridgeQueue: true)
+
+        withAnimation(.spring()) {
+            for (resultIndex, result) in results.enumerated() {
+                let image = imageForAnalyzedResult(
+                    item: originalItem,
+                    result: result,
+                    resultIndex: resultIndex,
+                    fallbackImage: originalImage
+                )
+
+                if originalItem.targetTab == 1 {
+                    modelContext.insert(SavedRecipe(
+                        image: image,
+                        name: result.food_name,
+                        instructions: "",
+                        calories: result.calories,
+                        protein: result.protein,
+                        ingredients: result.ingredients_breakdown
+                    ))
+                } else {
+                    modelContext.insert(FavoriteFood(
+                        image: image,
+                        name: result.food_name,
+                        calories: result.calories,
+                        protein: result.protein,
+                        ingredients: result.ingredients_breakdown
+                    ))
+                }
+            }
+        }
+    }
+
+    private func addReceiptResults(_ results: [FoodResult]) {
+        showAddingStatus("Saving to Fridge", image: generateEmojiIcon(emoji: "🛒"), usesFridgeQueue: true)
+
+        withAnimation(.spring()) {
+            for result in results {
+                modelContext.insert(FavoriteFood(
+                    image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
+                    name: result.food_name,
+                    calories: result.calories,
+                    protein: result.protein,
+                    ingredients: result.ingredients_breakdown
+                ))
+            }
+        }
+    }
+
+    private func showAddingStatus(_ title: String, image: UIImage, usesFridgeQueue: Bool) {
+        let item = ProcessingItem(images: [image], statusTitle: title)
+
+        withAnimation(.spring()) {
+            if usesFridgeQueue {
+                fridgeProcessingItems.append(item)
+            } else {
+                processingItems.append(item)
+            }
+        }
+
+        Task {
+            try? await Task.sleep(nanoseconds: 650_000_000)
+            await MainActor.run {
+                if usesFridgeQueue {
+                    removeProcessingItems(ids: [item.id], from: &fridgeProcessingItems)
+                } else {
+                    removeProcessingItems(ids: [item.id], from: &processingItems)
+                }
+            }
+        }
+    }
+
+    private func shortDayLabel(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+
+    private func friendlyAIError(_ error: String?, fallback: String) -> String {
+        guard let error, !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return fallback
+        }
+
+        if error.lowercased().contains("cancelled") {
+            return "The AI request was interrupted. Please try again."
+        }
+
+        return error
     }
 
     private func removeProcessingItems(ids: [UUID], from items: inout [ProcessingItem]) {
@@ -842,5 +1011,259 @@ struct ContentView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year) ? "MMM d" : "MMM d, yyyy"
         return formatter.string(from: date)
+    }
+}
+
+enum AIResultDestination: Equatable {
+    case diary(Date)
+    case fridge
+    case receipt
+    case meals
+
+    var usesFridgeQueue: Bool {
+        switch self {
+        case .diary:
+            return false
+        case .fridge, .receipt, .meals:
+            return true
+        }
+    }
+
+    var reviewSubtitle: String {
+        switch self {
+        case .diary(let date):
+            return "AI found multiple foods for \(shortLabel(for: date))"
+        case .fridge:
+            return "AI found multiple items for My Food"
+        case .receipt:
+            return "AI found multiple items on the receipt"
+        case .meals:
+            return "AI found multiple meals"
+        }
+    }
+
+    var addingStatus: String {
+        switch self {
+        case .diary(let date):
+            return "Adding to \(shortLabel(for: date))"
+        case .fridge, .receipt:
+            return "Saving to Fridge"
+        case .meals:
+            return "Saving to Meals"
+        }
+    }
+
+    func actionTitle(count: Int) -> String {
+        switch self {
+        case .diary:
+            return "Add \(count) to Diary"
+        case .fridge, .receipt:
+            return "Save \(count) to Fridge"
+        case .meals:
+            return "Save \(count) to Meals"
+        }
+    }
+
+    private func shortLabel(for date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+}
+
+struct AIReviewFoodItem: Identifiable {
+    let id = UUID()
+    var image: UIImage
+    var name: String
+    var calories: Double
+    var protein: Double
+    var ingredients: String
+    var isSelected = true
+}
+
+struct AIResultReview: Identifiable {
+    let id = UUID()
+    var title: String
+    var subtitle: String
+    var actionTitle: String
+    var addingStatus: String
+    var destination: AIResultDestination
+    var originalItem: ProcessingItem
+    var originalImage: UIImage
+    var items: [AIReviewFoodItem]
+}
+
+struct AIResultReviewSheet: View {
+    let review: AIResultReview
+    var onCancel: () -> Void
+    var onRecalculate: () -> Void
+    var onConfirm: ([AIReviewFoodItem]) -> Void
+
+    @State private var items: [AIReviewFoodItem]
+
+    init(
+        review: AIResultReview,
+        onCancel: @escaping () -> Void,
+        onRecalculate: @escaping () -> Void,
+        onConfirm: @escaping ([AIReviewFoodItem]) -> Void
+    ) {
+        self.review = review
+        self.onCancel = onCancel
+        self.onRecalculate = onRecalculate
+        self.onConfirm = onConfirm
+        _items = State(initialValue: review.items)
+    }
+
+    private var selectedItems: [AIReviewFoodItem] {
+        items.filter { $0.isSelected }
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                header
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) {
+                        ForEach($items) { $item in
+                            reviewRow(item: $item)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 12)
+                }
+
+                footer
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("AI CHECKPOINT")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.neonGreen)
+                        .tracking(1.4)
+
+                    Text(review.title)
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundColor(.appText)
+                }
+
+                Spacer()
+
+                Button("Cancel", action: onCancel)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.appMuted)
+            }
+
+            Text(review.subtitle)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.appMuted)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+    }
+
+    private func reviewRow(item: Binding<AIReviewFoodItem>) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                    item.wrappedValue.isSelected.toggle()
+                }
+            } label: {
+                Image(systemName: item.wrappedValue.isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 23, weight: .black))
+                    .foregroundColor(item.wrappedValue.isSelected ? .neonGreen : .appMuted)
+            }
+
+            Image(uiImage: item.wrappedValue.image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 10) {
+                TextField("Food name", text: item.name)
+                    .font(.system(size: 16, weight: .heavy))
+                    .foregroundColor(.appText)
+                    .lineLimit(2)
+
+                HStack(spacing: 10) {
+                    metricField(title: "kcal", value: item.calories, color: .neonGreen)
+                    metricField(title: "protein", value: item.protein, color: .neonCyan)
+                }
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(item.wrappedValue.isSelected ? Color.appElevated : Color.appSurface.opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(item.wrappedValue.isSelected ? Color.neonGreen.opacity(0.24) : Color.appBorder, lineWidth: 1)
+        )
+    }
+
+    private func metricField(title: String, value: Binding<Double>, color: Color) -> some View {
+        HStack(spacing: 4) {
+            TextField("0", value: value, format: .number)
+                .keyboardType(.decimalPad)
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(color)
+                .frame(width: 58)
+
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.appMuted)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Color.appSurface))
+    }
+
+    private var footer: some View {
+        VStack(spacing: 10) {
+            Button(action: onRecalculate) {
+                Label("Recalculate fresh", systemImage: "arrow.clockwise")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundColor(.neonCyan)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .background(Capsule().fill(Color.neonCyan.opacity(0.12)))
+            }
+
+            Button {
+                onConfirm(selectedItems)
+            } label: {
+                Text(selectedItems.isEmpty ? "Select at least one item" : review.actionTitle)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundColor(.appAccentText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(Capsule().fill(selectedItems.isEmpty ? Color.gray.opacity(0.35) : Color.neonGreen))
+                    .shadow(color: Color.neonGreen.opacity(selectedItems.isEmpty ? 0 : 0.35), radius: 18, x: 0, y: 8)
+            }
+            .disabled(selectedItems.isEmpty)
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .background(Color.appElevated.opacity(0.86).ignoresSafeArea(edges: .bottom))
     }
 }

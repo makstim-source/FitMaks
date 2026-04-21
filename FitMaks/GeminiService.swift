@@ -64,10 +64,10 @@ class GeminiService {
     private var foodImageItemsCache: [String: [FoodResult]] = [:]
     private var foodTextEstimateCache: [String: FoodResult] = [:]
     
-    func analyzeImages(images: [UIImage], completion: @escaping (FoodResult?, String?) -> Void) {
+    func analyzeImages(images: [UIImage], ignoreCache: Bool = false, completion: @escaping (FoodResult?, String?) -> Void) {
         let cacheKey = foodImageCacheKey(images: images)
 
-        if let cacheKey, let cached = cachedFoodImageEstimate(for: cacheKey) {
+        if !ignoreCache, let cacheKey, let cached = cachedFoodImageEstimate(for: cacheKey) {
             completion(cached, nil)
             return
         }
@@ -131,10 +131,10 @@ class GeminiService {
         }
     }
 
-    func analyzeFoodItems(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
+    func analyzeFoodItems(images: [UIImage], ignoreCache: Bool = false, completion: @escaping ([FoodResult]?, String?) -> Void) {
         let cacheKey = foodImageCacheKey(images: images)
 
-        if let cacheKey, let cached = cachedFoodImageItems(for: cacheKey) {
+        if !ignoreCache, let cacheKey, let cached = cachedFoodImageItems(for: cacheKey) {
             completion(cached, nil)
             return
         }
@@ -345,7 +345,7 @@ class GeminiService {
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                finish(nil, error.localizedDescription)
+                finish(nil, self.userFacingErrorMessage(error.localizedDescription))
                 return
             }
 
@@ -409,6 +409,16 @@ class GeminiService {
                 finish(nil, "Failed to decode Gemini response.")
             }
         }.resume()
+    }
+
+    private func userFacingErrorMessage(_ message: String) -> String {
+        let normalized = message.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalized.lowercased().contains("cancelled") {
+            return "The AI request was interrupted. Please try again."
+        }
+
+        return normalized.isEmpty ? "The AI request failed. Please try again." : normalized
     }
 
     private func stabilizedFoodResult(_ result: FoodResult) -> FoodResult {
@@ -592,17 +602,17 @@ class GeminiService {
 }
 
 extension GeminiService {
-    func analyzeImagesAsync(images: [UIImage]) async -> (FoodResult?, String?) {
+    func analyzeImagesAsync(images: [UIImage], ignoreCache: Bool = false) async -> (FoodResult?, String?) {
         await withCheckedContinuation { continuation in
-            analyzeImages(images: images) { result, error in
+            analyzeImages(images: images, ignoreCache: ignoreCache) { result, error in
                 continuation.resume(returning: (result, error))
             }
         }
     }
 
-    func analyzeFoodItemsAsync(images: [UIImage]) async -> ([FoodResult]?, String?) {
+    func analyzeFoodItemsAsync(images: [UIImage], ignoreCache: Bool = false) async -> ([FoodResult]?, String?) {
         await withCheckedContinuation { continuation in
-            analyzeFoodItems(images: images) { result, error in
+            analyzeFoodItems(images: images, ignoreCache: ignoreCache) { result, error in
                 continuation.resume(returning: (result, error))
             }
         }

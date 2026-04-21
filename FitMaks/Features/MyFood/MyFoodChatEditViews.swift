@@ -17,6 +17,7 @@ struct FavoriteChatEditView: View {
                 Spacer()
                 HStack(spacing: 15) {
                     Button(action: onMove) { Text("Move to Meals").font(.caption).bold().padding(.horizontal, 10).padding(.vertical, 6).background(Color.orange.opacity(0.2)).foregroundColor(.orange).cornerRadius(8) }
+                    Button(action: recalculateFresh) { Image(systemName: "arrow.clockwise").foregroundColor(.neonCyan) }.disabled(isWaiting)
                     Button(action: onDelete) { Image(systemName: "trash").foregroundColor(.red.opacity(0.8)) }
                 }
             }
@@ -57,6 +58,8 @@ struct FavoriteChatEditView: View {
     }
 
     func sendMessage() { let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: favorite.name, emoji: nil, calories: favorite.calories, protein: favorite.protein, ingredients_breakdown: favorite.ingredients, ai_response_text: ""); GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text) { result, error in isWaiting = false; if let res = result { favorite.name = res.food_name; favorite.calories = res.calories; favorite.protein = res.protein; favorite.ingredients = res.ingredients_breakdown; messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+
+    func recalculateFresh() { guard let image = favorite.uiImage else { messages.append(ChatMessage(text: "I need the original photo to recalculate this one.", isUser: false, shouldTypewrite: true)); return }; isWaiting = true; messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image)); GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in isWaiting = false; if let res = result { favorite.name = res.food_name; favorite.calories = res.calories; favorite.protein = res.protein; favorite.ingredients = res.ingredients_breakdown; originalIngredients = res.ingredients_breakdown; originalCalories = res.calories; originalProtein = res.protein; messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
 }
 
 struct MealChatEditView: View {
@@ -75,6 +78,7 @@ struct MealChatEditView: View {
                 Spacer()
                 HStack(spacing: 15) {
                     Button(action: onMove) { Text("Move to Fridge").font(.caption).bold().padding(.horizontal, 10).padding(.vertical, 6).background(Color.neonCyan.opacity(0.2)).foregroundColor(.neonCyan).cornerRadius(8) }
+                    Button(action: recalculateFresh) { Image(systemName: "arrow.clockwise").foregroundColor(.orange) }.disabled(isWaiting)
                     Button(action: onDelete) { Image(systemName: "trash").foregroundColor(.red.opacity(0.8)) }
                 }
             }
@@ -115,4 +119,6 @@ struct MealChatEditView: View {
     }
 
     func sendMessage() { let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: recipe.name, emoji: nil, calories: recipe.calories, protein: recipe.protein, ingredients_breakdown: recipe.ingredients, ai_response_text: ""); GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text) { result, error in isWaiting = false; if let res = result { recipe.name = res.food_name; recipe.calories = res.calories; recipe.protein = res.protein; recipe.ingredients = res.ingredients_breakdown; messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+
+    func recalculateFresh() { guard let image = recipe.uiImage else { messages.append(ChatMessage(text: "I need the original photo to recalculate this meal.", isUser: false, shouldTypewrite: true)); return }; isWaiting = true; messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image)); GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in isWaiting = false; if let res = result { recipe.name = res.food_name; recipe.calories = res.calories; recipe.protein = res.protein; recipe.ingredients = res.ingredients_breakdown; originalIngredients = res.ingredients_breakdown; originalCalories = res.calories; originalProtein = res.protein; messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
 }

@@ -8,6 +8,7 @@ struct ProcessingItem: Identifiable {
     var textPrompt: String? = nil
     var isTraining: Bool = false
     var targetTab: Int = 0
+    var targetDate: Date? = nil
 }
 
 enum EntryMode {

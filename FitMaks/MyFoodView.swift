@@ -243,12 +243,17 @@ struct MyFoodView: View {
                         favoriteRow(fav)
                             .onTapGesture {
                                 if isSelectionMode {
-                                    let safeName = fav.name.hasPrefix("❄️") ? fav.name : "❄️ " + fav.name
-                                    modelContext.insert(FoodEntry(image: fav.uiImage ?? UIImage(), name: safeName, calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients, date: selectedDate)); dismiss()
+                                    addFavoriteToDiary(fav)
+                                    dismiss()
+                                } else {
+                                    addFavoriteToDiary(fav)
                                 }
-                                else { withAnimation(.spring()) { selectedFavoriteForEdit = fav } }
                             }
                             .contextMenu {
+                                if !isSelectionMode {
+                                    Button { addFavoriteToDiary(fav) } label: { Label("Add to Diary", systemImage: "plus.circle") }
+                                    Button { withAnimation(.spring()) { selectedFavoriteForEdit = fav } } label: { Label("Edit in Chat", systemImage: "pencil") }
+                                }
                                 Button { moveFavToMeals(fav) } label: { Label("Move to Meals", systemImage: "fork.knife") }
                                 Button(role: .destructive) { modelContext.delete(fav) } label: { Label("Delete", systemImage: "trash") }
                             }
@@ -288,15 +293,16 @@ struct MyFoodView: View {
                         mealRow(r)
                         .onTapGesture {
                             if isSelectionMode {
-                                let safeName = r.name.hasPrefix("👨‍🍳") ? r.name : "👨‍🍳 " + r.name
-                                let ing = r.ingredients.isEmpty ? "Meal;1 portion;\(r.calories);\(r.protein)" : r.ingredients
-                                modelContext.insert(FoodEntry(image: r.uiImage ?? UIImage(systemName: "fork.knife")!, name: safeName, calories: r.calories, protein: r.protein, ingredients: ing, date: selectedDate)); dismiss()
+                                addMealToDiary(r)
+                                dismiss()
                             } else {
-                                if !r.instructions.isEmpty { selectedRecipeToShow = r.asResult }
-                                else { withAnimation(.spring()) { selectedMealForEdit = r } }
+                                addMealToDiary(r)
                             }
                         }
                         .contextMenu {
+                            if !isSelectionMode {
+                                Button { addMealToDiary(r) } label: { Label("Add to Diary", systemImage: "plus.circle") }
+                            }
                             Button { moveMealToFav(r) } label: { Label("Move to Fridge", systemImage: "snowflake") }
                             if !r.instructions.isEmpty { Button { selectedRecipeToShow = r.asResult } label: { Label("View Recipe", systemImage: "doc.text") } }
                             Button { withAnimation(.spring()) { selectedMealForEdit = r } } label: { Label("Edit in Chat", systemImage: "pencil") }
@@ -434,9 +440,9 @@ struct MyFoodView: View {
 
             Spacer()
 
-            Image(systemName: recipe.instructions.isEmpty ? "pencil" : "doc.text.fill")
+            Image(systemName: "plus.circle.fill")
                 .font(.caption.bold())
-                .foregroundColor(.gray)
+                .foregroundColor(.orange)
         }
         .padding(13)
         .background(
@@ -604,9 +610,9 @@ struct MyFoodView: View {
 
             Spacer()
 
-            Image(systemName: isSelectionMode ? "plus.circle.fill" : "pencil")
+            Image(systemName: "plus.circle.fill")
                 .font(.caption.bold())
-                .foregroundColor(isSelectionMode ? .neonCyan : .gray)
+                .foregroundColor(.neonCyan)
         }
         .padding(13)
         .background(
@@ -656,6 +662,8 @@ struct MyFoodView: View {
     }
     func moveFavToMeals(_ fav: FavoriteFood) { let newMeal = SavedRecipe(image: fav.uiImage, name: fav.name, instructions: "", calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients); modelContext.insert(newMeal); modelContext.delete(fav) }
     func moveMealToFav(_ r: SavedRecipe) { let newFav = FavoriteFood(image: r.uiImage, name: r.name, calories: r.calories, protein: r.protein, ingredients: r.ingredients.isEmpty ? "Meal;1 portion;\(r.calories);\(r.protein)" : r.ingredients); modelContext.insert(newFav); modelContext.delete(r) }
+    func addFavoriteToDiary(_ fav: FavoriteFood) { let safeName = fav.name.hasPrefix("❄️") ? fav.name : "❄️ " + fav.name; modelContext.insert(FoodEntry(image: fav.uiImage ?? UIImage(), name: safeName, calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients, date: selectedDate)) }
+    func addMealToDiary(_ r: SavedRecipe) { let safeName = r.name.hasPrefix("👨‍🍳") ? r.name : "👨‍🍳 " + r.name; let ing = r.ingredients.isEmpty ? "Meal;1 portion;\(r.calories);\(r.protein)" : r.ingredients; modelContext.insert(FoodEntry(image: r.uiImage ?? UIImage(systemName: "fork.knife") ?? UIImage(), name: safeName, calories: r.calories, protein: r.protein, ingredients: ing, date: selectedDate)) }
     func processReceipt(_ img: UIImage) { let item = ProcessingItem(images: [img]); withAnimation { processingItems.append(item) }; GeminiService.shared.scanGroceries(images: [img]) { results, error in DispatchQueue.main.async { if let index = processingItems.firstIndex(where: { $0.id == item.id }) { processingItems.remove(at: index) }; if let items = results { for res in items { modelContext.insert(FavoriteFood(image: UIImage(systemName: "cart"), name: res.food_name, calories: res.calories, protein: res.protein, ingredients: res.ingredients_breakdown)) } } else { aiErrorMessage = error ?? "Receipt scan failed. Please try again." } } } }
     func cookSomething() { isGeneratingRecipe = true; let items = favorites.map { "\($0.name)" }; GeminiService.shared.generateRecipes(from: items) { res, error in isGeneratingRecipe = false; if let res = res, !res.isEmpty { suggestedRecipes = res; showRecipeSuggestions = true } else { aiErrorMessage = error ?? "Recipe generation failed. Please try again." } } }
 }

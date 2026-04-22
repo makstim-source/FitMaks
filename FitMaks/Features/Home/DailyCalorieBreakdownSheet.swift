@@ -32,6 +32,7 @@ struct DailyCalorieBreakdownSheet: View {
     var targetProtein: Double
     var consumedProtein: Double
     var actualSteps: Double
+    var uploadedSteps: Double
     var stepBonus: Double
     var targetSteps: Double
 
@@ -171,7 +172,8 @@ struct DailyCalorieBreakdownSheet: View {
     }
 
     var stepsGoalCard: some View {
-        let effectiveSteps = actualSteps + stepBonus
+        let countedBaseSteps = max(actualSteps, uploadedSteps)
+        let effectiveSteps = countedBaseSteps + stepBonus
         let minimumSteps = AppRules.completionMinimum(for: targetSteps)
         let missingSteps = max(minimumSteps - effectiveSteps, 0)
         let isClosed = missingSteps <= 0
@@ -193,6 +195,8 @@ struct DailyCalorieBreakdownSheet: View {
 
             VStack(spacing: 10) {
                 goalRow("Health steps", value: actualSteps, unit: "steps", color: .appText)
+                goalRow("Uploaded workout steps", value: uploadedSteps, unit: "steps", color: uploadedSteps > 0 ? .yellow : .appMuted)
+                goalRow("Best available base", value: countedBaseSteps, unit: "steps", color: countedBaseSteps >= actualSteps && uploadedSteps > actualSteps ? .yellow : .appText)
                 goalRow("\(dayMode.rawValue) credit", value: stepBonus, unit: "steps", color: stepBonus > 0 ? .fitOrange : .appMuted, prefix: stepBonus > 0 ? "+" : "")
                 Divider().background(Color.appBorder)
                 goalRow("Counted steps", value: effectiveSteps, unit: "steps", color: statusColor)
@@ -203,6 +207,13 @@ struct DailyCalorieBreakdownSheet: View {
 
             if stepBonus > 0 {
                 Text("Gym adds a 5k step credit, so a strength day can still close the 10k movement goal without pretending you walked more.")
+                    .font(.caption)
+                    .foregroundColor(.appMuted)
+                    .lineSpacing(3)
+            }
+
+            if uploadedSteps > actualSteps {
+                Text("Workout screenshots act as provisional steps while Whoop/Apple Health catches up. When Health later shows a higher number, FitMaks uses that instead so the day is not double-counted.")
                     .font(.caption)
                     .foregroundColor(.appMuted)
                     .lineSpacing(3)

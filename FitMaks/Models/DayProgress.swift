@@ -41,12 +41,14 @@ struct DayProgress: Equatable, Identifiable {
     let protein: Double
     let proteinTarget: Double
     let steps: Double
+    let uploadedSteps: Double
     let stepBonus: Double
     let stepTarget: Double
     let hasFood: Bool
 
     var id: Date { date }
-    var effectiveSteps: Double { steps + stepBonus }
+    var countedSteps: Double { max(steps, uploadedSteps) }
+    var effectiveSteps: Double { countedSteps + stepBonus }
 
     var calorieGraceLimit: Double {
         AppRules.caloriePerfectLimit(for: target)
@@ -116,6 +118,7 @@ enum DayProgressEngine {
         baseCalories: Double,
         baseProtein: Double,
         steps: Double,
+        uploadedSteps: Double = 0,
         stepTarget: Double = defaultStepTarget
     ) -> DayProgress {
         let consumed = foodEntries.reduce(0) { $0 + $1.calories }
@@ -131,6 +134,7 @@ enum DayProgressEngine {
             baseCalories: baseCalories,
             baseProtein: baseProtein,
             steps: steps,
+            uploadedSteps: uploadedSteps,
             stepTarget: stepTarget
         )
     }
@@ -145,6 +149,7 @@ enum DayProgressEngine {
         baseCalories: Double,
         baseProtein: Double,
         steps: Double,
+        uploadedSteps: Double = 0,
         stepTarget: Double = defaultStepTarget
     ) -> DayProgress {
         let targets = targets(
@@ -163,6 +168,7 @@ enum DayProgressEngine {
             protein: consumedProtein,
             proteinTarget: targets.protein,
             steps: steps,
+            uploadedSteps: uploadedSteps,
             stepBonus: targets.stepBonus,
             stepTarget: targets.steps,
             hasFood: hasFood

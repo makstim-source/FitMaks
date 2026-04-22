@@ -160,6 +160,9 @@ struct StatsView: View {
         let dayTrainingCalories = allTrainingEntries
             .filter { calendar.isDate($0.date, inSameDayAs: date) }
             .reduce(0) { $0 + $1.caloriesBurned }
+        let dayUploadedTrainingSteps = allTrainingEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
 
         return DayProgressEngine.progress(
             date: date,
@@ -169,6 +172,7 @@ struct StatsView: View {
             baseCalories: baseCalories,
             baseProtein: baseProtein,
             steps: weeklySteps[dateID] ?? 0,
+            uploadedSteps: dayUploadedTrainingSteps,
             stepTarget: stepTarget
         )
     }

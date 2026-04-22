@@ -237,7 +237,7 @@ struct HomeTrainingRow: View {
                     .foregroundColor(.appText)
                     .lineLimit(2)
 
-                Label("\(Int(entry.caloriesBurned)) kcal burned · \(entry.duration)", systemImage: "flame.fill")
+                Label(trainingSummary, systemImage: "flame.fill")
                     .font(.caption.bold())
                     .foregroundColor(.blue)
             }
@@ -250,6 +250,11 @@ struct HomeTrainingRow: View {
                 .fill(Color.blue.opacity(0.09))
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.blue.opacity(0.20), lineWidth: 1))
         )
+    }
+
+    private var trainingSummary: String {
+        let stepsText = (entry.steps ?? 0) > 0 ? " · \(Int(entry.steps ?? 0)) steps" : ""
+        return "\(Int(entry.caloriesBurned)) kcal burned\(stepsText) · \(entry.duration)"
     }
 }
 

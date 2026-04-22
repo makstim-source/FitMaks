@@ -68,6 +68,7 @@ struct ContentView: View {
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
+    var dailyUploadedTrainingSteps: Double { dailyTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
     var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.createdAt > $1.createdAt } }
     var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
@@ -84,6 +85,7 @@ struct ContentView: View {
             baseCalories: baseCaloriesGoal,
             baseProtein: baseProteinGoal,
             steps: dailySteps,
+            uploadedSteps: dailyUploadedTrainingSteps,
             stepTarget: targetSteps
         )
     }
@@ -105,6 +107,9 @@ struct ContentView: View {
             let dayTrainingCalories = allTrainingEntries
                 .filter { calendar.isDate($0.date, inSameDayAs: date) }
                 .reduce(0) { $0 + $1.caloriesBurned }
+            let dayUploadedTrainingSteps = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
 
             return DayProgressEngine.progress(
                 date: date,
@@ -114,6 +119,7 @@ struct ContentView: View {
                 baseCalories: baseCaloriesGoal,
                 baseProtein: baseProteinGoal,
                 steps: homeWeeklySteps[dateID] ?? 0,
+                uploadedSteps: dayUploadedTrainingSteps,
                 stepTarget: targetSteps
             )
         }
@@ -195,6 +201,7 @@ struct ContentView: View {
                 targetProtein: targetProtein,
                 consumedProtein: dailyProtein,
                 actualSteps: dailySteps,
+                uploadedSteps: dailyUploadedTrainingSteps,
                 stepBonus: dailyProgress.stepBonus,
                 targetSteps: targetSteps
             )
@@ -363,8 +370,8 @@ struct ContentView: View {
                 HomeMetricTile(
                     title: "Steps",
                     value: "\(Int(dailyProgress.effectiveSteps))",
-                    subtitle: dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k",
-                    progress: dailySteps / max(targetSteps, 1),
+                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "from screenshot" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k"),
+                    progress: dailyProgress.countedSteps / max(targetSteps, 1),
                     bonusProgress: dailyProgress.stepBonus / max(targetSteps, 1),
                     bonusColor: .fitOrange,
                     color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
@@ -715,6 +722,7 @@ struct ContentView: View {
                             image: processedImage,
                             name: result.activity_name,
                             caloriesBurned: result.calories_burned,
+                            steps: result.steps,
                             duration: result.duration,
                             date: entryDate
                         )

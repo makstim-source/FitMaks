@@ -151,6 +151,41 @@ struct FitMaksTests {
         #expect(progress.stepWin)
     }
 
+    @Test func uploadedWorkoutStepsCanTemporarilyCoverLateHealthSync() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 2_000,
+            consumedProtein: 180,
+            hasFood: true,
+            mode: .cardio,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 2_000,
+            uploadedSteps: 9_700
+        )
+
+        #expect(progress.countedSteps == 9_700)
+        #expect(progress.effectiveSteps == 9_700)
+        #expect(progress.stepWin)
+    }
+
+    @Test func healthStepsReplaceUploadedWorkoutStepsWhenHigher() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 2_000,
+            consumedProtein: 180,
+            hasFood: true,
+            mode: .cardio,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 11_000,
+            uploadedSteps: 9_700
+        )
+
+        #expect(progress.countedSteps == 11_000)
+        #expect(progress.effectiveSteps == 11_000)
+    }
+
     @Test func currentStreakSkipsIncompleteToday() async throws {
         let calendar = Calendar(identifier: .gregorian)
         let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21)))

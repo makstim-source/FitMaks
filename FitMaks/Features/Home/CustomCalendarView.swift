@@ -66,6 +66,9 @@ struct CustomCalendarView: View {
                             let trainingCalories = allTrainingEntries
                                 .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
                                 .reduce(0) { $0 + $1.caloriesBurned }
+                            let uploadedTrainingSteps = allTrainingEntries
+                                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+                                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
                             let mode = dayMode(for: date)
@@ -77,6 +80,7 @@ struct CustomCalendarView: View {
                                 baseCalories: baseCalories,
                                 baseProtein: baseProtein,
                                 steps: steps,
+                                uploadedSteps: uploadedTrainingSteps,
                                 stepTarget: targetSteps
                             )
                             let calorieGoalMet = progress.calorieWin

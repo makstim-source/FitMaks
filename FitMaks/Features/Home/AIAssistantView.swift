@@ -318,7 +318,10 @@ struct AIAssistantView: View {
         }
 
         let mealNames = foods.map { "\($0.name) (\(Int($0.calories)) kcal, \(Int($0.protein))g P)" }
-        let workoutNames = trainings.map { "\($0.name) (\(Int($0.caloriesBurned)) kcal burned)" }
+        let workoutNames = trainings.map { training in
+            let stepsText = (training.steps ?? 0) > 0 ? ", \(Int(training.steps ?? 0)) steps" : ""
+            return "\(training.name) (\(Int(training.caloriesBurned)) kcal burned\(stepsText))"
+        }
         let fridgeNames = favorites.map { "\($0.name) (\(Int($0.calories))kcal, \(Int($0.protein))g protein)" }
 
         GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames) { result, error in

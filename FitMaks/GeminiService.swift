@@ -16,6 +16,7 @@ struct FoodResult: Codable {
 struct TrainingResult: Codable {
     let activity_name: String
     let calories_burned: Double
+    let steps: Double?
     let duration: String
     let ai_summary: String
 }
@@ -212,8 +213,10 @@ class GeminiService {
     func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
         let prompt = """
         Extract workout stats from fitness tracker screenshot. Return ONLY a single JSON object.
+        If the screenshot shows steps for the workout/session/day, extract them as "steps".
+        If no steps are visible, use null for "steps".
         CRITICAL RULE: You MUST use exactly this structure:
-        {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
+        {"activity_name": "...", "calories_burned": 0, "steps": null, "duration": "...", "ai_summary": "..."}
         """
         sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
     }

@@ -103,6 +103,7 @@ final class TrainingEntry {
     var createdAt: Date?
     var name: String
     var caloriesBurned: Double
+    var steps: Double?
     var duration: String
     var date: Date
 
@@ -115,10 +116,11 @@ final class TrainingEntry {
         return UIImage(data: imageData)
     }
 
-    init(image: UIImage?, name: String, caloriesBurned: Double, duration: String, date: Date) {
+    init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, duration: String, date: Date) {
         self.createdAt = Date()
         self.name = name
         self.caloriesBurned = caloriesBurned
+        self.steps = steps
         self.duration = duration
         self.date = date
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)

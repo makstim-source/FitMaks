@@ -308,8 +308,8 @@ struct ContentView: View {
                     .foregroundColor(homePerfectStreak >= 7 ? .black : .yellow)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.appElevated))
-                    .overlay(Capsule().stroke(Color.yellow.opacity(0.26), lineWidth: 1))
+                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.black))
+                    .overlay(Capsule().stroke(Color.yellow.opacity(0.55), lineWidth: 1))
                     .offset(x: 7, y: 5)
             }
         }

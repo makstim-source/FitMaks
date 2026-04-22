@@ -110,7 +110,7 @@ struct ContentView: View {
             )
         }
 
-        return min(DayProgressEngine.currentPerfectStreak(in: recentDays), 7)
+        return AchievementEngine.homePerfectStreak(in: recentDays)
     }
 
     var body: some View {

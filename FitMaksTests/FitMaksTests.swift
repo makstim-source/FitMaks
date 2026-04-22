@@ -258,6 +258,24 @@ struct FitMaksTests {
         #expect(resolved === secondImage)
     }
 
+    @Test func aiProcessingEngineHidesCancelledImplementationDetail() async throws {
+        let message = AIProcessingEngine.friendlyError(
+            "AI Error: cancelled",
+            fallback: "Analysis failed."
+        )
+
+        #expect(message == "The AI request was interrupted. Please try again.")
+    }
+
+    @Test func aiProcessingEngineUsesFallbackForEmptyErrors() async throws {
+        let message = AIProcessingEngine.friendlyError(
+            "   ",
+            fallback: "Analysis failed."
+        )
+
+        #expect(message == "Analysis failed.")
+    }
+
     private func foodResult(sourcePhotoNumber: Int?) -> FoodResult {
         FoodResult(
             food_name: "Protein",

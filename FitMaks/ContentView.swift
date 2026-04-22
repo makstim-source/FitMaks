@@ -550,7 +550,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        let (results, error) = await analyzeFoodResults(for: item)
+                        let (results, error) = await AIProcessingEngine.analyzeFood(for: item)
                         return (item.id, results, error)
                     }
                 }
@@ -570,7 +570,7 @@ struct ContentView: View {
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = friendlyAIError(error, fallback: "Food analysis failed. Please try again.")
+                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Food analysis failed. Please try again.")
                             return
                         }
 
@@ -591,7 +591,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, TrainingResult?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        let (result, error) = await GeminiService.shared.analyzeTrainingImagesAsync(images: item.images)
+                        let (result, error) = await AIProcessingEngine.analyzeTraining(for: item)
                         return (item.id, result, error)
                     }
                 }
@@ -611,7 +611,7 @@ struct ContentView: View {
                         }
 
                         guard let result else {
-                            aiErrorMessage = friendlyAIError(error, fallback: "Workout analysis failed. Please try again.")
+                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Workout analysis failed. Please try again.")
                             return
                         }
 
@@ -637,7 +637,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        let (results, error) = await analyzeFoodResults(for: item)
+                        let (results, error) = await AIProcessingEngine.analyzeFood(for: item)
                         return (item.id, results, error)
                     }
                 }
@@ -656,7 +656,7 @@ struct ContentView: View {
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = friendlyAIError(error, fallback: "My Food analysis failed. Please try again.")
+                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "My Food analysis failed. Please try again.")
                             return
                         }
 
@@ -676,7 +676,7 @@ struct ContentView: View {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
                     group.addTask {
-                        let (results, error) = await GeminiService.shared.scanGroceriesAsync(images: item.images)
+                        let (results, error) = await AIProcessingEngine.scanReceipt(for: item)
                         return (item.id, results, error)
                     }
                 }
@@ -694,7 +694,7 @@ struct ContentView: View {
                         }
 
                         guard let results, !results.isEmpty else {
-                            aiErrorMessage = friendlyAIError(error, fallback: "Receipt scan failed. Please try again.")
+                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Receipt scan failed. Please try again.")
                             return
                         }
 
@@ -708,20 +708,6 @@ struct ContentView: View {
     private func deleteFoodEntry(_ entry: FoodEntry) {
         GeminiService.shared.invalidateFoodImageCache(for: entry.uiImage)
         modelContext.delete(entry)
-    }
-
-    private func analyzeFoodResults(for item: ProcessingItem, ignoreCache: Bool = false) async -> ([FoodResult]?, String?) {
-        if let text = item.textPrompt {
-            let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
-            return (result.map { [$0] }, error)
-        }
-
-        if item.images.count > 1 {
-            return await GeminiService.shared.analyzeFoodItemsAsync(images: item.images, ignoreCache: ignoreCache)
-        }
-
-        let (result, error) = await GeminiService.shared.analyzeImagesAsync(images: item.images, ignoreCache: ignoreCache)
-        return (result.map { [$0] }, error)
     }
 
     private func stageFoodResultsIfNeeded(
@@ -841,8 +827,8 @@ struct ContentView: View {
 
         Task {
             let (results, error) = review.destination == .receipt
-                ? await GeminiService.shared.scanGroceriesAsync(images: review.originalItem.images)
-                : await analyzeFoodResults(for: review.originalItem, ignoreCache: true)
+                ? await AIProcessingEngine.scanReceipt(for: review.originalItem)
+                : await AIProcessingEngine.analyzeFood(for: review.originalItem, ignoreCache: true)
 
             await MainActor.run {
                 if review.destination.usesFridgeQueue {
@@ -852,7 +838,7 @@ struct ContentView: View {
                 }
 
                 guard let results, !results.isEmpty else {
-                    aiErrorMessage = friendlyAIError(error, fallback: "Fresh AI analysis failed. Please try again.")
+                    aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Fresh AI analysis failed. Please try again.")
                     return
                 }
 
@@ -1040,18 +1026,6 @@ struct ContentView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
-    }
-
-    private func friendlyAIError(_ error: String?, fallback: String) -> String {
-        guard let error, !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return fallback
-        }
-
-        if error.lowercased().contains("cancelled") {
-            return "The AI request was interrupted. Please try again."
-        }
-
-        return error
     }
 
     private func removeProcessingItems(ids: [UUID], from items: inout [ProcessingItem]) {

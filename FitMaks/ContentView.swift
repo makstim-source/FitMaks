@@ -141,11 +141,19 @@ struct ContentView: View {
             Button("Type Text ✍️") { self.isShowingTextEntry = true }
             Button("Training (Whoop) 🏋️‍♂️") { pickingMode = .training; self.isShowingPhotoPicker = true }
         }
-        .alert("What did you eat?", isPresented: $isShowingTextEntry) { TextField("E.g. 200g chicken and rice", text: $manualText); Button("Analyze") { guard !manualText.isEmpty else { return }; let textImg = generatePlaceholderIcon(systemName: "brain", color: .neonGreen); let item = ProcessingItem(images: [textImg], textPrompt: manualText, isTraining: false, targetDate: selectedDate); withAnimation { processingItems.append(item) }; processQueue(items: [item]); manualText = "" }; Button("Cancel", role: .cancel) { manualText = "" } }
+        .alert("What did you eat?", isPresented: $isShowingTextEntry) {
+            TextField("E.g. 200g chicken and rice", text: $manualText)
+            Button("Analyze") { submitManualFoodText() }
+            Button("Cancel", role: .cancel) { manualText = "" }
+        }
         .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
-        .onChange(of: selectedCameraImage) { _, newValue in if let img = newValue { let preparedImage = img.preparedForAIIntake(); let item = ProcessingItem(images: [preparedImage], isTraining: pickingMode == .training, targetDate: selectedDate); processingItems.append(item); if pickingMode == .training { processTrainingQueue(items: [item]) } else { processQueue(items: [item]) }; selectedCameraImage = nil } }
+        .onChange(of: selectedCameraImage) { _, newValue in
+            handleCameraImage(newValue)
+        }
         .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
-        .onChange(of: selectedPhotoItems) { _, newItems in guard !newItems.isEmpty else { return }; Task { var loadedImages: [UIImage] = []; for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img.preparedForAIIntake()) } }; await MainActor.run { selectedPhotoItems.removeAll(); if !loadedImages.isEmpty { let newItem = ProcessingItem(images: loadedImages, isTraining: pickingMode == .training, targetDate: selectedDate); withAnimation { processingItems.append(newItem) }; if pickingMode == .training { processTrainingQueue(items: [newItem]) } else { processQueue(items: [newItem]) } } } } }
+        .onChange(of: selectedPhotoItems) { _, newItems in
+            handleSelectedPhotoItems(newItems)
+        }
         .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue, onScanReceiptQueue: processReceiptQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
@@ -542,6 +550,86 @@ struct ContentView: View {
             return "Padel"
         case .gym:
             return "Gym"
+        }
+    }
+
+    private func submitManualFoodText() {
+        guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        let textImage = generatePlaceholderIcon(systemName: "brain", color: .neonGreen)
+        let item = ProcessingItem(
+            images: [textImage],
+            textPrompt: manualText,
+            isTraining: false,
+            targetDate: selectedDate
+        )
+
+        enqueueHomeProcessingItem(item)
+        processQueue(items: [item])
+        manualText = ""
+    }
+
+    private func handleCameraImage(_ image: UIImage?) {
+        guard let image else {
+            return
+        }
+
+        let item = ProcessingItem(
+            images: [image.preparedForAIIntake()],
+            isTraining: pickingMode == .training,
+            targetDate: selectedDate
+        )
+
+        enqueueHomeProcessingItem(item)
+        processHomeProcessingItem(item)
+        selectedCameraImage = nil
+    }
+
+    private func handleSelectedPhotoItems(_ items: [PhotosPickerItem]) {
+        guard !items.isEmpty else {
+            return
+        }
+
+        Task {
+            var loadedImages: [UIImage] = []
+            for item in items {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    loadedImages.append(image.preparedForAIIntake())
+                }
+            }
+
+            await MainActor.run {
+                selectedPhotoItems.removeAll()
+                guard !loadedImages.isEmpty else {
+                    return
+                }
+
+                let item = ProcessingItem(
+                    images: loadedImages,
+                    isTraining: pickingMode == .training,
+                    targetDate: selectedDate
+                )
+
+                enqueueHomeProcessingItem(item)
+                processHomeProcessingItem(item)
+            }
+        }
+    }
+
+    private func enqueueHomeProcessingItem(_ item: ProcessingItem) {
+        withAnimation {
+            processingItems.append(item)
+        }
+    }
+
+    private func processHomeProcessingItem(_ item: ProcessingItem) {
+        if item.isTraining {
+            processTrainingQueue(items: [item])
+        } else {
+            processQueue(items: [item])
         }
     }
 

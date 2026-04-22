@@ -45,6 +45,7 @@ struct DailySummaryResult: Codable {
 }
 
 struct BodyMetricScanResult: Codable {
+    let measured_date: String?
     let weight_kg: Double?
     let body_fat_percent: Double?
     let muscle_percent: Double?
@@ -230,13 +231,15 @@ class GeminiService {
         - body_fat_percent, muscle_percent, and water_percent must be percentages without the % sign.
         - visceral_fat is a scale/index number if visible.
         - metabolic_age is years if visible.
+        - measured_date must be YYYY-MM-DD if a date is visible or explicitly typed.
 
         User typed note: "\(note)"
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"weight_kg": 0, "body_fat_percent": null, "muscle_percent": null, "water_percent": null, "visceral_fat": null, "metabolic_age": null, "ai_summary": "short useful insight"}
+        {"measured_date": null, "weight_kg": 0, "body_fat_percent": null, "muscle_percent": null, "water_percent": null, "visceral_fat": null, "metabolic_age": null, "ai_summary": "short useful insight"}
         If weight is not visible or not typed, set weight_kg to null.
+        If no date is visible or typed, set measured_date to null.
         Keep ai_summary under 2 short sentences.
         """
 

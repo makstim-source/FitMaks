@@ -33,6 +33,11 @@ struct ProfileView: View {
     @State private var manualBodyFatText = ""
     @State private var manualMuscleText = ""
     @State private var manualWaterText = ""
+    @State private var manualBodyMetricDate = Date()
+    @State private var pendingScannedBodyMetric: PendingBodyMetricScan?
+    @State private var pendingBodyMetricDate = Date()
+    @State private var isShowingScannedDatePicker = false
+    @State private var isImportingHealthMetrics = false
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -116,6 +121,7 @@ struct ProfileView: View {
                         recommendationCard
                         changeGoalsButton
                         weightTrackerCard
+                        themeCard
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -145,6 +151,9 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $isShowingWeightInput) {
             manualWeightSheet
+        }
+        .sheet(isPresented: $isShowingScannedDatePicker) {
+            scannedDateConfirmationSheet
         }
         .sheet(isPresented: $isShowingBodyImagePicker) {
             ImagePicker(selectedImage: $selectedBodyImage, sourceType: bodyScanSourceType)
@@ -193,7 +202,7 @@ struct ProfileView: View {
                         .fontWeight(.heavy)
                         .foregroundColor(.appText)
 
-                    Text("Goal, activity, body numbers, custom targets and theme.")
+                    Text("Goal, activity, body numbers and custom targets.")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.appMuted)
@@ -228,7 +237,6 @@ struct ProfileView: View {
                         activityCard
                         bodyMetricsCard
                         customGoalsCard
-                        themeCard
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -281,7 +289,7 @@ struct ProfileView: View {
                 weightInsightText
             }
 
-            HStack(spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 bodyMetricActionButton(title: "Type", systemName: "keyboard.fill", color: .neonGreen) {
                     prepareManualWeightSheet()
                     isShowingWeightInput = true
@@ -300,14 +308,18 @@ struct ProfileView: View {
                     }
                     isShowingBodyImagePicker = true
                 }
+
+                bodyMetricActionButton(title: "Health", systemName: "heart.text.square.fill", color: neonPurple) {
+                    importLatestHealthBodyMetrics()
+                }
             }
 
-            if isAnalyzingBodyScan {
+            if isAnalyzingBodyScan || isImportingHealthMetrics {
                 HStack(spacing: 10) {
                     ProgressView()
                         .tint(.neonGreen)
 
-                    Text("Reading scale data...")
+                    Text(isImportingHealthMetrics ? "Reading Apple Health..." : "Reading scale data...")
                         .font(.caption)
                         .fontWeight(.heavy)
                         .foregroundColor(.appMuted)
@@ -334,7 +346,7 @@ struct ProfileView: View {
                 .fontWeight(.heavy)
                 .foregroundColor(.appText)
 
-            Text("Type your weight, upload a smart-scale screenshot, or photograph the scale. FitMaks will build the trend and body-composition story here.")
+            Text("Type your weight, import Apple Health, upload a smart-scale screenshot, or photograph the scale. FitMaks will build the trend and body-composition story here.")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.appMuted)
@@ -417,6 +429,15 @@ struct ProfileView: View {
                         }
 
                         VStack(spacing: 12) {
+                            DatePicker("Date", selection: $manualBodyMetricDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .font(.headline)
+                                .fontWeight(.heavy)
+                                .foregroundColor(.appText)
+                                .padding(15)
+                                .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+
                             bodyInputField(title: "Weight", value: $manualWeightText, unit: "kg", required: true)
                             bodyInputField(title: "Body fat", value: $manualBodyFatText, unit: "%", required: false)
                             bodyInputField(title: "Muscle", value: $manualMuscleText, unit: "%", required: false)
@@ -449,6 +470,77 @@ struct ProfileView: View {
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .presentationDetents([.medium, .large])
+    }
+
+    private var scannedDateConfirmationSheet: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("DATE NEEDED")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundColor(.fitOrange)
+                            .tracking(1)
+
+                        Text("When was this measured?")
+                            .font(.system(size: 30, weight: .black))
+                            .foregroundColor(.appText)
+
+                        Text("I found the body data, but not the date on the screenshot/photo. Pick the date so the graph stays honest.")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.appMuted)
+                            .lineSpacing(3)
+                    }
+
+                    if let pendingScannedBodyMetric {
+                        HStack(spacing: 10) {
+                            bodyMetricMiniCard(title: "Weight", value: "\(String(format: "%.1f", pendingScannedBodyMetric.weightKg))kg", color: .neonGreen)
+                            bodyMetricMiniCard(title: "Fat", value: percentText(pendingScannedBodyMetric.bodyFatPercent), color: .fitOrange)
+                            bodyMetricMiniCard(title: "Muscle", value: percentText(pendingScannedBodyMetric.musclePercent), color: .neonCyan)
+                        }
+                    }
+
+                    DatePicker("Date", selection: $pendingBodyMetricDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .tint(.neonGreen)
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 24).fill(Color.appElevated))
+                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.appBorder, lineWidth: 1))
+
+                    Spacer(minLength: 0)
+                }
+                .padding()
+            }
+            .navigationTitle("Weight date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        pendingScannedBodyMetric = nil
+                        isShowingScannedDatePicker = false
+                    }
+                    .foregroundColor(.appMuted)
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        savePendingScannedBodyMetric()
+                    }
+                    .foregroundColor(.neonGreen)
+                    .bold()
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+        .presentationDetents([.large])
     }
 
     private var themeCard: some View {
@@ -761,8 +853,8 @@ struct ProfileView: View {
             .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .disabled(isAnalyzingBodyScan)
-        .opacity(isAnalyzingBodyScan ? 0.55 : 1)
+        .disabled(isAnalyzingBodyScan || isImportingHealthMetrics)
+        .opacity(isAnalyzingBodyScan || isImportingHealthMetrics ? 0.55 : 1)
     }
 
     private func bodyMetricMiniCard(title: String, value: String, color: Color) -> some View {
@@ -820,6 +912,7 @@ struct ProfileView: View {
     }
 
     private func prepareManualWeightSheet() {
+        manualBodyMetricDate = Date()
         manualWeightText = latestBodyMetric.map { String(format: "%.1f", $0.weightKg) } ?? String(format: "%.1f", weight)
         manualBodyFatText = latestBodyMetric?.bodyFatPercent.map { String(format: "%.1f", $0) } ?? ""
         manualMuscleText = latestBodyMetric?.musclePercent.map { String(format: "%.1f", $0) } ?? ""
@@ -832,6 +925,7 @@ struct ProfileView: View {
         }
 
         addBodyMetric(
+            date: manualBodyMetricDate,
             weightKg: weightKg,
             bodyFatPercent: number(from: manualBodyFatText),
             musclePercent: number(from: manualMuscleText),
@@ -853,23 +947,89 @@ struct ProfileView: View {
             selectedBodyImage = nil
 
             if let result, let weightKg = result.weight_kg {
-                addBodyMetric(
+                let pending = PendingBodyMetricScan(
                     weightKg: weightKg,
                     bodyFatPercent: result.body_fat_percent,
                     musclePercent: result.muscle_percent,
                     waterPercent: result.water_percent,
                     visceralFat: result.visceral_fat,
                     metabolicAge: result.metabolic_age,
-                    note: result.ai_summary,
-                    source: "AI scan"
+                    note: result.ai_summary
                 )
+
+                if let date = dateFromAIString(result.measured_date) {
+                    addBodyMetric(
+                        date: date,
+                        weightKg: pending.weightKg,
+                        bodyFatPercent: pending.bodyFatPercent,
+                        musclePercent: pending.musclePercent,
+                        waterPercent: pending.waterPercent,
+                        visceralFat: pending.visceralFat,
+                        metabolicAge: pending.metabolicAge,
+                        note: pending.note,
+                        source: "AI scan"
+                    )
+                } else {
+                    pendingScannedBodyMetric = pending
+                    pendingBodyMetricDate = Date()
+                    isShowingScannedDatePicker = true
+                }
             } else {
                 bodyScanError = error ?? "I could not read the weight clearly. Try a sharper screenshot/photo or type it manually."
             }
         }
     }
 
+    private func savePendingScannedBodyMetric() {
+        guard let pendingScannedBodyMetric else {
+            isShowingScannedDatePicker = false
+            return
+        }
+
+        addBodyMetric(
+            date: pendingBodyMetricDate,
+            weightKg: pendingScannedBodyMetric.weightKg,
+            bodyFatPercent: pendingScannedBodyMetric.bodyFatPercent,
+            musclePercent: pendingScannedBodyMetric.musclePercent,
+            waterPercent: pendingScannedBodyMetric.waterPercent,
+            visceralFat: pendingScannedBodyMetric.visceralFat,
+            metabolicAge: pendingScannedBodyMetric.metabolicAge,
+            note: pendingScannedBodyMetric.note,
+            source: "AI scan"
+        )
+
+        self.pendingScannedBodyMetric = nil
+        isShowingScannedDatePicker = false
+    }
+
+    private func importLatestHealthBodyMetrics() {
+        isImportingHealthMetrics = true
+        bodyScanError = nil
+
+        HealthKitManager.shared.fetchLatestBodyMetrics { snapshot in
+            isImportingHealthMetrics = false
+
+            guard let snapshot else {
+                bodyScanError = "No weight data found in Apple Health yet. If you use smart scales, check that they write weight to Health."
+                return
+            }
+
+            addBodyMetric(
+                date: snapshot.date,
+                weightKg: snapshot.weightKg,
+                bodyFatPercent: snapshot.bodyFatPercent,
+                musclePercent: snapshot.musclePercent,
+                waterPercent: nil,
+                visceralFat: nil,
+                metabolicAge: nil,
+                note: "Imported from Apple Health",
+                source: "Apple Health"
+            )
+        }
+    }
+
     private func addBodyMetric(
+        date: Date,
         weightKg: Double,
         bodyFatPercent: Double?,
         musclePercent: Double?,
@@ -882,6 +1042,7 @@ struct ProfileView: View {
         weight = weightKg
 
         let entry = BodyMetricEntry(
+            date: date,
             weightKg: weightKg,
             bodyFatPercent: bodyFatPercent,
             musclePercent: musclePercent,
@@ -893,6 +1054,14 @@ struct ProfileView: View {
         )
 
         modelContext.insert(entry)
+    }
+
+    private func dateFromAIString(_ value: String?) -> Date? {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+
+        return DateFormatter.yyyyMMdd.date(from: value)
     }
 
     private func percentText(_ value: Double?) -> String {
@@ -1124,6 +1293,16 @@ private struct ActivityOption: Identifiable {
     var multiplier: Double {
         NutritionCalculator.activityMultiplier(for: key)
     }
+}
+
+private struct PendingBodyMetricScan {
+    let weightKg: Double
+    let bodyFatPercent: Double?
+    let musclePercent: Double?
+    let waterPercent: Double?
+    let visceralFat: Double?
+    let metabolicAge: Double?
+    let note: String
 }
 
 private struct MetricStepperCard: View {

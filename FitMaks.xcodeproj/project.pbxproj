@@ -401,7 +401,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow usage of camera";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks needs access to your steps to show your daily activity.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks uses Health data for steps, weight, and body metrics.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -435,7 +435,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow usage of camera";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks needs access to your steps to show your daily activity.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks uses Health data for steps, weight, and body metrics.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;

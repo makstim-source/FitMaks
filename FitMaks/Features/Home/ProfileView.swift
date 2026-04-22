@@ -1854,31 +1854,31 @@ private struct PendingBodyMetricScan {
 }
 
 private enum WeightChartRange: CaseIterable, Identifiable {
-    case days7
     case days30
-    case days365
+    case days90
+    case days180
 
     var id: Int { days }
 
     var days: Int {
         switch self {
-        case .days7:
-            return 7
         case .days30:
             return 30
-        case .days365:
-            return 365
+        case .days90:
+            return 90
+        case .days180:
+            return 180
         }
     }
 
     var title: String {
         switch self {
-        case .days7:
-            return "7D"
         case .days30:
             return "30D"
-        case .days365:
-            return "365D"
+        case .days90:
+            return "90D"
+        case .days180:
+            return "180D"
         }
     }
 }
@@ -2205,18 +2205,18 @@ private struct WeightTrendChart: View {
         let now = Date()
 
         switch range {
-        case .days7:
-            return (0..<7).compactMap { offset in
-                calendar.date(byAdding: .day, value: offset - 6, to: now)?
-                    .formatted(.dateTime.weekday(.abbreviated))
-            }
         case .days30:
             return [29, 21, 14, 7, 0].compactMap { daysAgo in
                 calendar.date(byAdding: .day, value: -daysAgo, to: now)?
                     .formatted(.dateTime.day().month(.abbreviated))
             }
-        case .days365:
-            return [12, 9, 6, 3, 0].compactMap { monthsAgo in
+        case .days90:
+            return [90, 60, 30, 0].compactMap { daysAgo in
+                calendar.date(byAdding: .day, value: -daysAgo, to: now)?
+                    .formatted(.dateTime.day().month(.abbreviated))
+            }
+        case .days180:
+            return [6, 4, 2, 0].compactMap { monthsAgo in
                 calendar.date(byAdding: .month, value: -monthsAgo, to: now)?
                     .formatted(.dateTime.month(.abbreviated))
             }
@@ -2265,8 +2265,8 @@ private struct WeightTrendChart: View {
                 let isLast = index == chartEntries.count - 1
 
                 Circle()
-                    .fill(isLast ? accentColor : Color.appText.opacity(range == .days365 ? 0.52 : 0.65))
-                    .frame(width: isLast ? 11 : (range == .days365 ? 5 : 7), height: isLast ? 11 : (range == .days365 ? 5 : 7))
+                    .fill(isLast ? accentColor : Color.appText.opacity(range == .days180 ? 0.52 : 0.65))
+                    .frame(width: isLast ? 11 : (range == .days180 ? 5 : 7), height: isLast ? 11 : (range == .days180 ? 5 : 7))
                     .position(point)
             }
         }
@@ -2341,7 +2341,7 @@ private struct WeightTrendChart: View {
     }
 
     private func thinnedEntries(_ entries: [BodyMetricEntry]) -> [BodyMetricEntry] {
-        guard range == .days365, entries.count > 85 else {
+        guard range == .days180, entries.count > 70 else {
             return entries
         }
 

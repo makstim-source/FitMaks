@@ -389,23 +389,51 @@ private struct StatsAchievementTile: View {
             HStack(alignment: .top) {
                 ZStack {
                     Circle()
-                        .fill(achievement.color.opacity(achievement.isUnlocked ? 0.22 : 0.08))
+                        .fill(
+                            achievement.isUnlocked
+                                ? LinearGradient(
+                                    colors: [
+                                        achievement.color.opacity(0.95),
+                                        Color.white.opacity(0.72),
+                                        achievement.color.opacity(0.70)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                : LinearGradient(
+                                    colors: [
+                                        achievement.color.opacity(0.08),
+                                        achievement.color.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                        )
 
                     Image(systemName: achievement.isUnlocked ? achievement.icon : "lock.fill")
                         .font(.system(size: 18, weight: .black))
-                        .foregroundColor(achievement.isUnlocked ? achievement.color : .appMuted)
+                        .foregroundColor(achievement.isUnlocked ? .appAccentText : .appMuted)
+
+                    if achievement.isUnlocked {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.white)
+                            .offset(x: 18, y: -17)
+                            .shadow(color: .white.opacity(0.9), radius: 6)
+                    }
                 }
                 .frame(width: 42, height: 42)
-                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.35) : .clear, radius: 10)
+                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.72) : .clear, radius: 16)
 
                 Spacer()
 
                 Text(achievement.progressText)
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(achievement.isUnlocked ? achievement.color : .appMuted)
+                    .foregroundColor(achievement.isUnlocked ? .appAccentText : .appMuted)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(achievement.color.opacity(achievement.isUnlocked ? 0.14 : 0.07)))
+                    .background(Capsule().fill(achievement.isUnlocked ? achievement.color : achievement.color.opacity(0.07)))
+                    .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.36) : .clear, radius: 10)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -439,12 +467,29 @@ private struct StatsAchievementTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(achievement.isUnlocked ? achievement.color.opacity(0.11) : Color.appSurface)
+                .fill(
+                    achievement.isUnlocked
+                        ? LinearGradient(
+                            colors: [
+                                achievement.color.opacity(0.22),
+                                Color.appSurface,
+                                achievement.color.opacity(0.12)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [Color.appSurface, Color.appSurface],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.30 : 0.12), lineWidth: 1)
+                .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.55 : 0.12), lineWidth: achievement.isUnlocked ? 1.5 : 1)
         )
+        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.22) : .clear, radius: 14, x: 0, y: 7)
     }
 }
 

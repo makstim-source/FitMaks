@@ -26,7 +26,7 @@ struct ContentView: View {
     @State private var isShowingSourceDialog = false; @State private var isShowingCamera = false; @State private var selectedCameraImage: UIImage?; @State private var isShowingPhotoPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []; @State private var isShowingTextEntry = false; @State private var manualText = ""
     @State private var processingItems: [ProcessingItem] = []; @State private var fridgeProcessingItems: [ProcessingItem] = []; @State private var selectedEntryForEdit: FoodEntry?
     
-    @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
+    @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var homeWeeklySteps: [String: Double] = [:]; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
     @State private var isShowingAIAssistant = false
     @State private var isShowingGoalBreakdown = false
     @State private var aiErrorMessage: String?
@@ -88,6 +88,31 @@ struct ContentView: View {
         dailyProgress.isPerfectPastDay()
     }
 
+    var homePerfectStreak: Int {
+        let calendar = Calendar.current
+        let recentDays: [DayProgress] = (0..<7).compactMap { index in
+            guard let date = calendar.date(byAdding: .day, value: -index, to: Date()) else {
+                return nil
+            }
+
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let mode = DayMode.fromStoredValue(allDailySetups.first(where: { $0.dateID == dateID })?.mode)
+            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: dayFood,
+                mode: mode,
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal,
+                steps: homeWeeklySteps[dateID] ?? 0,
+                stepTarget: targetSteps
+            )
+        }
+
+        return min(DayProgressEngine.currentPerfectStreak(in: recentDays), 7)
+    }
+
     var body: some View {
         ZStack {
             homeBackground
@@ -103,7 +128,10 @@ struct ContentView: View {
             
             if let entry = selectedEntryForEdit { Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedEntryForEdit = nil } }; AIChatEditView(entry: entry, onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } }, onDone: { withAnimation { selectedEntryForEdit = nil } }).transition(.scale(scale: 0.9).combined(with: .opacity)) }
         }
-        .onAppear { HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps } } }
+        .onAppear {
+            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps } }
+            HealthKitManager.shared.fetchWeeklySteps { steps in DispatchQueue.main.async { self.homeWeeklySteps = steps } }
+        }
         .onChange(of: selectedDate) { _, newDate in HealthKitManager.shared.fetchSteps(for: newDate) { steps in DispatchQueue.main.async { self.dailySteps = steps } } }
         .confirmationDialog("Add Entry", isPresented: $isShowingSourceDialog) {
             Button("From Fridge ❄️") { self.isSelectionModeForFridge = true; self.initialMyFoodTab = 0; self.isShowingMyFood = true }
@@ -186,9 +214,7 @@ struct ContentView: View {
 
     private var homeHeader: some View {
         HStack(spacing: 10) {
-            HomeIconButton(systemName: "chart.bar.xaxis", color: .neonGreen) {
-                isShowingStats = true
-            }
+            statsShortcutButton
 
             Spacer()
 
@@ -233,6 +259,48 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 16)
+    }
+
+    private var statsShortcutButton: some View {
+        Button {
+            isShowingStats = true
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.yellow.opacity(0.95),
+                                    Color.neonGreen.opacity(0.82),
+                                    Color.fitOrange.opacity(0.75)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Image(systemName: homePerfectStreak >= 7 ? "trophy.fill" : "medal.fill")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(.appAccentText)
+                        .shadow(color: .white.opacity(0.30), radius: 2, x: 0, y: 1)
+                }
+                .frame(width: 42, height: 42)
+                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                .shadow(color: Color.neonGreen.opacity(0.26), radius: 12)
+
+                Text("\(homePerfectStreak)/7")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundColor(homePerfectStreak >= 7 ? .appAccentText : .neonGreen)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.appSurface))
+                    .overlay(Capsule().stroke(Color.neonGreen.opacity(0.25), lineWidth: 1))
+                    .offset(x: 8, y: 5)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open Progress Arena. Current streak \(homePerfectStreak) of 7 days.")
     }
 
     private var dailyCommandCard: some View {

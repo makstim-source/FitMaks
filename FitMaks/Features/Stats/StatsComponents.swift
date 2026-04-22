@@ -1,50 +1,5 @@
 import SwiftUI
 
-struct StatsWeekSwitcher: View {
-    let dateRangeText: String
-    let weekDateRange: String
-    @Binding var weekOffset: Int
-
-    var body: some View {
-        HStack {
-            Button(action: { withAnimation(.spring()) { weekOffset += 1 } }) {
-                Image(systemName: "chevron.left")
-                    .font(.headline.bold())
-                    .foregroundColor(.neonGreen)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
-            }
-
-            Spacer()
-
-            VStack(spacing: 3) {
-                Text(dateRangeText)
-                    .font(.headline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-
-                Text(weekDateRange)
-                    .font(.caption2)
-                    .foregroundColor(.appMuted)
-            }
-
-            Spacer()
-
-            Button(action: { withAnimation(.spring()) { weekOffset -= 1 } }) {
-                Image(systemName: "chevron.right")
-                    .font(.headline.bold())
-                    .foregroundColor(weekOffset > 0 ? .neonGreen : .appMuted)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
-            }
-            .disabled(weekOffset == 0)
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appElevated))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-    }
-}
-
 struct StatsMetricGrid: View {
     let calorieWins: Int
     let proteinWins: Int

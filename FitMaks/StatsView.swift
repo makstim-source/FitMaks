@@ -11,31 +11,20 @@ struct StatsView: View {
     var baseProtein: Double
 
     @State private var weeklySteps: [String: Double] = [:]
-    @State private var showBars = false
     @State private var animateStreakFlame = false
-    @State private var weekOffset = 0
     @State private var selectedAchievement: StatsAchievement?
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
     typealias WeekStat = DayProgress
 
-    var dateRangeText: String {
-        if weekOffset == 0 { return "Last 7 Days" }
-        if weekOffset == 1 { return "Previous 7 Days" }
-        return "\(weekOffset + 1) Blocks Ago"
-    }
-
     var stats: [WeekStat] {
         let calendar = Calendar.current
-        let startDaysAgo = weekOffset * 7
 
-        let result = (0..<7).map { index in
-            let date = calendar.date(byAdding: .day, value: -(index + startDaysAgo), to: Date()) ?? Date()
+        return (0..<7).map { index in
+            let date = calendar.date(byAdding: .day, value: -index, to: Date()) ?? Date()
             return stat(for: date)
         }
-
-        return result
     }
 
     var last30Stats: [WeekStat] {
@@ -105,11 +94,6 @@ struct StatsView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
-                        StatsWeekSwitcher(
-                            dateRangeText: dateRangeText,
-                            weekDateRange: weekDateRange,
-                            weekOffset: $weekOffset
-                        )
                         StatsHeroScoreCard(
                             currentPerfectStreak: currentPerfectStreak,
                             bestPerfectStreak30: bestPerfectStreak30,
@@ -129,7 +113,7 @@ struct StatsView: View {
                             totalSteps: totalSteps
                         )
                         StatsWeeklyArena(stats: stats)
-                        StatsFuelChart(stats: stats, showBars: showBars)
+                        StatsFuelChart(stats: stats)
                         StatsChallengeCard(
                             currentPerfectStreak: currentPerfectStreak,
                             remainingChecks: remainingChecks
@@ -155,13 +139,9 @@ struct StatsView: View {
                         self.weeklySteps = steps
                     }
                 }
-                animateBars()
                 withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
                     animateStreakFlame = true
                 }
-            }
-            .onChange(of: weekOffset) { _, _ in
-                animateBars()
             }
             .sheet(item: $selectedAchievement) { achievement in
                 StatsAchievementDetailSheet(achievement: achievement)
@@ -170,15 +150,6 @@ struct StatsView: View {
             }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
-    }
-
-    private var weekDateRange: String {
-        let dates = stats.map(\.date).sorted()
-        guard let first = dates.first, let last = dates.last else {
-            return ""
-        }
-
-        return "\(StatsFormatters.shortDay(first)) - \(StatsFormatters.shortDay(last))"
     }
 
     private func stat(for date: Date) -> WeekStat {
@@ -200,16 +171,6 @@ struct StatsView: View {
             steps: weeklySteps[dateID] ?? 0,
             stepTarget: stepTarget
         )
-    }
-
-    private func animateBars() {
-        showBars = false
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) {
-                showBars = true
-            }
-        }
     }
 
 }
@@ -259,6 +220,8 @@ private struct StatsAchievementsCard: View {
 private struct StatsAchievementTile: View {
     let achievement: StatsAchievement
 
+    @State private var unlockedGlow = false
+
     private var tileOpacity: Double {
         achievement.isUnlocked ? 1 : 0.62
     }
@@ -298,11 +261,12 @@ private struct StatsAchievementTile: View {
                             .font(.system(size: 12, weight: .black))
                             .foregroundColor(.white)
                             .offset(x: 18, y: -17)
-                            .shadow(color: .white.opacity(0.9), radius: 6)
+                            .opacity(unlockedGlow ? 1 : 0.52)
+                            .shadow(color: .white.opacity(unlockedGlow ? 1 : 0.45), radius: unlockedGlow ? 10 : 4)
                     }
                 }
                 .frame(width: 42, height: 42)
-                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.72) : .clear, radius: 16)
+                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.86 : 0.34) : .clear, radius: unlockedGlow ? 20 : 10)
 
                 Spacer()
 
@@ -312,7 +276,7 @@ private struct StatsAchievementTile: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(achievement.isUnlocked ? achievement.color : achievement.color.opacity(0.07)))
-                    .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.36) : .clear, radius: 10)
+                    .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.48 : 0.20) : .clear, radius: unlockedGlow ? 12 : 6)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -368,7 +332,13 @@ private struct StatsAchievementTile: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.55 : 0.12), lineWidth: achievement.isUnlocked ? 1.5 : 1)
         )
-        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.22) : .clear, radius: 14, x: 0, y: 7)
+        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.30 : 0.12) : .clear, radius: unlockedGlow ? 18 : 9, x: 0, y: 7)
+        .onAppear {
+            guard achievement.isUnlocked else { return }
+            withAnimation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true)) {
+                unlockedGlow = true
+            }
+        }
     }
 }
 
@@ -628,7 +598,6 @@ private struct StatsWeeklyArena: View {
 
 private struct StatsFuelChart: View {
     let stats: [DayProgress]
-    let showBars: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -656,7 +625,7 @@ private struct StatsFuelChart: View {
 
             VStack(spacing: 11) {
                 ForEach(stats, id: \.date) { stat in
-                    StatsCalorieBalanceRow(stat: stat, showBars: showBars)
+                    StatsCalorieBalanceRow(stat: stat)
                 }
             }
         }
@@ -784,7 +753,6 @@ private struct StatsDayMetricPill: View {
 
 private struct StatsCalorieBalanceRow: View {
     let stat: DayProgress
-    let showBars: Bool
 
     private var hasFood: Bool {
         stat.hasFood
@@ -845,7 +813,7 @@ private struct StatsCalorieBalanceRow: View {
 
                     Capsule()
                         .fill(statusColor.opacity(hasFood ? 0.95 : 0.22))
-                        .frame(width: hasFood ? max(CGFloat(8), proxy.size.width * CGFloat(showBars ? fillRatio : 0.04)) : 8)
+                        .frame(width: hasFood ? max(CGFloat(8), proxy.size.width * CGFloat(fillRatio)) : 8)
                 }
             }
             .frame(height: 8)

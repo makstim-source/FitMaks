@@ -557,17 +557,12 @@ struct ContentView: View {
 
                 for await (id, results, error) in group {
                     await MainActor.run {
-                        guard let index = processingItems.firstIndex(where: { $0.id == id }) else {
+                        guard let item = finishProcessingItem(id: id, from: &processingItems) else {
                             return
                         }
 
-                        let item = processingItems[index]
                         let originalImage = item.images.first ?? UIImage()
                         let entryDate = item.targetDate ?? selectedDate
-
-                        withAnimation(.easeInOut) {
-                            _ = processingItems.remove(at: index)
-                        }
 
                         guard let results, !results.isEmpty else {
                             aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Food analysis failed. Please try again.")
@@ -598,17 +593,12 @@ struct ContentView: View {
 
                 for await (id, result, error) in group {
                     await MainActor.run {
-                        guard let index = processingItems.firstIndex(where: { $0.id == id }) else {
+                        guard let item = finishProcessingItem(id: id, from: &processingItems) else {
                             return
                         }
 
-                        let item = processingItems[index]
                         let processedImage = item.images.first ?? UIImage()
                         let entryDate = item.targetDate ?? selectedDate
-
-                        withAnimation(.easeInOut) {
-                            _ = processingItems.remove(at: index)
-                        }
 
                         guard let result else {
                             aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Workout analysis failed. Please try again.")
@@ -644,16 +634,11 @@ struct ContentView: View {
 
                 for await (id, results, error) in group {
                     await MainActor.run {
-                        guard let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) else {
+                        guard let item = finishProcessingItem(id: id, from: &fridgeProcessingItems) else {
                             return
                         }
 
-                        let item = fridgeProcessingItems[index]
                         let originalImage = item.images.first ?? UIImage()
-
-                        withAnimation(.easeInOut) {
-                            _ = fridgeProcessingItems.remove(at: index)
-                        }
 
                         guard let results, !results.isEmpty else {
                             aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "My Food analysis failed. Please try again.")
@@ -683,14 +668,8 @@ struct ContentView: View {
 
                 for await (id, results, error) in group {
                     await MainActor.run {
-                        guard let index = fridgeProcessingItems.firstIndex(where: { $0.id == id }) else {
+                        guard let item = finishProcessingItem(id: id, from: &fridgeProcessingItems) else {
                             return
-                        }
-
-                        let item = fridgeProcessingItems[index]
-
-                        withAnimation(.easeInOut) {
-                            _ = fridgeProcessingItems.remove(at: index)
                         }
 
                         guard let results, !results.isEmpty else {
@@ -1033,6 +1012,18 @@ struct ContentView: View {
         withAnimation(.easeInOut) {
             items.removeAll { idSet.contains($0.id) }
         }
+    }
+
+    private func finishProcessingItem(id: UUID, from items: inout [ProcessingItem]) -> ProcessingItem? {
+        guard let index = items.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
+
+        let item = items[index]
+        withAnimation(.easeInOut) {
+            _ = items.remove(at: index)
+        }
+        return item
     }
 
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }

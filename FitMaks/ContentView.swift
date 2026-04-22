@@ -54,7 +54,8 @@ struct ContentView: View {
         DayProgressEngine.targets(
             baseCalories: baseCaloriesGoal,
             baseProtein: baseProteinGoal,
-            mode: currentDayMode
+            mode: currentDayMode,
+            trainingCalories: dailyTrainingCalories
         )
     }
     var calorieGoalBonus: Double { dailyTargets.calorieBonus }
@@ -65,6 +66,7 @@ struct ContentView: View {
     
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
+    var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
     var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.createdAt > $1.createdAt } }
     var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
@@ -77,6 +79,7 @@ struct ContentView: View {
             consumedProtein: dailyProtein,
             hasFood: !dailyFoodEntries.isEmpty,
             mode: currentDayMode,
+            trainingCalories: dailyTrainingCalories,
             baseCalories: baseCaloriesGoal,
             baseProtein: baseProteinGoal,
             steps: dailySteps,
@@ -98,10 +101,14 @@ struct ContentView: View {
             let dateID = DateFormatter.yyyyMMdd.string(from: date)
             let mode = DayMode.fromStoredValue(allDailySetups.first(where: { $0.dateID == dateID })?.mode)
             let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            let dayTrainingCalories = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + $1.caloriesBurned }
 
             return DayProgressEngine.progress(
                 date: date,
                 foodEntries: dayFood,
+                trainingCalories: dayTrainingCalories,
                 mode: mode,
                 baseCalories: baseCaloriesGoal,
                 baseProtein: baseProteinGoal,
@@ -154,10 +161,10 @@ struct ContentView: View {
         .onChange(of: selectedPhotoItems) { _, newItems in
             handleSelectedPhotoItems(newItems)
         }
-        .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
+        .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, allTrainingEntries: allTrainingEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue, onScanReceiptQueue: processReceiptQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
-        .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: baseProteinGoal) }
+        .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allTrainingEntries: allTrainingEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: baseProteinGoal) }
         // 🔥 ПЕРЕДАЕМ ДАТУ И ХОЛОДИЛЬНИК В ИИ-ТРЕНЕР 🔥
         .sheet(isPresented: $isShowingAIAssistant) {
             AIAssistantView(
@@ -176,6 +183,7 @@ struct ContentView: View {
                 entries: dailyFoodEntries,
                 selectedDate: selectedDate,
                 dayMode: currentDayMode,
+                trainingCalories: dailyTrainingCalories,
                 baseCalories: baseCaloriesGoal,
                 calorieBonus: calorieGoalBonus,
                 targetCalories: maxCalories,
@@ -546,8 +554,8 @@ struct ContentView: View {
         switch mode {
         case .chill:
             return "Chill"
-        case .padel:
-            return "Padel"
+        case .cardio:
+            return "Cardio"
         case .gym:
             return "Gym"
         }

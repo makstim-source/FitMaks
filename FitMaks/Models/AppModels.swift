@@ -232,12 +232,16 @@ final class SavedRecipe {
 
 enum DayMode: String, CaseIterable {
     case chill = "Chill 💤"
-    case padel = "Padel 🎾"
+    case cardio = "Cardio 🏃"
     case gym = "Gym 🏋️‍♂️"
 
     static func fromStoredValue(_ value: String?) -> DayMode {
         if value == "Chill 🛋️" {
             return .chill
+        }
+
+        if value == "Padel 🎾" {
+            return .cardio
         }
 
         return DayMode(rawValue: value ?? "") ?? .chill
@@ -247,8 +251,8 @@ enum DayMode: String, CaseIterable {
         switch self {
         case .chill:
             return "💤"
-        case .padel:
-            return "🎾"
+        case .cardio:
+            return "🏃"
         case .gym:
             return "🏋️‍♂️"
         }

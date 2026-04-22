@@ -97,10 +97,10 @@ struct FitMaksTests {
     }
 
     @Test func trainingModeAddsCaloriesAndProteinBudget() async throws {
-        let padelTargets = DayProgressEngine.targets(
+        let cardioTargets = DayProgressEngine.targets(
             baseCalories: 2_000,
             baseProtein: 180,
-            mode: .padel
+            mode: .cardio
         )
 
         let gymTargets = DayProgressEngine.targets(
@@ -109,12 +109,29 @@ struct FitMaksTests {
             mode: .gym
         )
 
-        #expect(padelTargets.calories == 2_500)
-        #expect(padelTargets.protein == 195)
-        #expect(padelTargets.stepBonus == 0)
+        #expect(cardioTargets.calories == 2_500)
+        #expect(cardioTargets.protein == 195)
+        #expect(cardioTargets.stepBonus == 0)
         #expect(gymTargets.calories == 2_300)
         #expect(gymTargets.protein == 205)
         #expect(gymTargets.stepBonus == 5_000)
+    }
+
+    @Test func cardioTrainingCaloriesReplaceEstimatedBonus() async throws {
+        let targets = DayProgressEngine.targets(
+            baseCalories: 2_000,
+            baseProtein: 180,
+            mode: .cardio,
+            trainingCalories: 642
+        )
+
+        #expect(targets.calorieBonus == 642)
+        #expect(targets.calories == 2_642)
+        #expect(targets.protein == 195)
+    }
+
+    @Test func legacyPadelModeLoadsAsCardio() async throws {
+        #expect(DayMode.fromStoredValue("Padel 🎾") == .cardio)
     }
 
     @Test func gymStepCreditCanCloseMovementGoal() async throws {

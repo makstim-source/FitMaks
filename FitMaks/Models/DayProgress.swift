@@ -93,9 +93,10 @@ enum DayProgressEngine {
         baseCalories: Double,
         baseProtein: Double,
         mode: DayMode,
+        trainingCalories: Double = 0,
         stepTarget: Double = defaultStepTarget
     ) -> DayTargets {
-        let bonuses = bonuses(for: mode)
+        let bonuses = bonuses(for: mode, trainingCalories: trainingCalories)
 
         return DayTargets(
             baseCalories: baseCalories,
@@ -110,6 +111,7 @@ enum DayProgressEngine {
     static func progress(
         date: Date,
         foodEntries: [FoodEntry],
+        trainingCalories: Double = 0,
         mode: DayMode,
         baseCalories: Double,
         baseProtein: Double,
@@ -125,6 +127,7 @@ enum DayProgressEngine {
             consumedProtein: protein,
             hasFood: !foodEntries.isEmpty,
             mode: mode,
+            trainingCalories: trainingCalories,
             baseCalories: baseCalories,
             baseProtein: baseProtein,
             steps: steps,
@@ -138,6 +141,7 @@ enum DayProgressEngine {
         consumedProtein: Double,
         hasFood: Bool,
         mode: DayMode,
+        trainingCalories: Double = 0,
         baseCalories: Double,
         baseProtein: Double,
         steps: Double,
@@ -147,6 +151,7 @@ enum DayProgressEngine {
             baseCalories: baseCalories,
             baseProtein: baseProtein,
             mode: mode,
+            trainingCalories: trainingCalories,
             stepTarget: stepTarget
         )
 
@@ -211,12 +216,12 @@ enum DayProgressEngine {
         return best
     }
 
-    private static func bonuses(for mode: DayMode) -> (calories: Double, protein: Double, steps: Double) {
+    private static func bonuses(for mode: DayMode, trainingCalories: Double = 0) -> (calories: Double, protein: Double, steps: Double) {
         switch mode {
         case .chill:
             return (0, 0, 0)
-        case .padel:
-            return (500, 15, 0)
+        case .cardio:
+            return (trainingCalories > 0 ? trainingCalories : 500, 15, 0)
         case .gym:
             return (300, 25, gymStepBonus)
         }

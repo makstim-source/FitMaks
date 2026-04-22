@@ -4,6 +4,7 @@ struct DailyCalorieBreakdownSheet: View {
     var entries: [FoodEntry]
     var selectedDate: Date
     var dayMode: DayMode
+    var trainingCalories: Double
     var baseCalories: Double
     var calorieBonus: Double
     var targetCalories: Double
@@ -49,6 +50,15 @@ struct DailyCalorieBreakdownSheet: View {
                             accentColor: .neonGreen,
                             isMinimumGoal: false
                         )
+
+                        if dayMode == .cardio {
+                            Text(trainingCalories > 0 ? "Cardio bonus is using your uploaded workout calories instead of the 500 kcal estimate." : "Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will replace it with the calories from that workout.")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.appMuted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 4)
+                        }
 
                         goalCard(
                             title: "PROTEIN",

@@ -5,6 +5,7 @@ struct StatsView: View {
     @Environment(\.dismiss) var dismiss
 
     var allFoodEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
     var allSetups: [DailySetup]
     var baseCalories: Double
     var baseProtein: Double
@@ -185,10 +186,14 @@ struct StatsView: View {
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
         let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
         let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+        let dayTrainingCalories = allTrainingEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + $1.caloriesBurned }
 
         return DayProgressEngine.progress(
             date: date,
             foodEntries: dayFood,
+            trainingCalories: dayTrainingCalories,
             mode: mode,
             baseCalories: baseCalories,
             baseProtein: baseProtein,

@@ -4,6 +4,7 @@ struct CustomCalendarView: View {
     @Binding var selectedDate: Date
 
     var allEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
     var baseCalories: Double
     var baseProtein: Double
     var targetSteps: Double
@@ -62,12 +63,16 @@ struct CustomCalendarView: View {
                             let dailyEntries = allEntries.filter {
                                 Calendar.current.isDate($0.date, inSameDayAs: date)
                             }
+                            let trainingCalories = allTrainingEntries
+                                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+                                .reduce(0) { $0 + $1.caloriesBurned }
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
                             let mode = dayMode(for: date)
                             let progress = DayProgressEngine.progress(
                                 date: date,
                                 foodEntries: dailyEntries,
+                                trainingCalories: trainingCalories,
                                 mode: mode,
                                 baseCalories: baseCalories,
                                 baseProtein: baseProtein,

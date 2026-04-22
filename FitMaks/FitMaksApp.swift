@@ -173,7 +173,7 @@ private struct OnboardingView: View {
         OnboardingPage(
             eyebrow: "THE GAME",
             title: "Chase Perfect Days.",
-            subtitle: "Perfect Day means protein closed, movement done and calories under target. Padel adds food budget; Gym adds food budget and a 5k step credit.",
+            subtitle: "Perfect Day means protein closed, movement done and calories under target. Cardio adds food budget; Gym adds food budget and a 5k step credit.",
             systemName: "flame.fill",
             color: .yellow
         )

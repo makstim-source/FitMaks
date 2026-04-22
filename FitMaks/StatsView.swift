@@ -33,7 +33,7 @@ struct StatsView: View {
             return stat(for: date)
         }
 
-        return result.reversed()
+        return result
     }
 
     var last30Stats: [WeekStat] {
@@ -143,7 +143,8 @@ struct StatsView: View {
     }
 
     private var weekDateRange: String {
-        guard let first = stats.first?.date, let last = stats.last?.date else {
+        let dates = stats.map(\.date).sorted()
+        guard let first = dates.first, let last = dates.last else {
             return ""
         }
 
@@ -436,9 +437,10 @@ private struct StatsDayBadgeRow: View {
                 )
                 StatsDayMetricPill(
                     title: "steps",
-                    value: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
+                    value: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps)) / 10k",
                     isOn: stat.stepWin,
-                    color: stat.stepBonus > 0 ? .fitOrange : .yellow
+                    color: stat.stepBonus > 0 ? .fitOrange : .yellow,
+                    disablesValueAnimation: true
                 )
             }
             .transaction { transaction in
@@ -462,6 +464,7 @@ private struct StatsDayMetricPill: View {
     let value: String
     let isOn: Bool
     let color: Color
+    var disablesValueAnimation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -471,16 +474,17 @@ private struct StatsDayMetricPill: View {
                 .tracking(0.5)
 
             Text(value)
-                .font(.system(size: 11, weight: .heavy))
+                .font(.system(size: disablesValueAnimation ? 10 : 11, weight: .heavy))
                 .foregroundColor(.white.opacity(isOn ? 0.92 : 0.58))
-                .monospacedDigit()
+                .fontDesign(.rounded)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.85)
                 .contentTransition(.identity)
                 .transaction { transaction in
                     transaction.animation = nil
                 }
                 .animation(nil, value: value)
+                .id(disablesValueAnimation ? value : "stable-value")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)

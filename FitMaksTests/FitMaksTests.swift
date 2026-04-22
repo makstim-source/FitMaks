@@ -134,6 +134,30 @@ struct FitMaksTests {
         #expect(DayMode.fromStoredValue("Padel 🎾") == .cardio)
     }
 
+    @Test func dayModeCanRepresentCardioAndGymTogether() async throws {
+        let combined = DayMode.cardio.merged(with: .gym)
+
+        #expect(combined == .cardioGym)
+        #expect(combined.includes(.cardio))
+        #expect(combined.includes(.gym))
+        #expect(!combined.includes(.chill))
+        #expect(combined.toggled(.cardio) == .gym)
+        #expect(combined.toggled(.gym) == .cardio)
+    }
+
+    @Test func combinedTrainingModeStacksCardioAndGymBudgets() async throws {
+        let targets = DayProgressEngine.targets(
+            baseCalories: 2_000,
+            baseProtein: 180,
+            mode: .cardioGym,
+            trainingCalories: 640
+        )
+
+        #expect(targets.calorieBonus == 940)
+        #expect(targets.proteinBonus == 40)
+        #expect(targets.stepBonus == 5_000)
+    }
+
     @Test func gymStepCreditCanCloseMovementGoal() async throws {
         let progress = DayProgressEngine.progress(
             date: Date(),

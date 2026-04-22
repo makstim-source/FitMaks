@@ -230,6 +230,8 @@ enum DayProgressEngine {
             return (trainingCalories > 0 ? trainingCalories : 500, 15, 0)
         case .gym:
             return (300, 25, gymStepBonus)
+        case .cardioGym:
+            return ((trainingCalories > 0 ? trainingCalories : 500) + 300, 40, gymStepBonus)
         }
     }
 }

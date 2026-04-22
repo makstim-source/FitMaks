@@ -236,6 +236,11 @@ enum DayMode: String, CaseIterable {
     case chill = "Chill 💤"
     case cardio = "Cardio 🏃"
     case gym = "Gym 🏋️‍♂️"
+    case cardioGym = "Cardio + Gym 🏃🏋️‍♂️"
+
+    static var allCases: [DayMode] {
+        [.chill, .cardio, .gym]
+    }
 
     static func fromStoredValue(_ value: String?) -> DayMode {
         if value == "Chill 🛋️" {
@@ -257,6 +262,62 @@ enum DayMode: String, CaseIterable {
             return "🏃"
         case .gym:
             return "🏋️‍♂️"
+        case .cardioGym:
+            return "🏃🏋️‍♂️"
+        }
+    }
+
+    var hasCardio: Bool {
+        self == .cardio || self == .cardioGym
+    }
+
+    var hasGym: Bool {
+        self == .gym || self == .cardioGym
+    }
+
+    func includes(_ mode: DayMode) -> Bool {
+        switch mode {
+        case .chill:
+            return self == .chill
+        case .cardio:
+            return hasCardio
+        case .gym:
+            return hasGym
+        case .cardioGym:
+            return self == .cardioGym
+        }
+    }
+
+    func toggled(_ mode: DayMode) -> DayMode {
+        switch mode {
+        case .chill:
+            return .chill
+        case .cardio:
+            return DayMode.combined(hasCardio: !hasCardio, hasGym: hasGym)
+        case .gym:
+            return DayMode.combined(hasCardio: hasCardio, hasGym: !hasGym)
+        case .cardioGym:
+            return .cardioGym
+        }
+    }
+
+    func merged(with mode: DayMode) -> DayMode {
+        DayMode.combined(
+            hasCardio: hasCardio || mode.hasCardio,
+            hasGym: hasGym || mode.hasGym
+        )
+    }
+
+    private static func combined(hasCardio: Bool, hasGym: Bool) -> DayMode {
+        switch (hasCardio, hasGym) {
+        case (true, true):
+            return .cardioGym
+        case (true, false):
+            return .cardio
+        case (false, true):
+            return .gym
+        case (false, false):
+            return .chill
         }
     }
 }

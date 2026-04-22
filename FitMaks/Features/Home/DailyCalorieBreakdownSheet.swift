@@ -99,7 +99,7 @@ struct DailyCalorieBreakdownSheet: View {
                 isMinimumGoal: false
             )
 
-            if dayMode == .cardio {
+            if dayMode.hasCardio {
                 Text(trainingCalories > 0 ? "Cardio bonus is using your uploaded workout calories instead of the 500 kcal estimate." : "Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will replace it with the calories from that workout.")
                     .font(.caption)
                     .fontWeight(.semibold)

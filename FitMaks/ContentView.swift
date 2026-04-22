@@ -35,6 +35,8 @@ struct ContentView: View {
 
     var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
     func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
+    func setDayMode(_ mode: DayMode, for date: Date) { let id = DateFormatter.yyyyMMdd.string(from: date); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: date, mode: mode)) } }
+    func dayMode(for date: Date) -> DayMode { let id = DateFormatter.yyyyMMdd.string(from: date); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
     
     var calculatedProtein: Double {
         NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
@@ -431,25 +433,26 @@ struct ContentView: View {
             ForEach(DayMode.allCases, id: \.self) { mode in
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
-                        setDayMode(mode)
+                        setDayMode(currentDayMode.toggled(mode))
                     }
                 } label: {
+                    let isSelected = currentDayMode.includes(mode)
                     HStack(spacing: 5) {
                         Text(mode.emoji)
                             .font(.system(size: 14))
                         Text(modeLabel(mode))
                             .font(.system(size: 10, weight: .heavy))
                     }
-                    .foregroundColor(currentDayMode == mode ? .appAccentText : .appMuted)
+                    .foregroundColor(isSelected ? .appAccentText : .appMuted)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 7)
                     .background(
                         RoundedRectangle(cornerRadius: 13)
-                            .fill(currentDayMode == mode ? Color.neonCyan : Color.appSurface)
+                            .fill(isSelected ? Color.neonCyan : Color.appSurface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 13)
-                            .stroke(currentDayMode == mode ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
+                            .stroke(isSelected ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -604,6 +607,8 @@ struct ContentView: View {
             return "Cardio"
         case .gym:
             return "Gym"
+        case .cardioGym:
+            return "Both"
         }
     }
 
@@ -766,6 +771,7 @@ struct ContentView: View {
 
                         withAnimation(.spring()) {
                             modelContext.insert(entry)
+                            applyTrainingModeSuggestion(from: result, for: entryDate)
                         }
                     }
                 }
@@ -1182,6 +1188,45 @@ struct ContentView: View {
             progressToday: todayProgressForNotifications,
             hasFoodToday: !todayFoodEntries.isEmpty
         )
+    }
+
+    private func applyTrainingModeSuggestion(from result: TrainingResult, for date: Date) {
+        guard let suggestedMode = suggestedDayMode(from: result) else {
+            return
+        }
+
+        let mergedMode = dayMode(for: date).merged(with: suggestedMode)
+        setDayMode(mergedMode, for: date)
+    }
+
+    private func suggestedDayMode(from result: TrainingResult) -> DayMode? {
+        let modeText = (result.day_mode ?? "").lowercased()
+
+        if modeText.contains("mixed") || modeText.contains("both") {
+            return .cardioGym
+        }
+
+        if modeText.contains("gym") || modeText.contains("strength") {
+            return .gym
+        }
+
+        if modeText.contains("cardio") || modeText.contains("sport") || modeText.contains("padel") {
+            return .cardio
+        }
+
+        let activity = result.activity_name.lowercased()
+        let gymKeywords = ["gym", "strength", "weight", "lifting", "bodybuilding", "resistance", "workout"]
+        let cardioKeywords = ["padel", "tennis", "run", "running", "walk", "cycling", "bike", "cardio", "football", "soccer", "sport"]
+
+        if gymKeywords.contains(where: { activity.contains($0) }) {
+            return .gym
+        }
+
+        if cardioKeywords.contains(where: { activity.contains($0) }) {
+            return .cardio
+        }
+
+        return nil
     }
 
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }

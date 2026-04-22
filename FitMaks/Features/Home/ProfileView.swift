@@ -74,16 +74,20 @@ struct ProfileView: View {
         maintenanceCalories + goalAdjustment
     }
 
+    private var recommendedProtein: Double {
+        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
+    }
+
     private var weeklyWeightChangeKg: Double {
         abs(goalAdjustment) * 7 / 7700
     }
 
     private var selectedCalories: Double {
-        useCustomGoals ? customCalories : calculatedCalories
+        useCustomGoals ? customCalories : recommendedCalories
     }
 
     private var selectedProtein: Double {
-        useCustomGoals ? customProtein : calculatedProtein
+        useCustomGoals ? customProtein : recommendedProtein
     }
 
     private var latestBodyMetric: BodyMetricEntry? {
@@ -245,6 +249,7 @@ struct ProfileView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
+                        goalsPreviewCard
                         goalAndGenderCard
                         activityCard
                         bodyMetricsCard
@@ -268,6 +273,58 @@ struct ProfileView: View {
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .presentationDetents([.large])
+    }
+
+    private var goalsPreviewCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("LIVE TARGET")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.neonGreen)
+                        .tracking(1)
+
+                    Text("\(Int(selectedCalories)) kcal")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text("\(Int(selectedProtein))g protein")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(neonPurple)
+                }
+
+                Spacer()
+
+                Text(useCustomGoals ? "CUSTOM" : goalBadgeText)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(useCustomGoals ? neonPurple : goalBadgeColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill((useCustomGoals ? neonPurple : goalBadgeColor).opacity(0.14)))
+            }
+
+            HStack(spacing: 10) {
+                goalsPreviewMiniStat(title: "BMR", value: "\(Int(bmr))")
+                goalsPreviewMiniStat(title: "Maintain", value: "\(Int(maintenanceCalories))")
+                goalsPreviewMiniStat(title: "Activity", value: "x\(String(format: "%.3g", selectedActivity.multiplier))")
+            }
+
+            Text(useCustomGoals ? "Custom goals are on, so FitMaks will use your manual calorie and protein targets." : "\(selectedActivity.title) · \(adjustmentText) · \(proteinDetail)")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .lineSpacing(3)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 26)
+                .fill(Color.appElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(Color.neonGreen.opacity(0.18), lineWidth: 1)
+        )
     }
 
     private var weightTrackerCard: some View {
@@ -689,7 +746,7 @@ struct ProfileView: View {
                 explanationRow(title: "BMR", value: "\(Int(bmr)) kcal", detail: "Your base burn at rest")
                 explanationRow(title: "Maintenance", value: "\(Int(maintenanceCalories)) kcal", detail: "\(selectedActivity.title) x\(String(format: "%.3g", selectedActivity.multiplier))")
                 explanationRow(title: "Adjustment", value: adjustmentText, detail: adjustmentDetail)
-                explanationRow(title: "Protein", value: "\(Int(calculatedProtein))g", detail: proteinDetail)
+                explanationRow(title: "Protein", value: "\(Int(recommendedProtein))g", detail: proteinDetail)
             }
         }
         .padding(18)
@@ -706,7 +763,11 @@ struct ProfileView: View {
 
     private var goalAndGenderCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionTitle("Goal")
+            HStack {
+                sectionTitle("Goal")
+                Spacer()
+                liveTargetBadge
+            }
 
             HStack(spacing: 9) {
                 goalButton(title: "Cut", subtitle: "Fat loss", key: "Lose Weight", color: .neonGreen)
@@ -735,10 +796,12 @@ struct ProfileView: View {
 
                 Spacer()
 
-                Text("Choose what sounds like your real life")
-                    .font(.caption2)
-                    .foregroundColor(.appMuted)
+                liveTargetBadge
             }
+
+            Text("Choose what sounds like your real life. Calories update instantly.")
+                .font(.caption2)
+                .foregroundColor(.appMuted)
 
             VStack(spacing: 10) {
                 ForEach(activityOptions) { option in
@@ -771,10 +834,17 @@ struct ProfileView: View {
 
                             Spacer()
 
-                            Text("x\(String(format: "%.3g", option.multiplier))")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(activityLevel == option.key ? neonPurple : .appMuted)
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text("x\(String(format: "%.3g", option.multiplier))")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(activityLevel == option.key ? neonPurple : .appMuted)
+
+                                Text("\(Int(caloriesForActivity(option.key))) kcal")
+                                    .font(.caption2)
+                                    .fontWeight(.heavy)
+                                    .foregroundColor(activityLevel == option.key ? .appText : .appMuted)
+                            }
                         }
                         .padding(13)
                         .background(
@@ -799,9 +869,14 @@ struct ProfileView: View {
             HStack {
                 sectionTitle("Your numbers")
                 Spacer()
+                liveTargetBadge
+            }
+
+            HStack {
                 Text("Hold +/- for faster changes")
                     .font(.caption2)
                     .foregroundColor(.gray)
+                Spacer()
             }
 
             MetricStepperCard(
@@ -859,10 +934,10 @@ struct ProfileView: View {
             .onChange(of: useCustomGoals) { _, newValue in
                 if newValue {
                     if customCalories == 0 {
-                        customCalories = calculatedCalories
+                        customCalories = recommendedCalories
                     }
                     if customProtein == 0 {
-                        customProtein = calculatedProtein
+                        customProtein = recommendedProtein
                     }
                 }
             }
@@ -877,6 +952,53 @@ struct ProfileView: View {
         }
         .padding(18)
         .background(cardBackground)
+    }
+
+    private var liveTargetBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 10, weight: .black))
+
+            Text("\(Int(selectedCalories)) kcal · \(Int(selectedProtein))g")
+                .font(.caption2)
+                .fontWeight(.heavy)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .foregroundColor(.neonGreen)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(Color.neonGreen.opacity(0.13)))
+    }
+
+    private func goalsPreviewMiniStat(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.7)
+
+            Text(value)
+                .font(.system(size: 15, weight: .black))
+                .foregroundColor(.appText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private func caloriesForActivity(_ activityKey: String) -> Double {
+        NutritionCalculator.recommendedCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityKey,
+            goal: goal
+        )
     }
 
     private func trendPill(_ delta: Double) -> some View {

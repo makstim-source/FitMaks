@@ -592,6 +592,9 @@ struct ContentView: View {
             return
         }
 
+        let targetDate = selectedDate
+        let isTraining = pickingMode == .training
+
         Task {
             var loadedImages: [UIImage] = []
             for item in items {
@@ -609,8 +612,8 @@ struct ContentView: View {
 
                 let item = ProcessingItem(
                     images: loadedImages,
-                    isTraining: pickingMode == .training,
-                    targetDate: selectedDate
+                    isTraining: isTraining,
+                    targetDate: targetDate
                 )
 
                 enqueueHomeProcessingItem(item)

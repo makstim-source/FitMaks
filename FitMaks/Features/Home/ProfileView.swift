@@ -39,6 +39,7 @@ struct ProfileView: View {
     @State private var isShowingScannedDatePicker = false
     @State private var isImportingHealthMetrics = false
     @State private var selectedWeightRange: WeightChartRange = .days30
+    @State private var selectedBodyChartMetric: BodyChartMetric = .weight
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -115,6 +116,10 @@ struct ProfileView: View {
         ) ?? Date()
 
         return Array(bodyMetrics.filter { $0.date >= startDate }.reversed())
+    }
+
+    private var selectedChartBodyMetrics: [BodyMetricEntry] {
+        selectedRangeBodyMetrics.filter { selectedBodyChartMetric.value(from: $0) != nil }
     }
 
     var body: some View {
@@ -351,10 +356,11 @@ struct ProfileView: View {
             if bodyMetrics.isEmpty {
                 emptyWeightState
             } else {
+                bodyMetricPicker
                 weightRangePicker
 
-                if selectedRangeBodyMetrics.isEmpty {
-                    Text("No weight logs in the last \(selectedWeightRange.title.lowercased()).")
+                if selectedChartBodyMetrics.isEmpty {
+                    Text("No \(selectedBodyChartMetric.emptyName.lowercased()) logs in the last \(selectedWeightRange.title.lowercased()).")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.appMuted)
@@ -362,7 +368,11 @@ struct ProfileView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
                 } else {
-                    WeightTrendChart(entries: selectedRangeBodyMetrics, accentColor: .neonGreen)
+                    WeightTrendChart(
+                        entries: selectedChartBodyMetrics,
+                        metric: selectedBodyChartMetric,
+                        accentColor: selectedBodyChartMetric.color
+                    )
                         .frame(height: 138)
                 }
 
@@ -438,6 +448,37 @@ struct ProfileView: View {
             bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), color: .fitOrange)
             bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), color: .neonCyan)
             bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), color: .neonGreen)
+        }
+    }
+
+    private var bodyMetricPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(BodyChartMetric.allCases) { metric in
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            selectedBodyChartMetric = metric
+                        }
+                    } label: {
+                        Label(metric.title, systemImage: metric.systemName)
+                            .font(.caption)
+                            .fontWeight(.heavy)
+                            .foregroundColor(selectedBodyChartMetric == metric ? .appAccentText : .appText)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                Capsule()
+                                    .fill(selectedBodyChartMetric == metric ? metric.color : Color.appSurface)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(selectedBodyChartMetric == metric ? metric.color.opacity(0.55) : Color.appBorder, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 1)
         }
     }
 
@@ -1611,6 +1652,113 @@ private enum WeightChartRange: CaseIterable, Identifiable {
     }
 }
 
+private enum BodyChartMetric: CaseIterable, Identifiable {
+    case weight
+    case fat
+    case muscle
+    case water
+    case visceral
+
+    var id: String { title }
+
+    var title: String {
+        switch self {
+        case .weight:
+            return "Weight"
+        case .fat:
+            return "Fat"
+        case .muscle:
+            return "Muscle"
+        case .water:
+            return "Water"
+        case .visceral:
+            return "Visceral"
+        }
+    }
+
+    var emptyName: String {
+        switch self {
+        case .weight:
+            return "weight"
+        case .fat:
+            return "body fat"
+        case .muscle:
+            return "muscle"
+        case .water:
+            return "water"
+        case .visceral:
+            return "visceral fat"
+        }
+    }
+
+    var unit: String {
+        switch self {
+        case .weight:
+            return "kg"
+        case .fat, .muscle, .water:
+            return "%"
+        case .visceral:
+            return ""
+        }
+    }
+
+    var systemName: String {
+        switch self {
+        case .weight:
+            return "scalemass.fill"
+        case .fat:
+            return "flame.fill"
+        case .muscle:
+            return "figure.strengthtraining.traditional"
+        case .water:
+            return "drop.fill"
+        case .visceral:
+            return "waveform.path.ecg"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .weight:
+            return .neonGreen
+        case .fat:
+            return .fitOrange
+        case .muscle:
+            return .neonCyan
+        case .water:
+            return .neonGreen
+        case .visceral:
+            return .fitPurple
+        }
+    }
+
+    func value(from entry: BodyMetricEntry) -> Double? {
+        switch self {
+        case .weight:
+            return entry.weightKg
+        case .fat:
+            return entry.bodyFatPercent
+        case .muscle:
+            return entry.musclePercent
+        case .water:
+            return entry.waterPercent
+        case .visceral:
+            return entry.visceralFat
+        }
+    }
+
+    func formatted(_ value: Double) -> String {
+        switch self {
+        case .weight:
+            return "\(String(format: "%.1f", value)) kg"
+        case .fat, .muscle, .water:
+            return "\(String(format: "%.1f", value))%"
+        case .visceral:
+            return String(format: "%.1f", value)
+        }
+    }
+}
+
 private struct MetricStepperCard: View {
     var title: String
     @Binding var value: Double
@@ -1697,36 +1845,41 @@ private struct MetricStepperCard: View {
 
 private struct WeightTrendChart: View {
     var entries: [BodyMetricEntry]
+    var metric: BodyChartMetric
     var accentColor: Color
 
-    private var weights: [Double] {
-        entries.map(\.weightKg)
+    private var chartValues: [Double] {
+        entries.compactMap { metric.value(from: $0) }
     }
 
-    private var minWeight: Double {
-        weights.min() ?? 0
+    private var minValue: Double {
+        chartValues.min() ?? 0
     }
 
-    private var maxWeight: Double {
-        weights.max() ?? 1
+    private var maxValue: Double {
+        chartValues.max() ?? 1
     }
 
     private var range: Double {
-        max(maxWeight - minWeight, 1)
+        max(maxValue - minValue, metric == .weight ? 1 : 0.5)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Weight trend")
+                Text("\(metric.title) trend")
                     .font(.caption)
                     .fontWeight(.heavy)
                     .foregroundColor(.appMuted)
 
                 Spacer()
 
-                if let first = entries.first, let last = entries.last, entries.count > 1 {
-                    Text("\(String(format: "%.1f", first.weightKg)) -> \(String(format: "%.1f", last.weightKg)) kg")
+                if
+                    let first = entries.first.flatMap({ metric.value(from: $0) }),
+                    let last = entries.last.flatMap({ metric.value(from: $0) }),
+                    entries.count > 1
+                {
+                    Text("\(metric.formatted(first)) -> \(metric.formatted(last))")
                         .font(.caption)
                         .fontWeight(.heavy)
                         .foregroundColor(accentColor)
@@ -1766,7 +1919,11 @@ private struct WeightTrendChart: View {
     private func trendLine(in size: CGSize) -> some View {
         Path { path in
             for (index, entry) in entries.enumerated() {
-                let point = chartPoint(for: entry.weightKg, index: index, size: size)
+                guard let value = metric.value(from: entry) else {
+                    continue
+                }
+
+                let point = chartPoint(for: value, index: index, size: size)
 
                 if index == 0 {
                     path.move(to: point)
@@ -1784,12 +1941,14 @@ private struct WeightTrendChart: View {
 
     private func trendPoints(in size: CGSize) -> some View {
         ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-            let point = chartPoint(for: entry.weightKg, index: index, size: size)
+            if let value = metric.value(from: entry) {
+                let point = chartPoint(for: value, index: index, size: size)
 
-            Circle()
-                .fill(index == entries.count - 1 ? accentColor : Color.appText.opacity(0.65))
-                .frame(width: index == entries.count - 1 ? 11 : 7, height: index == entries.count - 1 ? 11 : 7)
-                .position(point)
+                Circle()
+                    .fill(index == entries.count - 1 ? accentColor : Color.appText.opacity(0.65))
+                    .frame(width: index == entries.count - 1 ? 11 : 7, height: index == entries.count - 1 ? 11 : 7)
+                    .position(point)
+            }
         }
     }
 
@@ -1801,7 +1960,7 @@ private struct WeightTrendChart: View {
             .shadow(color: accentColor.opacity(0.5), radius: 10)
     }
 
-    private func chartPoint(for weight: Double, index: Int, size: CGSize) -> CGPoint {
+    private func chartPoint(for value: Double, index: Int, size: CGSize) -> CGPoint {
         let x: CGFloat
 
         if entries.count <= 1 {
@@ -1810,7 +1969,7 @@ private struct WeightTrendChart: View {
             x = CGFloat(index) / CGFloat(entries.count - 1) * size.width
         }
 
-        let normalized = (weight - minWeight) / range
+        let normalized = (value - minValue) / range
         let y = size.height - CGFloat(normalized) * size.height
 
         return CGPoint(x: x, y: y)

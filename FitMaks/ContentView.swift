@@ -343,7 +343,7 @@ struct ContentView: View {
                 HomeMetricTile(
                     title: "Calories",
                     value: caloriesAboveTarget ? "\(Int(dailyCaloriesConsumed - maxCalories))" : "\(Int(max(dailyCaloriesRemaining, 0)))",
-                    subtitle: caloriesAboveTarget ? (caloriesOutsideGrace ? "over" : "grace") : "left",
+                    subtitle: caloriesAboveTarget ? (caloriesOutsideGrace ? "over" : "grace") : "deficit",
                     progress: dailyCaloriesConsumed / max(maxCalories, 1),
                     color: caloriesOutsideGrace ? .red : .neonGreen,
                     systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"

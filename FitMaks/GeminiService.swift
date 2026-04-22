@@ -293,7 +293,7 @@ class GeminiService {
         let prompt = """
         You are a strict, honest, and highly motivating fitness and nutrition coach.
         \(dayContext)
-        User's daily goal: \(Int(targetCalories)) kcal, \(Int(targetProtein))g protein.
+        User's daily calorie ceiling: \(Int(targetCalories)) kcal. User's protein minimum: \(Int(targetProtein))g protein.
         Progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed.
         Meals eaten: \(meals.isEmpty ? "None" : meals.joined(separator: ", ")).
         Workouts done: \(workouts.isEmpty ? "None" : workouts.joined(separator: ", ")).
@@ -307,6 +307,8 @@ class GeminiService {
         3. Be direct, use quick humor, and don't sugar-coat.
         4. Keep it concise (under 5 sentences). Use emojis.
         5. Never call the selected date "yesterday" unless Date relation is exactly "yesterday". For older dates, use the exact selected date or say "that day".
+        6. Treat calories as an upper limit / deficit target, not a minimum. Being under the calorie ceiling is GOOD unless calories are extremely low and clearly unhealthy. Do NOT say they failed because they did not eat all calories.
+        7. Protein is a minimum target. Being under protein is bad; being over protein is good.
 
         Return ONLY a single JSON object:
         {"ai_summary": "your response here"}

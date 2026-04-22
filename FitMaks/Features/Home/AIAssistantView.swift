@@ -137,7 +137,7 @@ struct AIAssistantView: View {
                     color: consumedCalories > AppRules.caloriePerfectLimit(for: targetCalories) ? .red : .neonGreen,
                     detail: consumedCalories > targetCalories
                         ? (consumedCalories > AppRules.caloriePerfectLimit(for: targetCalories) ? "\(Int(consumedCalories - targetCalories)) over" : "\(Int(consumedCalories - targetCalories)) over · grace")
-                        : "\(Int(max(targetCalories - consumedCalories, 0))) left"
+                        : "\(Int(max(targetCalories - consumedCalories, 0))) deficit"
                 )
 
                 miniGoal(

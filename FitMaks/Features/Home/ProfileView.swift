@@ -287,6 +287,7 @@ struct ProfileView: View {
 
                 bodyCompositionGrid
                 weightInsightText
+                bodyMetricHistory
             }
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -377,6 +378,27 @@ struct ProfileView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+    }
+
+    private var bodyMetricHistory: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionTitle("History")
+
+                Spacer()
+
+                Text("\(bodyMetrics.count) logs")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(bodyMetrics.prefix(6)) { entry in
+                    bodyMetricHistoryRow(entry)
+                }
+            }
+        }
     }
 
     private var weightInsight: String {
@@ -876,6 +898,60 @@ struct ProfileView: View {
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.16), lineWidth: 1))
     }
 
+    private func bodyMetricHistoryRow(_ entry: BodyMetricEntry) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+
+                Text(entry.source)
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appMuted.opacity(0.75))
+            }
+            .frame(width: 82, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(String(format: "%.1f", entry.weightKg)) kg")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(.appText)
+
+                HStack(spacing: 8) {
+                    if let bodyFatPercent = entry.bodyFatPercent {
+                        Text("Fat \(String(format: "%.1f", bodyFatPercent))%")
+                    }
+
+                    if let musclePercent = entry.musclePercent {
+                        Text("Muscle \(String(format: "%.1f", musclePercent))%")
+                    }
+                }
+                .font(.caption2)
+                .fontWeight(.heavy)
+                .foregroundColor(.appMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            }
+
+            Spacer()
+
+            Button(role: .destructive) {
+                deleteBodyMetric(entry)
+            } label: {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(.red)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.red.opacity(0.12)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+    }
+
     private func bodyInputField(title: String, value: Binding<String>, unit: String, required: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
@@ -1054,6 +1130,17 @@ struct ProfileView: View {
         )
 
         modelContext.insert(entry)
+    }
+
+    private func deleteBodyMetric(_ entry: BodyMetricEntry) {
+        let deletedID = entry.id
+        modelContext.delete(entry)
+
+        if latestBodyMetric?.id == deletedID {
+            if let nextLatest = bodyMetrics.first(where: { $0.id != deletedID }) {
+                weight = nextLatest.weightKg
+            }
+        }
     }
 
     private func dateFromAIString(_ value: String?) -> Date? {

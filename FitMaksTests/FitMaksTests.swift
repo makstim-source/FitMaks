@@ -7,6 +7,7 @@
 
 import Foundation
 import Testing
+import UIKit
 @testable import FitMaks
 
 struct FitMaksTests {
@@ -220,6 +221,53 @@ struct FitMaksTests {
         }
 
         #expect(AchievementEngine.homePerfectStreak(in: days, now: today, calendar: calendar) == 7)
+    }
+
+    @Test func aiResultImageResolverUsesDeclaredSourcePhoto() async throws {
+        let firstImage = UIImage()
+        let secondImage = UIImage()
+        let fallbackImage = UIImage()
+        let item = ProcessingItem(images: [firstImage, secondImage])
+        let result = foodResult(sourcePhotoNumber: 2)
+
+        let resolved = AIResultImageResolver.image(
+            for: item,
+            result: result,
+            resultIndex: 0,
+            fallbackImage: fallbackImage,
+            emojiImage: { _ in fallbackImage }
+        )
+
+        #expect(resolved === secondImage)
+    }
+
+    @Test func aiResultImageResolverFallsBackToResultIndex() async throws {
+        let firstImage = UIImage()
+        let secondImage = UIImage()
+        let fallbackImage = UIImage()
+        let item = ProcessingItem(images: [firstImage, secondImage])
+
+        let resolved = AIResultImageResolver.image(
+            for: item,
+            result: foodResult(sourcePhotoNumber: nil),
+            resultIndex: 1,
+            fallbackImage: fallbackImage,
+            emojiImage: { _ in fallbackImage }
+        )
+
+        #expect(resolved === secondImage)
+    }
+
+    private func foodResult(sourcePhotoNumber: Int?) -> FoodResult {
+        FoodResult(
+            food_name: "Protein",
+            emoji: "🥤",
+            source_photo_number: sourcePhotoNumber,
+            calories: 100,
+            protein: 20,
+            ingredients_breakdown: "",
+            ai_response_text: ""
+        )
     }
 
     private func perfectProgress(on date: Date) -> DayProgress {

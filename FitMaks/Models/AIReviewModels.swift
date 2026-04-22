@@ -82,4 +82,62 @@ struct AIResultReview: Identifiable {
     var originalItem: ProcessingItem
     var originalImage: UIImage
     var items: [AIReviewFoodItem]
+
+    static func make(
+        results: [FoodResult],
+        originalItem: ProcessingItem,
+        originalImage: UIImage,
+        destination: AIResultDestination,
+        imageForResult: (ProcessingItem, FoodResult, Int, UIImage) -> UIImage
+    ) -> AIResultReview {
+        let items = results.enumerated().map { pair -> AIReviewFoodItem in
+            let (index, result) = pair
+            let reviewImage = imageForResult(originalItem, result, index, originalImage)
+                .preparedForAppStorage()
+
+            return AIReviewFoodItem(
+                image: reviewImage,
+                name: result.food_name,
+                calories: result.calories,
+                protein: result.protein,
+                ingredients: result.ingredients_breakdown
+            )
+        }
+
+        return AIResultReview(
+            title: "Review \(items.count) items",
+            subtitle: "\(destination.reviewSubtitle). Uncheck anything wrong before adding.",
+            actionTitle: destination.actionTitle(count: items.count),
+            addingStatus: destination.addingStatus,
+            destination: destination,
+            originalItem: originalItem,
+            originalImage: originalImage,
+            items: items
+        )
+    }
+}
+
+enum AIResultImageResolver {
+    static func image(
+        for item: ProcessingItem,
+        result: FoodResult,
+        resultIndex: Int,
+        fallbackImage: UIImage,
+        emojiImage: (String) -> UIImage
+    ) -> UIImage {
+        if item.textPrompt != nil {
+            return emojiImage(result.emoji ?? "🍽️")
+        }
+
+        if let sourcePhotoNumber = result.source_photo_number {
+            let imageIndex = sourcePhotoNumber - 1
+            if item.images.indices.contains(imageIndex) {
+                return item.images[imageIndex]
+            }
+        }
+
+        return item.images.indices.contains(resultIndex)
+            ? item.images[resultIndex]
+            : fallbackImage
+    }
 }

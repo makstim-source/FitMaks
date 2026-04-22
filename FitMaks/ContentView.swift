@@ -710,28 +710,6 @@ struct ContentView: View {
         modelContext.delete(entry)
     }
 
-    private func imageForAnalyzedResult(
-        item: ProcessingItem,
-        result: FoodResult,
-        resultIndex: Int,
-        fallbackImage: UIImage
-    ) -> UIImage {
-        if item.textPrompt != nil {
-            return generateEmojiIcon(emoji: result.emoji ?? "🍽️")
-        }
-
-        if let sourcePhotoNumber = result.source_photo_number {
-            let imageIndex = sourcePhotoNumber - 1
-            if item.images.indices.contains(imageIndex) {
-                return item.images[imageIndex]
-            }
-        }
-
-        return item.images.indices.contains(resultIndex)
-            ? item.images[resultIndex]
-            : fallbackImage
-    }
-
     private func analyzeFoodResults(for item: ProcessingItem, ignoreCache: Bool = false) async -> ([FoodResult]?, String?) {
         if let text = item.textPrompt {
             let (result, error) = await GeminiService.shared.analyzeTextAsync(text: text)
@@ -803,40 +781,21 @@ struct ContentView: View {
         originalImage: UIImage,
         destination: AIResultDestination
     ) {
-        let items = results.enumerated().map { pair -> AIReviewFoodItem in
-            let (index, result) = pair
-            let reviewImage = imageForAnalyzedResult(
-                item: originalItem,
-                result: result,
-                resultIndex: index,
-                fallbackImage: originalImage
-            ).preparedForAppStorage()
-
-            return AIReviewFoodItem(
-                image: reviewImage,
-                name: result.food_name,
-                calories: result.calories,
-                protein: result.protein,
-                ingredients: result.ingredients_breakdown
-            )
-        }
-
-        let review = AIResultReview(
-            title: "Review \(items.count) items",
-            subtitle: "\(destination.reviewSubtitle). Uncheck anything wrong before adding.",
-            actionTitle: destination.actionTitle(count: items.count),
-            addingStatus: destination.addingStatus,
-            destination: destination,
+        let review = AIResultReview.make(
+            results: results,
             originalItem: originalItem,
             originalImage: originalImage,
-            items: items
+            destination: destination,
+            imageForResult: { item, result, index, fallback in
+                resolvedImage(item: item, result: result, resultIndex: index, fallbackImage: fallback)
+            }
         )
 
         let status = ProcessingItem(
             images: [originalImage],
             targetTab: originalItem.targetTab,
             targetDate: originalItem.targetDate,
-            statusTitle: "Found \(items.count) items"
+            statusTitle: "Found \(review.items.count) items"
         )
 
         withAnimation(.spring()) {
@@ -967,7 +926,7 @@ struct ContentView: View {
 
         withAnimation(.spring()) {
             for (resultIndex, result) in results.enumerated() {
-                let image = imageForAnalyzedResult(
+                let image = resolvedImage(
                     item: originalItem,
                     result: result,
                     resultIndex: resultIndex,
@@ -990,7 +949,7 @@ struct ContentView: View {
 
         withAnimation(.spring()) {
             for (resultIndex, result) in results.enumerated() {
-                let image = imageForAnalyzedResult(
+                let image = resolvedImage(
                     item: originalItem,
                     result: result,
                     resultIndex: resultIndex,
@@ -1017,6 +976,21 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func resolvedImage(
+        item: ProcessingItem,
+        result: FoodResult,
+        resultIndex: Int,
+        fallbackImage: UIImage
+    ) -> UIImage {
+        AIResultImageResolver.image(
+            for: item,
+            result: result,
+            resultIndex: resultIndex,
+            fallbackImage: fallbackImage,
+            emojiImage: { generateEmojiIcon(emoji: $0) }
+        )
     }
 
     private func addReceiptResults(_ results: [FoodResult]) {

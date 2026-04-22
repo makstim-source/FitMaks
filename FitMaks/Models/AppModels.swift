@@ -4,6 +4,7 @@ import UIKit
 
 struct ProcessingItem: Identifiable {
     let id = UUID()
+    let createdAt = Date()
     let images: [UIImage]
     var textPrompt: String? = nil
     var isTraining: Bool = false
@@ -38,6 +39,15 @@ enum TimelineItem: Identifiable {
             return training.date
         }
     }
+
+    var createdAt: Date {
+        switch self {
+        case .food(let food):
+            return food.createdAt ?? food.date
+        case .training(let training):
+            return training.createdAt ?? training.date
+        }
+    }
 }
 
 struct ChatMessage: Identifiable {
@@ -62,6 +72,7 @@ struct ParsedIng: Identifiable {
 @Model
 final class FavoriteFood {
     var id: UUID = UUID()
+    var createdAt: Date?
     var name: String
     var calories: Double
     var protein: Double
@@ -77,6 +88,7 @@ final class FavoriteFood {
     }
 
     init(image: UIImage?, name: String, calories: Double, protein: Double, ingredients: String) {
+        self.createdAt = Date()
         self.name = name
         self.calories = calories
         self.protein = protein
@@ -88,6 +100,7 @@ final class FavoriteFood {
 @Model
 final class TrainingEntry {
     var id: UUID = UUID()
+    var createdAt: Date?
     var name: String
     var caloriesBurned: Double
     var duration: String
@@ -103,6 +116,7 @@ final class TrainingEntry {
     }
 
     init(image: UIImage?, name: String, caloriesBurned: Double, duration: String, date: Date) {
+        self.createdAt = Date()
         self.name = name
         self.caloriesBurned = caloriesBurned
         self.duration = duration

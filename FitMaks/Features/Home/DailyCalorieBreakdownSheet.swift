@@ -71,7 +71,7 @@ struct DailyCalorieBreakdownSheet: View {
                                     .font(.caption.bold())
                                     .foregroundColor(.appMuted)
 
-                                ForEach(entries.reversed()) { entry in
+                                ForEach(entries.sorted { ($0.createdAt ?? $0.date) > ($1.createdAt ?? $1.date) }) { entry in
                                     foodEntryCard(entry)
                                 }
                             }

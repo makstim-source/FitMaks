@@ -65,7 +65,8 @@ struct ContentView: View {
     
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
-    var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.date < $1.date } }
+    var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.createdAt > $1.createdAt } }
+    var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
@@ -332,12 +333,12 @@ struct ContentView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 10) {
-                    ForEach(processingItems) { item in HomeProcessingRow(item: item) }
+                    ForEach(visibleProcessingItems) { item in HomeProcessingRow(item: item) }
 
                     if dailyFeed.isEmpty && processingItems.isEmpty {
                         emptyDiaryCard
                     } else {
-                        ForEach(dailyFeed.reversed()) { item in
+                        ForEach(dailyFeed) { item in
                             switch item {
                             case .food(let entry):
                                 HomeFoodRow(entry: entry)

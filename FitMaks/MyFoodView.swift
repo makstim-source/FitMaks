@@ -39,6 +39,27 @@ struct MyFoodView: View {
     @State private var isScanningReceipt = false
     @State private var aiErrorMessage: String?
 
+    private var newestFavorites: [FavoriteFood] {
+        favorites.enumerated()
+            .sorted { lhs, rhs in
+                switch (lhs.element.createdAt, rhs.element.createdAt) {
+                case let (left?, right?):
+                    return left > right
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return lhs.offset > rhs.offset
+                }
+            }
+            .map(\.element)
+    }
+
+    private var newestSavedRecipes: [SavedRecipe] {
+        savedRecipes.sorted { $0.dateSaved > $1.dateSaved }
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -241,7 +262,7 @@ struct MyFoodView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
-                    ForEach(favorites.reversed()) { fav in
+                    ForEach(newestFavorites) { fav in
                         favoriteRow(fav)
                             .contextMenu {
                                 Button { addFavoriteToDiary(fav); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
@@ -281,7 +302,7 @@ struct MyFoodView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
-                    ForEach(savedRecipes.reversed()) { r in
+                    ForEach(newestSavedRecipes) { r in
                         mealRow(r)
                         .contextMenu {
                             Button { addMealToDiary(r); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
@@ -675,7 +696,9 @@ struct MyFoodView: View {
     }
 
     private func processingItems(for tab: Int) -> [ProcessingItem] {
-        processingItems.filter { $0.targetTab == tab }
+        processingItems
+            .filter { $0.targetTab == tab }
+            .sorted { $0.createdAt > $1.createdAt }
     }
 
     func moveFavToMeals(_ fav: FavoriteFood) {

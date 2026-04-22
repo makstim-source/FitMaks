@@ -38,6 +38,7 @@ struct ProfileView: View {
     @State private var pendingBodyMetricDate = Date()
     @State private var isShowingScannedDatePicker = false
     @State private var isImportingHealthMetrics = false
+    @State private var selectedWeightRange: WeightChartRange = .days30
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -99,6 +100,17 @@ struct ProfileView: View {
         }
 
         return latest.weightKg - previous.weightKg
+    }
+
+    private var selectedRangeBodyMetrics: [BodyMetricEntry] {
+        let calendar = Calendar.current
+        let startDate = calendar.date(
+            byAdding: .day,
+            value: -(selectedWeightRange.days - 1),
+            to: calendar.startOfDay(for: Date())
+        ) ?? Date()
+
+        return Array(bodyMetrics.filter { $0.date >= startDate }.reversed())
     }
 
     var body: some View {
@@ -282,8 +294,20 @@ struct ProfileView: View {
             if bodyMetrics.isEmpty {
                 emptyWeightState
             } else {
-                WeightTrendChart(entries: Array(Array(bodyMetrics.prefix(14)).reversed()), accentColor: .neonGreen)
-                    .frame(height: 138)
+                weightRangePicker
+
+                if selectedRangeBodyMetrics.isEmpty {
+                    Text("No weight logs in the last \(selectedWeightRange.title.lowercased()).")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .padding(15)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
+                } else {
+                    WeightTrendChart(entries: selectedRangeBodyMetrics, accentColor: .neonGreen)
+                        .frame(height: 138)
+                }
 
                 bodyCompositionGrid
                 weightInsightText
@@ -301,17 +325,8 @@ struct ProfileView: View {
                     isShowingBodyImagePicker = true
                 }
 
-                bodyMetricActionButton(title: "Scale", systemName: "camera.fill", color: .fitOrange) {
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        bodyScanSourceType = .camera
-                    } else {
-                        bodyScanSourceType = .photoLibrary
-                    }
-                    isShowingBodyImagePicker = true
-                }
-
                 bodyMetricActionButton(title: "Health", systemName: "heart.text.square.fill", color: neonPurple) {
-                    importLatestHealthBodyMetrics()
+                    importHealthBodyMetrics()
                 }
             }
 
@@ -320,7 +335,7 @@ struct ProfileView: View {
                     ProgressView()
                         .tint(.neonGreen)
 
-                    Text(isImportingHealthMetrics ? "Reading Apple Health..." : "Reading scale data...")
+                    Text(isImportingHealthMetrics ? "Importing Apple Health history..." : "Reading scale data...")
                         .font(.caption)
                         .fontWeight(.heavy)
                         .foregroundColor(.appMuted)
@@ -366,6 +381,34 @@ struct ProfileView: View {
             bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), color: .fitOrange)
             bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), color: .neonCyan)
             bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), color: .neonGreen)
+        }
+    }
+
+    private var weightRangePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(WeightChartRange.allCases) { range in
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        selectedWeightRange = range
+                    }
+                } label: {
+                    Text(range.title)
+                        .font(.caption)
+                        .fontWeight(.heavy)
+                        .foregroundColor(selectedWeightRange == range ? .appAccentText : .appText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(selectedWeightRange == range ? Color.neonGreen : Color.appSurface)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(selectedWeightRange == range ? Color.neonGreen.opacity(0.55) : Color.appBorder, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -1078,30 +1121,54 @@ struct ProfileView: View {
         isShowingScannedDatePicker = false
     }
 
-    private func importLatestHealthBodyMetrics() {
+    private func importHealthBodyMetrics() {
         isImportingHealthMetrics = true
         bodyScanError = nil
 
-        HealthKitManager.shared.fetchLatestBodyMetrics { snapshot in
+        let endDate = Date()
+        let startDate = Calendar.current.date(byAdding: .year, value: -1, to: endDate) ?? endDate
+
+        HealthKitManager.shared.fetchBodyMetrics(from: startDate, to: endDate) { snapshots in
             isImportingHealthMetrics = false
 
-            guard let snapshot else {
-                bodyScanError = "No weight data found in Apple Health yet. If you use smart scales, check that they write weight to Health."
+            guard !snapshots.isEmpty else {
+                bodyScanError = "No weight data found in Apple Health for the last year. If you use smart scales, check that they write weight to Health."
                 return
             }
 
-            addBodyMetric(
-                date: snapshot.date,
-                weightKg: snapshot.weightKg,
-                bodyFatPercent: snapshot.bodyFatPercent,
-                musclePercent: snapshot.musclePercent,
-                waterPercent: nil,
-                visceralFat: nil,
-                metabolicAge: nil,
-                note: "Imported from Apple Health",
-                source: "Apple Health"
-            )
+            for snapshot in snapshots {
+                upsertHealthBodyMetric(snapshot)
+            }
+
+            if let latest = snapshots.last {
+                weight = latest.weightKg
+            }
         }
+    }
+
+    private func upsertHealthBodyMetric(_ snapshot: HealthBodyMetricSnapshot) {
+        if let existing = bodyMetrics.first(where: {
+            $0.source == "Apple Health" && Calendar.current.isDate($0.date, inSameDayAs: snapshot.date)
+        }) {
+            existing.date = snapshot.date
+            existing.weightKg = snapshot.weightKg
+            existing.bodyFatPercent = snapshot.bodyFatPercent
+            existing.musclePercent = snapshot.musclePercent
+            existing.note = "Imported from Apple Health"
+            return
+        }
+
+        addBodyMetric(
+            date: snapshot.date,
+            weightKg: snapshot.weightKg,
+            bodyFatPercent: snapshot.bodyFatPercent,
+            musclePercent: snapshot.musclePercent,
+            waterPercent: nil,
+            visceralFat: nil,
+            metabolicAge: nil,
+            note: "Imported from Apple Health",
+            source: "Apple Health"
+        )
     }
 
     private func addBodyMetric(
@@ -1390,6 +1457,36 @@ private struct PendingBodyMetricScan {
     let visceralFat: Double?
     let metabolicAge: Double?
     let note: String
+}
+
+private enum WeightChartRange: CaseIterable, Identifiable {
+    case days7
+    case days30
+    case days365
+
+    var id: Int { days }
+
+    var days: Int {
+        switch self {
+        case .days7:
+            return 7
+        case .days30:
+            return 30
+        case .days365:
+            return 365
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .days7:
+            return "7D"
+        case .days30:
+            return "30D"
+        case .days365:
+            return "365D"
+        }
+    }
 }
 
 private struct MetricStepperCard: View {

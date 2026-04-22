@@ -8,6 +8,11 @@ struct HealthBodyMetricSnapshot {
     let musclePercent: Double?
 }
 
+private struct HealthQuantitySnapshot {
+    let date: Date
+    let value: Double
+}
+
 final class HealthKitManager {
     static let shared = HealthKitManager()
 
@@ -139,11 +144,21 @@ final class HealthKitManager {
     }
 
     func fetchLatestBodyMetrics(completion: @escaping (HealthBodyMetricSnapshot?) -> Void) {
+        let calendar = Calendar.current
+        let end = Date()
+        let start = calendar.date(byAdding: .year, value: -1, to: end) ?? end
+
+        fetchBodyMetrics(from: start, to: end) { snapshots in
+            completion(snapshots.last)
+        }
+    }
+
+    func fetchBodyMetrics(from startDate: Date, to endDate: Date, completion: @escaping ([HealthBodyMetricSnapshot]) -> Void) {
         guard
             HKHealthStore.isHealthDataAvailable(),
             let bodyMassType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
         else {
-            completion(nil)
+            completion([])
             return
         }
 
@@ -159,52 +174,63 @@ final class HealthKitManager {
 
         healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, _ in
             guard success else {
-                completion(nil)
+                completion([])
                 return
             }
 
-            self.fetchLatestQuantity(for: bodyMassType, unit: .gramUnit(with: .kilo)) { weightSample in
-                guard let weightSample else {
-                    completion(nil)
-                    return
+            let bodyFatType = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)
+            let leanBodyMassType = HKQuantityType.quantityType(forIdentifier: .leanBodyMass)
+            let group = DispatchGroup()
+            var weightSamples: [HealthQuantitySnapshot] = []
+            var bodyFatByDay: [String: HealthQuantitySnapshot] = [:]
+            var leanMassByDay: [String: HealthQuantitySnapshot] = [:]
+
+            group.enter()
+            self.fetchQuantitySamples(for: bodyMassType, unit: .gramUnit(with: .kilo), from: startDate, to: endDate) { samples in
+                weightSamples = samples
+                group.leave()
+            }
+
+            if let bodyFatType {
+                group.enter()
+                self.fetchQuantitySamples(for: bodyFatType, unit: .percent(), from: startDate, to: endDate) { samples in
+                    bodyFatByDay = self.latestSamplesByDay(samples)
+                    group.leave()
                 }
+            }
 
-                let bodyFatType = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)
-                let leanBodyMassType = HKQuantityType.quantityType(forIdentifier: .leanBodyMass)
-                let group = DispatchGroup()
-                var bodyFatPercent: Double?
-                var musclePercent: Double?
+            if let leanBodyMassType {
+                group.enter()
+                self.fetchQuantitySamples(for: leanBodyMassType, unit: .gramUnit(with: .kilo), from: startDate, to: endDate) { samples in
+                    leanMassByDay = self.latestSamplesByDay(samples)
+                    group.leave()
+                }
+            }
 
-                if let bodyFatType {
-                    group.enter()
-                    self.fetchLatestQuantity(for: bodyFatType, unit: .percent()) { sample in
-                        if let sample {
-                            bodyFatPercent = sample.value * 100
+            group.notify(queue: .main) {
+                let latestWeightByDay = self.latestSamplesByDay(weightSamples)
+                let snapshots = latestWeightByDay.values
+                    .sorted { $0.date < $1.date }
+                    .map { weightSample in
+                        let dayID = DateFormatter.yyyyMMdd.string(from: weightSample.date)
+                        let bodyFatPercent = bodyFatByDay[dayID].map { $0.value * 100 }
+                        let musclePercent = leanMassByDay[dayID].flatMap { leanSample -> Double? in
+                            guard weightSample.value > 0 else {
+                                return nil
+                            }
+
+                            return (leanSample.value / weightSample.value) * 100
                         }
-                        group.leave()
-                    }
-                }
 
-                if let leanBodyMassType {
-                    group.enter()
-                    self.fetchLatestQuantity(for: leanBodyMassType, unit: .gramUnit(with: .kilo)) { sample in
-                        if let sample, weightSample.value > 0 {
-                            musclePercent = (sample.value / weightSample.value) * 100
-                        }
-                        group.leave()
-                    }
-                }
-
-                group.notify(queue: .main) {
-                    completion(
-                        HealthBodyMetricSnapshot(
+                        return HealthBodyMetricSnapshot(
                             date: weightSample.date,
                             weightKg: weightSample.value,
                             bodyFatPercent: bodyFatPercent,
                             musclePercent: musclePercent
                         )
-                    )
-                }
+                    }
+
+                completion(snapshots)
             }
         }
     }
@@ -235,5 +261,48 @@ final class HealthKitManager {
         }
 
         healthStore.execute(query)
+    }
+
+    private func fetchQuantitySamples(
+        for type: HKQuantityType,
+        unit: HKUnit,
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping ([HealthQuantitySnapshot]) -> Void
+    ) {
+        let predicate = HKQuery.predicateForSamples(
+            withStart: startDate,
+            end: endDate,
+            options: .strictStartDate
+        )
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
+        let query = HKSampleQuery(
+            sampleType: type,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [sort]
+        ) { _, samples, _ in
+            let snapshots = (samples as? [HKQuantitySample])?.map {
+                HealthQuantitySnapshot(date: $0.endDate, value: $0.quantity.doubleValue(for: unit))
+            } ?? []
+
+            DispatchQueue.main.async {
+                completion(snapshots)
+            }
+        }
+
+        healthStore.execute(query)
+    }
+
+    private func latestSamplesByDay(_ samples: [HealthQuantitySnapshot]) -> [String: HealthQuantitySnapshot] {
+        samples.reduce(into: [:]) { result, sample in
+            let dayID = DateFormatter.yyyyMMdd.string(from: sample.date)
+
+            if let existing = result[dayID], existing.date > sample.date {
+                return
+            }
+
+            result[dayID] = sample
+        }
     }
 }

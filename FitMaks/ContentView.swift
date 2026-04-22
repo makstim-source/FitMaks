@@ -271,32 +271,46 @@ struct ContentView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.yellow.opacity(0.95),
-                                    Color.neonGreen.opacity(0.82),
-                                    Color.fitOrange.opacity(0.75)
+                                    Color.appSurface,
+                                    Color.appElevated
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
 
-                    Image(systemName: homePerfectStreak >= 7 ? "trophy.fill" : "medal.fill")
-                        .font(.system(size: 18, weight: .black))
-                        .foregroundColor(.appAccentText)
-                        .shadow(color: .white.opacity(0.30), radius: 2, x: 0, y: 1)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(min(Double(homePerfectStreak) / 7, 1)))
+                        .stroke(
+                            Color.yellow,
+                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .padding(4)
+
+                    Image(systemName: homePerfectStreak >= 7 ? "trophy.fill" : "trophy")
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.yellow, Color.fitOrange],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: Color.yellow.opacity(0.35), radius: homePerfectStreak > 0 ? 8 : 0)
                 }
                 .frame(width: 42, height: 42)
-                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: Color.neonGreen.opacity(0.26), radius: 12)
+                .overlay(Circle().stroke(Color.yellow.opacity(0.22), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.20), radius: 10)
 
                 Text("\(homePerfectStreak)/7")
-                    .font(.system(size: 8, weight: .black))
-                    .foregroundColor(homePerfectStreak >= 7 ? .appAccentText : .neonGreen)
-                    .padding(.horizontal, 5)
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(homePerfectStreak >= 7 ? .black : .yellow)
+                    .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.appSurface))
-                    .overlay(Capsule().stroke(Color.neonGreen.opacity(0.25), lineWidth: 1))
-                    .offset(x: 8, y: 5)
+                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.appElevated))
+                    .overlay(Capsule().stroke(Color.yellow.opacity(0.26), lineWidth: 1))
+                    .offset(x: 7, y: 5)
             }
         }
         .buttonStyle(.plain)

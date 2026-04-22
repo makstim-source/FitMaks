@@ -68,6 +68,47 @@ struct StatsView: View {
         DayProgressEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true)
     }
 
+    private var bestProteinStreak30: Int {
+        bestStreak(in: last30Stats, skipIncompleteToday: true) { $0.proteinWin }
+    }
+
+    private var achievements: [StatsAchievement] {
+        [
+            StatsAchievement(
+                title: "7-Day Flame",
+                subtitle: "Perfect days in a row",
+                icon: "flame.fill",
+                threshold: 7,
+                current: bestPerfectStreak30,
+                color: .fitOrange
+            ),
+            StatsAchievement(
+                title: "14-Day Cup",
+                subtitle: "Two clean weeks",
+                icon: "trophy.fill",
+                threshold: 14,
+                current: bestPerfectStreak30,
+                color: .yellow
+            ),
+            StatsAchievement(
+                title: "Monthly Crown",
+                subtitle: "30-day perfect streak",
+                icon: "crown.fill",
+                threshold: 30,
+                current: bestPerfectStreak30,
+                color: .neonGreen
+            ),
+            StatsAchievement(
+                title: "Protein Statue",
+                subtitle: "7 protein closes in a row",
+                icon: "figure.strengthtraining.traditional",
+                threshold: 7,
+                current: bestProteinStreak30,
+                color: .neonCyan
+            )
+        ]
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -95,6 +136,7 @@ struct StatsView: View {
                             perfectDays30: perfectDays30,
                             animateStreakFlame: animateStreakFlame
                         )
+                        StatsAchievementsCard(achievements: achievements)
                         StatsMetricGrid(
                             calorieWins: calorieWins,
                             proteinWins: proteinWins,
@@ -176,6 +218,153 @@ struct StatsView: View {
                 showBars = true
             }
         }
+    }
+
+    private func bestStreak(
+        in days: [DayProgress],
+        skipIncompleteToday: Bool = false,
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        predicate: (DayProgress) -> Bool
+    ) -> Int {
+        var best = 0
+        var current = 0
+
+        for day in days.sorted(by: { $0.date < $1.date }) {
+            if skipIncompleteToday && calendar.isDate(day.date, inSameDayAs: now) && !predicate(day) {
+                continue
+            }
+
+            if predicate(day) {
+                current += 1
+                best = max(best, current)
+            } else {
+                current = 0
+            }
+        }
+
+        return best
+    }
+}
+
+private struct StatsAchievement: Identifiable {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let threshold: Int
+    let current: Int
+    let color: Color
+
+    var id: String { title }
+    var isUnlocked: Bool { current >= threshold }
+    var progress: Double { min(Double(current) / Double(max(threshold, 1)), 1) }
+    var progressText: String { isUnlocked ? "Unlocked" : "\(min(current, threshold))/\(threshold)d" }
+}
+
+private struct StatsAchievementsCard: View {
+    let achievements: [StatsAchievement]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Trophy Case")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.appText)
+
+                Spacer()
+
+                Text("unlock next")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+            }
+
+            Text("Visible goals make streaks feel collectible: perfect-day trophies, plus a separate protein statue for closing protein every day.")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+                ForEach(achievements) { achievement in
+                    StatsAchievementTile(achievement: achievement)
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
+    }
+}
+
+private struct StatsAchievementTile: View {
+    let achievement: StatsAchievement
+
+    private var tileOpacity: Double {
+        achievement.isUnlocked ? 1 : 0.62
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                ZStack {
+                    Circle()
+                        .fill(achievement.color.opacity(achievement.isUnlocked ? 0.22 : 0.08))
+
+                    Image(systemName: achievement.isUnlocked ? achievement.icon : "lock.fill")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(achievement.isUnlocked ? achievement.color : .appMuted)
+                }
+                .frame(width: 42, height: 42)
+                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.35) : .clear, radius: 10)
+
+                Spacer()
+
+                Text(achievement.progressText)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(achievement.isUnlocked ? achievement.color : .appMuted)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(achievement.color.opacity(achievement.isUnlocked ? 0.14 : 0.07)))
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(achievement.title)
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(.appText.opacity(tileOpacity))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Text(achievement.subtitle)
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appMuted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.appText.opacity(0.08))
+
+                    Capsule()
+                        .fill(achievement.color.opacity(achievement.isUnlocked ? 0.95 : 0.58))
+                        .frame(width: max(achievement.progress > 0 ? 8 : 0, proxy.size.width * CGFloat(achievement.progress)))
+                }
+            }
+            .frame(height: 7)
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(achievement.isUnlocked ? achievement.color.opacity(0.11) : Color.appSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.30 : 0.12), lineWidth: 1)
+        )
     }
 }
 

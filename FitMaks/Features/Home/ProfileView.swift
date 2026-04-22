@@ -40,6 +40,8 @@ struct ProfileView: View {
     @State private var isImportingHealthMetrics = false
     @State private var selectedWeightRange: WeightChartRange = .days30
     @State private var selectedBodyChartMetric: BodyChartMetric = .weight
+    @State private var selectedBodyChartPointIndex: Int?
+    @State private var isInteractingWithBodyChart = false
     @State private var bodyMetricSearchText = ""
 
     private var neonPurple: Color { .fitPurple }
@@ -159,6 +161,17 @@ struct ProfileView: View {
                     }
                     .padding()
                     .padding(.bottom, 20)
+                }
+
+                if selectedBodyChartPointIndex != nil && !isInteractingWithBodyChart {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeOut(duration: 0.12)) {
+                                selectedBodyChartPointIndex = nil
+                            }
+                        }
                 }
             }
             .navigationTitle("Profile & Goals")
@@ -359,6 +372,7 @@ struct ProfileView: View {
                         .foregroundColor(selectedBodyChartMetric == .weight ? .neonGreen : .appText)
                         .onTapGesture {
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                selectedBodyChartPointIndex = nil
                                 selectedBodyChartMetric = .weight
                             }
                         }
@@ -389,7 +403,9 @@ struct ProfileView: View {
                         entries: selectedChartBodyMetrics,
                         metric: selectedBodyChartMetric,
                         range: selectedWeightRange,
-                        accentColor: selectedBodyChartMetric.color
+                        accentColor: selectedBodyChartMetric.color,
+                        selectedIndex: $selectedBodyChartPointIndex,
+                        isInteracting: $isInteractingWithBodyChart
                     )
                         .frame(height: 184)
                 }
@@ -463,11 +479,12 @@ struct ProfileView: View {
 
     private var bodyCompositionGrid: some View {
         let latest = latestBodyMetric
+        let weightValue = latest.map { "\(String(format: "%.1f", $0.weightKg))kg" } ?? "—"
 
         return HStack(spacing: 10) {
             bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), metric: .fat)
             bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), metric: .muscle)
-            bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), metric: .water)
+            bodyMetricMiniCard(title: "Weight", value: weightValue, metric: .weight)
         }
     }
 
@@ -476,6 +493,7 @@ struct ProfileView: View {
             ForEach(WeightChartRange.allCases) { range in
                 Button {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        selectedBodyChartPointIndex = nil
                         selectedWeightRange = range
                     }
                 } label: {
@@ -1125,21 +1143,22 @@ struct ProfileView: View {
 
     private func appleHealthImportButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 17, weight: .black))
+                    .font(.system(size: 15, weight: .black))
                     .foregroundColor(.appAccentText)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 34, height: 34)
                     .background(Circle().fill(neonPurple))
                     .shadow(color: neonPurple.opacity(0.30), radius: 8)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Upload from Apple Health")
-                        .font(.headline)
-                        .fontWeight(.heavy)
+                        .font(.system(size: 16, weight: .black))
                         .foregroundColor(.appText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
 
-                    Text("Import weight and body metrics for the last year")
+                    Text("Import last 365 days")
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundColor(.appMuted)
@@ -1150,10 +1169,10 @@ struct ProfileView: View {
                 Spacer()
 
                 Image(systemName: "arrow.down.circle.fill")
-                    .font(.system(size: 18, weight: .black))
+                    .font(.system(size: 16, weight: .black))
                     .foregroundColor(neonPurple)
             }
-            .padding(14)
+            .padding(12)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(neonPurple.opacity(0.18), lineWidth: 1))
@@ -1166,6 +1185,7 @@ struct ProfileView: View {
     private func bodyMetricMiniCard(title: String, value: String, metric: BodyChartMetric) -> some View {
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                selectedBodyChartPointIndex = nil
                 selectedBodyChartMetric = metric
             }
         } label: {
@@ -1792,7 +1812,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
     case weight
     case fat
     case muscle
-    case water
 
     var id: String { title }
 
@@ -1804,8 +1823,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "Fat"
         case .muscle:
             return "Muscle"
-        case .water:
-            return "Water"
         }
     }
 
@@ -1817,8 +1834,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "body fat"
         case .muscle:
             return "muscle"
-        case .water:
-            return "water"
         }
     }
 
@@ -1826,7 +1841,7 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
         switch self {
         case .weight:
             return "kg"
-        case .fat, .muscle, .water:
+        case .fat, .muscle:
             return "%"
         }
     }
@@ -1839,8 +1854,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "flame.fill"
         case .muscle:
             return "figure.strengthtraining.traditional"
-        case .water:
-            return "drop.fill"
         }
     }
 
@@ -1852,8 +1865,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return .fitOrange
         case .muscle:
             return .neonCyan
-        case .water:
-            return .neonGreen
         }
     }
 
@@ -1865,8 +1876,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return entry.bodyFatPercent
         case .muscle:
             return entry.musclePercent
-        case .water:
-            return entry.waterPercent
         }
     }
 
@@ -1874,7 +1883,7 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
         switch self {
         case .weight:
             return "\(String(format: "%.1f", value)) kg"
-        case .fat, .muscle, .water:
+        case .fat, .muscle:
             return "\(String(format: "%.1f", value))%"
         }
     }
@@ -1970,7 +1979,8 @@ private struct WeightTrendChart: View {
     var range: WeightChartRange
     var accentColor: Color
 
-    @State private var selectedIndex: Int?
+    @Binding var selectedIndex: Int?
+    @Binding var isInteracting: Bool
 
     private var chartValues: [Double] {
         entries.compactMap { metric.value(from: $0) }
@@ -2028,6 +2038,18 @@ private struct WeightTrendChart: View {
         .padding(15)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(accentColor.opacity(0.16), lineWidth: 1))
+        .onChange(of: metric) { _, _ in
+            selectedIndex = nil
+            isInteracting = false
+        }
+        .onChange(of: range) { _, _ in
+            selectedIndex = nil
+            isInteracting = false
+        }
+        .onDisappear {
+            selectedIndex = nil
+            isInteracting = false
+        }
     }
 
     private func chartCanvas(size: CGSize) -> some View {
@@ -2054,7 +2076,12 @@ private struct WeightTrendChart: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
+                    isInteracting = true
                     selectedIndex = nearestIndex(for: value.location.x, width: size.width)
+                }
+                .onEnded { value in
+                    selectedIndex = nearestIndex(for: value.location.x, width: size.width)
+                    isInteracting = false
                 }
         )
     }

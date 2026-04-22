@@ -69,6 +69,39 @@ struct ContentView: View {
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
     var dailyUploadedTrainingSteps: Double { dailyTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
+    var todayFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDateInToday($0.date) } }
+    var todayTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDateInToday($0.date) } }
+    var todayTrainingCalories: Double { todayTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
+    var todayUploadedTrainingSteps: Double { todayTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
+    var todayMode: DayMode {
+        let dateID = DateFormatter.yyyyMMdd.string(from: Date())
+        return DayMode.fromStoredValue(allDailySetups.first(where: { $0.dateID == dateID })?.mode)
+    }
+    var todayStepsForNotifications: Double {
+        let dateID = DateFormatter.yyyyMMdd.string(from: Date())
+        if let steps = homeWeeklySteps[dateID] {
+            return steps
+        }
+        return Calendar.current.isDateInToday(selectedDate) ? dailySteps : 0
+    }
+    var todayProgressForNotifications: DayProgress {
+        DayProgressEngine.progress(
+            date: Date(),
+            foodEntries: todayFoodEntries,
+            trainingCalories: todayTrainingCalories,
+            mode: todayMode,
+            baseCalories: baseCaloriesGoal,
+            baseProtein: baseProteinGoal,
+            steps: todayStepsForNotifications,
+            uploadedSteps: todayUploadedTrainingSteps,
+            stepTarget: targetSteps
+        )
+    }
+    var dailyReminderSignature: String {
+        let foodSignature = todayFoodEntries.map { "\($0.id.uuidString):\(Int($0.calories)):\(Int($0.protein))" }.joined(separator: "|")
+        let trainingSignature = todayTrainingEntries.map { "\($0.id.uuidString):\(Int($0.caloriesBurned)):\(Int($0.steps ?? 0))" }.joined(separator: "|")
+        return "\(DateFormatter.yyyyMMdd.string(from: Date()))#\(foodSignature)#\(trainingSignature)#\(Int(todayStepsForNotifications))#\(todayMode.rawValue)#\(Int(baseProteinGoal))"
+    }
     var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.createdAt > $1.createdAt } }
     var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
@@ -143,10 +176,14 @@ struct ContentView: View {
             if let entry = selectedEntryForEdit { Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedEntryForEdit = nil } }; AIChatEditView(entry: entry, onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } }, onDone: { withAnimation { selectedEntryForEdit = nil } }).transition(.scale(scale: 0.9).combined(with: .opacity)) }
         }
         .onAppear {
-            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps } }
-            HealthKitManager.shared.fetchWeeklySteps { steps in DispatchQueue.main.async { self.homeWeeklySteps = steps } }
+            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } }
+            HealthKitManager.shared.fetchWeeklySteps { steps in DispatchQueue.main.async { self.homeWeeklySteps = steps; self.syncDailyReminders() } }
+            syncDailyReminders()
         }
-        .onChange(of: selectedDate) { _, newDate in HealthKitManager.shared.fetchSteps(for: newDate) { steps in DispatchQueue.main.async { self.dailySteps = steps } } }
+        .onChange(of: selectedDate) { _, newDate in HealthKitManager.shared.fetchSteps(for: newDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } } }
+        .onChange(of: dailyReminderSignature) { _, _ in
+            syncDailyReminders()
+        }
         .confirmationDialog("Add Entry", isPresented: $isShowingSourceDialog) {
             Button("From Fridge ❄️") { self.isSelectionModeForFridge = true; self.initialMyFoodTab = 0; self.isShowingMyFood = true }
             Button("From Meals 🍲") { self.isSelectionModeForFridge = true; self.initialMyFoodTab = 1; self.isShowingMyFood = true }
@@ -1138,6 +1175,13 @@ struct ContentView: View {
             _ = items.remove(at: index)
         }
         return item
+    }
+
+    private func syncDailyReminders() {
+        DailyReminderManager.shared.syncDailyReminders(
+            progressToday: todayProgressForNotifications,
+            hasFoodToday: !todayFoodEntries.isEmpty
+        )
     }
 
     func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }

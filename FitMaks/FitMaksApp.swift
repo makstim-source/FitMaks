@@ -56,6 +56,7 @@ struct FitMaksApp: App {
             FavoriteFood.self,
             TrainingEntry.self,
             DailySetup.self,
+            BodyMetricEntry.self,
             SavedRecipe.self,
             ShoppingItem.self // 🔥 Новая база для списка покупок
         ])

@@ -44,6 +44,16 @@ struct DailySummaryResult: Codable {
     let ai_summary: String
 }
 
+struct BodyMetricScanResult: Codable {
+    let weight_kg: Double?
+    let body_fat_percent: Double?
+    let muscle_percent: Double?
+    let water_percent: Double?
+    let visceral_fat: Double?
+    let metabolic_age: Double?
+    let ai_summary: String
+}
+
 private struct GeminiAPIErrorResponse: Decodable {
     struct APIError: Decodable {
         let code: Int?
@@ -205,6 +215,32 @@ class GeminiService {
         {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
         """
         sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
+    }
+
+    func analyzeBodyMetrics(images: [UIImage], note: String, completion: @escaping (BodyMetricScanResult?, String?) -> Void) {
+        let prompt = """
+        Extract body scale metrics from the user's input. The input may be:
+        - Text typed by the user.
+        - A screenshot from a smart scale app.
+        - A camera photo of a scale display.
+
+        Read only values that are visible or explicitly typed. Do not invent missing metrics.
+        Normalize values:
+        - weight_kg must be kilograms.
+        - body_fat_percent, muscle_percent, and water_percent must be percentages without the % sign.
+        - visceral_fat is a scale/index number if visible.
+        - metabolic_age is years if visible.
+
+        User typed note: "\(note)"
+
+        Return ONLY a single JSON object.
+        CRITICAL RULE: You MUST use exactly this structure:
+        {"weight_kg": 0, "body_fat_percent": null, "muscle_percent": null, "water_percent": null, "visceral_fat": null, "metabolic_age": null, "ai_summary": "short useful insight"}
+        If weight is not visible or not typed, set weight_kg to null.
+        Keep ai_summary under 2 short sentences.
+        """
+
+        sendToGemini(images: images, prompt: prompt, responseType: BodyMetricScanResult.self, temperature: 0.0, topP: 0.1, topK: 1, completion: completion)
     }
 
     func generateRecipes(from ingredients: [String], completion: @escaping ([RecipeResult]?, String?) -> Void) {

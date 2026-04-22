@@ -1,7 +1,11 @@
 import SwiftUI
+import SwiftData
+import UIKit
 
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \BodyMetricEntry.date, order: .reverse) private var bodyMetrics: [BodyMetricEntry]
 
     @Binding var gender: String
     @Binding var age: Int
@@ -18,6 +22,17 @@ struct ProfileView: View {
 
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
     @State private var isShowingThemePicker = false
+    @State private var isShowingGoalSettings = false
+    @State private var isShowingWeightInput = false
+    @State private var isShowingBodyImagePicker = false
+    @State private var selectedBodyImage: UIImage?
+    @State private var bodyScanSourceType: UIImagePickerController.SourceType = .photoLibrary
+    @State private var isAnalyzingBodyScan = false
+    @State private var bodyScanError: String?
+    @State private var manualWeightText = ""
+    @State private var manualBodyFatText = ""
+    @State private var manualMuscleText = ""
+    @State private var manualWaterText = ""
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -65,6 +80,22 @@ struct ProfileView: View {
         useCustomGoals ? customProtein : calculatedProtein
     }
 
+    private var latestBodyMetric: BodyMetricEntry? {
+        bodyMetrics.first
+    }
+
+    private var previousBodyMetric: BodyMetricEntry? {
+        bodyMetrics.dropFirst().first
+    }
+
+    private var weightTrendDelta: Double? {
+        guard let latest = latestBodyMetric, let previous = previousBodyMetric else {
+            return nil
+        }
+
+        return latest.weightKg - previous.weightKg
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -83,11 +114,8 @@ struct ProfileView: View {
                     VStack(spacing: 18) {
                         goalsHeader
                         recommendationCard
-                        goalAndGenderCard
-                        activityCard
-                        bodyMetricsCard
-                        customGoalsCard
-                        themeCard
+                        changeGoalsButton
+                        weightTrackerCard
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -112,6 +140,29 @@ struct ProfileView: View {
             }
             .presentationDetents([.large])
         }
+        .sheet(isPresented: $isShowingGoalSettings) {
+            goalSettingsSheet
+        }
+        .sheet(isPresented: $isShowingWeightInput) {
+            manualWeightSheet
+        }
+        .sheet(isPresented: $isShowingBodyImagePicker) {
+            ImagePicker(selectedImage: $selectedBodyImage, sourceType: bodyScanSourceType)
+        }
+        .alert("Weight scan", isPresented: Binding(
+            get: { bodyScanError != nil },
+            set: { if !$0 { bodyScanError = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                bodyScanError = nil
+            }
+        } message: {
+            Text(bodyScanError ?? "")
+        }
+        .onChange(of: selectedBodyImage) { _, image in
+            guard let image else { return }
+            analyzeBodyImage(image)
+        }
     }
 
     private var goalsHeader: some View {
@@ -119,6 +170,285 @@ struct ProfileView: View {
             goalStat(title: "DAILY CALORIES", value: "\(Int(selectedCalories))", unit: "kcal", color: .appText)
             goalStat(title: "DAILY PROTEIN", value: "\(Int(selectedProtein))", unit: "g", color: neonPurple)
         }
+    }
+
+    private var changeGoalsButton: some View {
+        Button {
+            isShowingGoalSettings = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(neonPurple.opacity(0.18))
+
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(neonPurple)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Change goals / data")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appText)
+
+                    Text("Goal, activity, body numbers, custom targets and theme.")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.appMuted)
+            }
+            .padding(16)
+            .background(cardBackground)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var goalSettingsSheet: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 18) {
+                        goalAndGenderCard
+                        activityCard
+                        bodyMetricsCard
+                        customGoalsCard
+                        themeCard
+                    }
+                    .padding()
+                    .padding(.bottom, 20)
+                }
+            }
+            .navigationTitle("Goals & Data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        isShowingGoalSettings = false
+                    }
+                    .foregroundColor(neonPurple)
+                    .bold()
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+        .presentationDetents([.large])
+    }
+
+    private var weightTrackerCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("BODY TRACKER", systemImage: "chart.xyaxis.line")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.neonGreen)
+                        .tracking(0.8)
+
+                    Text(latestBodyMetric.map { "\(String(format: "%.1f", $0.weightKg)) kg" } ?? "Log your weight")
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundColor(.appText)
+                }
+
+                Spacer()
+
+                if let delta = weightTrendDelta {
+                    trendPill(delta)
+                }
+            }
+
+            if bodyMetrics.isEmpty {
+                emptyWeightState
+            } else {
+                WeightTrendChart(entries: Array(Array(bodyMetrics.prefix(14)).reversed()), accentColor: .neonGreen)
+                    .frame(height: 138)
+
+                bodyCompositionGrid
+                weightInsightText
+            }
+
+            HStack(spacing: 10) {
+                bodyMetricActionButton(title: "Type", systemName: "keyboard.fill", color: .neonGreen) {
+                    prepareManualWeightSheet()
+                    isShowingWeightInput = true
+                }
+
+                bodyMetricActionButton(title: "Screenshot", systemName: "photo.on.rectangle.angled", color: .neonCyan) {
+                    bodyScanSourceType = .photoLibrary
+                    isShowingBodyImagePicker = true
+                }
+
+                bodyMetricActionButton(title: "Scale", systemName: "camera.fill", color: .fitOrange) {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        bodyScanSourceType = .camera
+                    } else {
+                        bodyScanSourceType = .photoLibrary
+                    }
+                    isShowingBodyImagePicker = true
+                }
+            }
+
+            if isAnalyzingBodyScan {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .tint(.neonGreen)
+
+                    Text("Reading scale data...")
+                        .font(.caption)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appMuted)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(Color.appElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28)
+                .stroke(Color.neonGreen.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.neonGreen.opacity(0.10), radius: 22, x: 0, y: 10)
+    }
+
+    private var emptyWeightState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Start with one check-in.")
+                .font(.headline)
+                .fontWeight(.heavy)
+                .foregroundColor(.appText)
+
+            Text("Type your weight, upload a smart-scale screenshot, or photograph the scale. FitMaks will build the trend and body-composition story here.")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private var bodyCompositionGrid: some View {
+        let latest = latestBodyMetric
+
+        return HStack(spacing: 10) {
+            bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), color: .fitOrange)
+            bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), color: .neonCyan)
+            bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), color: .neonGreen)
+        }
+    }
+
+    private var weightInsightText: some View {
+        Text(weightInsight)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundColor(.appMuted)
+            .lineSpacing(3)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+    }
+
+    private var weightInsight: String {
+        guard let latest = latestBodyMetric else {
+            return "Add your first check-in to see progress."
+        }
+
+        guard let delta = weightTrendDelta else {
+            return "First check-in saved. Add a few more and the trend will become useful instead of noisy."
+        }
+
+        let direction = delta < 0 ? "down" : "up"
+        let absDelta = abs(delta)
+        let dateText = latest.date.formatted(date: .abbreviated, time: .omitted)
+
+        if absDelta < 0.15 {
+            return "Stable since the previous check-in. Nice: one reading is noise, the trend is the signal."
+        }
+
+        return "Latest check-in \(dateText): \(direction) \(String(format: "%.1f", absDelta)) kg from the previous log. Watch the 7-14 day trend, not one salty dinner."
+    }
+
+    private var manualWeightSheet: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("LOG BODY DATA")
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundColor(.neonGreen)
+                                .tracking(1)
+
+                            Text("Add what you know.")
+                                .font(.system(size: 30, weight: .black))
+                                .foregroundColor(.appText)
+
+                            Text("Weight is required. Fat, muscle and water are optional, but useful if your smart scale shows them.")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.appMuted)
+                                .lineSpacing(3)
+                        }
+
+                        VStack(spacing: 12) {
+                            bodyInputField(title: "Weight", value: $manualWeightText, unit: "kg", required: true)
+                            bodyInputField(title: "Body fat", value: $manualBodyFatText, unit: "%", required: false)
+                            bodyInputField(title: "Muscle", value: $manualMuscleText, unit: "%", required: false)
+                            bodyInputField(title: "Water", value: $manualWaterText, unit: "%", required: false)
+                        }
+                    }
+                    .padding()
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Weight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        isShowingWeightInput = false
+                    }
+                    .foregroundColor(.appMuted)
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        saveManualBodyMetric()
+                    }
+                    .foregroundColor(.neonGreen)
+                    .bold()
+                    .disabled(number(from: manualWeightText) == nil)
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+        .presentationDetents([.medium, .large])
     }
 
     private var themeCard: some View {
@@ -390,6 +720,195 @@ struct ProfileView: View {
         }
         .padding(18)
         .background(cardBackground)
+    }
+
+    private func trendPill(_ delta: Double) -> some View {
+        let isDown = delta < -0.15
+        let isUp = delta > 0.15
+        let color: Color = isDown ? .neonGreen : (isUp ? .fitOrange : .neonCyan)
+        let symbol = isDown ? "arrow.down.right" : (isUp ? "arrow.up.right" : "equal")
+        let text = abs(delta) < 0.15 ? "stable" : "\(delta > 0 ? "+" : "")\(String(format: "%.1f", delta)) kg"
+
+        return Label(text, systemImage: symbol)
+            .font(.caption)
+            .fontWeight(.heavy)
+            .foregroundColor(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(color.opacity(0.15)))
+    }
+
+    private func bodyMetricActionButton(title: String, systemName: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: systemName)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundColor(.appAccentText)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(color))
+                    .shadow(color: color.opacity(0.30), radius: 8)
+
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isAnalyzingBodyScan)
+        .opacity(isAnalyzingBodyScan ? 0.55 : 1)
+    }
+
+    private func bodyMetricMiniCard(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            Text(value)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(value == "—" ? .appMuted : color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.16), lineWidth: 1))
+    }
+
+    private func bodyInputField(title: String, value: Binding<String>, unit: String, required: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+
+                Text(required ? "Required" : "Optional")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(required ? .neonGreen : .appMuted)
+            }
+
+            Spacer()
+
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                TextField("0", text: value)
+                    .keyboardType(.decimalPad)
+                    .font(.system(size: 24, weight: .black))
+                    .foregroundColor(.appText)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 96)
+
+                Text(unit)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+            }
+        }
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private func prepareManualWeightSheet() {
+        manualWeightText = latestBodyMetric.map { String(format: "%.1f", $0.weightKg) } ?? String(format: "%.1f", weight)
+        manualBodyFatText = latestBodyMetric?.bodyFatPercent.map { String(format: "%.1f", $0) } ?? ""
+        manualMuscleText = latestBodyMetric?.musclePercent.map { String(format: "%.1f", $0) } ?? ""
+        manualWaterText = latestBodyMetric?.waterPercent.map { String(format: "%.1f", $0) } ?? ""
+    }
+
+    private func saveManualBodyMetric() {
+        guard let weightKg = number(from: manualWeightText) else {
+            return
+        }
+
+        addBodyMetric(
+            weightKg: weightKg,
+            bodyFatPercent: number(from: manualBodyFatText),
+            musclePercent: number(from: manualMuscleText),
+            waterPercent: number(from: manualWaterText),
+            visceralFat: nil,
+            metabolicAge: nil,
+            note: "Manual check-in",
+            source: "Manual"
+        )
+        isShowingWeightInput = false
+    }
+
+    private func analyzeBodyImage(_ image: UIImage) {
+        isAnalyzingBodyScan = true
+        bodyScanError = nil
+
+        GeminiService.shared.analyzeBodyMetrics(images: [image], note: "") { result, error in
+            isAnalyzingBodyScan = false
+            selectedBodyImage = nil
+
+            if let result, let weightKg = result.weight_kg {
+                addBodyMetric(
+                    weightKg: weightKg,
+                    bodyFatPercent: result.body_fat_percent,
+                    musclePercent: result.muscle_percent,
+                    waterPercent: result.water_percent,
+                    visceralFat: result.visceral_fat,
+                    metabolicAge: result.metabolic_age,
+                    note: result.ai_summary,
+                    source: "AI scan"
+                )
+            } else {
+                bodyScanError = error ?? "I could not read the weight clearly. Try a sharper screenshot/photo or type it manually."
+            }
+        }
+    }
+
+    private func addBodyMetric(
+        weightKg: Double,
+        bodyFatPercent: Double?,
+        musclePercent: Double?,
+        waterPercent: Double?,
+        visceralFat: Double?,
+        metabolicAge: Double?,
+        note: String,
+        source: String
+    ) {
+        weight = weightKg
+
+        let entry = BodyMetricEntry(
+            weightKg: weightKg,
+            bodyFatPercent: bodyFatPercent,
+            musclePercent: musclePercent,
+            waterPercent: waterPercent,
+            visceralFat: visceralFat,
+            metabolicAge: metabolicAge,
+            note: note,
+            source: source
+        )
+
+        modelContext.insert(entry)
+    }
+
+    private func percentText(_ value: Double?) -> String {
+        guard let value else {
+            return "—"
+        }
+
+        return "\(String(format: "%.1f", value))%"
+    }
+
+    private func number(from text: String) -> Double? {
+        let normalized = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+
+        return Double(normalized)
     }
 
     private var goalBadgeText: String {
@@ -688,5 +1207,127 @@ private struct MetricStepperCard: View {
                 .shadow(color: accentColor.opacity(0.35), radius: 8)
         }
         .buttonRepeatBehavior(.enabled)
+    }
+}
+
+private struct WeightTrendChart: View {
+    var entries: [BodyMetricEntry]
+    var accentColor: Color
+
+    private var weights: [Double] {
+        entries.map(\.weightKg)
+    }
+
+    private var minWeight: Double {
+        weights.min() ?? 0
+    }
+
+    private var maxWeight: Double {
+        weights.max() ?? 1
+    }
+
+    private var range: Double {
+        max(maxWeight - minWeight, 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Weight trend")
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+
+                Spacer()
+
+                if let first = entries.first, let last = entries.last, entries.count > 1 {
+                    Text("\(String(format: "%.1f", first.weightKg)) -> \(String(format: "%.1f", last.weightKg)) kg")
+                        .font(.caption)
+                        .fontWeight(.heavy)
+                        .foregroundColor(accentColor)
+                }
+            }
+
+            GeometryReader { proxy in
+                ZStack {
+                    chartGrid
+
+                    if entries.count == 1 {
+                        singlePoint(in: proxy.size)
+                    } else {
+                        trendLine(in: proxy.size)
+                        trendPoints(in: proxy.size)
+                    }
+                }
+            }
+        }
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(accentColor.opacity(0.16), lineWidth: 1))
+    }
+
+    private var chartGrid: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<4, id: \.self) { _ in
+                Rectangle()
+                    .fill(Color.appText.opacity(0.06))
+                    .frame(height: 1)
+
+                Spacer()
+            }
+        }
+    }
+
+    private func trendLine(in size: CGSize) -> some View {
+        Path { path in
+            for (index, entry) in entries.enumerated() {
+                let point = chartPoint(for: entry.weightKg, index: index, size: size)
+
+                if index == 0 {
+                    path.move(to: point)
+                } else {
+                    path.addLine(to: point)
+                }
+            }
+        }
+        .stroke(
+            LinearGradient(colors: [accentColor, .neonCyan], startPoint: .leading, endPoint: .trailing),
+            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+        )
+        .shadow(color: accentColor.opacity(0.35), radius: 10)
+    }
+
+    private func trendPoints(in size: CGSize) -> some View {
+        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+            let point = chartPoint(for: entry.weightKg, index: index, size: size)
+
+            Circle()
+                .fill(index == entries.count - 1 ? accentColor : Color.appText.opacity(0.65))
+                .frame(width: index == entries.count - 1 ? 11 : 7, height: index == entries.count - 1 ? 11 : 7)
+                .position(point)
+        }
+    }
+
+    private func singlePoint(in size: CGSize) -> some View {
+        Circle()
+            .fill(accentColor)
+            .frame(width: 13, height: 13)
+            .position(x: size.width / 2, y: size.height / 2)
+            .shadow(color: accentColor.opacity(0.5), radius: 10)
+    }
+
+    private func chartPoint(for weight: Double, index: Int, size: CGSize) -> CGPoint {
+        let x: CGFloat
+
+        if entries.count <= 1 {
+            x = size.width / 2
+        } else {
+            x = CGFloat(index) / CGFloat(entries.count - 1) * size.width
+        }
+
+        let normalized = (weight - minWeight) / range
+        let y = size.height - CGFloat(normalized) * size.height
+
+        return CGPoint(x: x, y: y)
     }
 }

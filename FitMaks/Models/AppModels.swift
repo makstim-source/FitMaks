@@ -137,6 +137,42 @@ final class DailySetup {
 }
 
 @Model
+final class BodyMetricEntry {
+    var id: UUID = UUID()
+    var date: Date
+    var weightKg: Double
+    var bodyFatPercent: Double?
+    var musclePercent: Double?
+    var waterPercent: Double?
+    var visceralFat: Double?
+    var metabolicAge: Double?
+    var note: String
+    var source: String
+
+    init(
+        date: Date = Date(),
+        weightKg: Double,
+        bodyFatPercent: Double? = nil,
+        musclePercent: Double? = nil,
+        waterPercent: Double? = nil,
+        visceralFat: Double? = nil,
+        metabolicAge: Double? = nil,
+        note: String = "",
+        source: String = "Manual"
+    ) {
+        self.date = date
+        self.weightKg = weightKg
+        self.bodyFatPercent = bodyFatPercent
+        self.musclePercent = musclePercent
+        self.waterPercent = waterPercent
+        self.visceralFat = visceralFat
+        self.metabolicAge = metabolicAge
+        self.note = note
+        self.source = source
+    }
+}
+
+@Model
 final class ShoppingItem {
     var id: UUID = UUID()
     var name: String

@@ -40,6 +40,7 @@ struct ProfileView: View {
     @State private var isImportingHealthMetrics = false
     @State private var selectedWeightRange: WeightChartRange = .days30
     @State private var selectedBodyChartMetric: BodyChartMetric = .weight
+    @State private var bodyMetricSearchText = ""
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -120,6 +121,18 @@ struct ProfileView: View {
 
     private var selectedChartBodyMetrics: [BodyMetricEntry] {
         selectedRangeBodyMetrics.filter { selectedBodyChartMetric.value(from: $0) != nil }
+    }
+
+    private var searchedBodyMetrics: [BodyMetricEntry] {
+        let query = bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        guard !query.isEmpty else {
+            return Array(bodyMetrics.prefix(6))
+        }
+
+        return bodyMetrics.filter { entry in
+            searchableBodyMetricText(for: entry).contains(query)
+        }
     }
 
     var body: some View {
@@ -343,7 +356,12 @@ struct ProfileView: View {
 
                     Text(latestBodyMetric.map { "\(String(format: "%.1f", $0.weightKg)) kg" } ?? "Log your weight")
                         .font(.system(size: 30, weight: .black))
-                        .foregroundColor(.appText)
+                        .foregroundColor(selectedBodyChartMetric == .weight ? .neonGreen : .appText)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                selectedBodyChartMetric = .weight
+                            }
+                        }
                 }
 
                 Spacer()
@@ -356,7 +374,6 @@ struct ProfileView: View {
             if bodyMetrics.isEmpty {
                 emptyWeightState
             } else {
-                bodyMetricPicker
                 weightRangePicker
 
                 if selectedChartBodyMetrics.isEmpty {
@@ -371,9 +388,10 @@ struct ProfileView: View {
                     WeightTrendChart(
                         entries: selectedChartBodyMetrics,
                         metric: selectedBodyChartMetric,
+                        range: selectedWeightRange,
                         accentColor: selectedBodyChartMetric.color
                     )
-                        .frame(height: 138)
+                        .frame(height: 184)
                 }
 
                 bodyCompositionGrid
@@ -381,18 +399,20 @@ struct ProfileView: View {
                 bodyMetricHistory
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                bodyMetricActionButton(title: "Type", systemName: "keyboard.fill", color: .neonGreen) {
-                    prepareManualWeightSheet()
-                    isShowingWeightInput = true
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    bodyMetricActionButton(title: "Type", systemName: "keyboard.fill", color: .neonGreen) {
+                        prepareManualWeightSheet()
+                        isShowingWeightInput = true
+                    }
+
+                    bodyMetricActionButton(title: "Screenshot", systemName: "photo.on.rectangle.angled", color: .neonCyan) {
+                        bodyScanSourceType = .photoLibrary
+                        isShowingBodyImagePicker = true
+                    }
                 }
 
-                bodyMetricActionButton(title: "Screenshot", systemName: "photo.on.rectangle.angled", color: .neonCyan) {
-                    bodyScanSourceType = .photoLibrary
-                    isShowingBodyImagePicker = true
-                }
-
-                bodyMetricActionButton(title: "Health", systemName: "heart.text.square.fill", color: neonPurple) {
+                appleHealthImportButton {
                     importHealthBodyMetrics()
                 }
             }
@@ -445,40 +465,9 @@ struct ProfileView: View {
         let latest = latestBodyMetric
 
         return HStack(spacing: 10) {
-            bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), color: .fitOrange)
-            bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), color: .neonCyan)
-            bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), color: .neonGreen)
-        }
-    }
-
-    private var bodyMetricPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(BodyChartMetric.allCases) { metric in
-                    Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            selectedBodyChartMetric = metric
-                        }
-                    } label: {
-                        Label(metric.title, systemImage: metric.systemName)
-                            .font(.caption)
-                            .fontWeight(.heavy)
-                            .foregroundColor(selectedBodyChartMetric == metric ? .appAccentText : .appText)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(
-                                Capsule()
-                                    .fill(selectedBodyChartMetric == metric ? metric.color : Color.appSurface)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(selectedBodyChartMetric == metric ? metric.color.opacity(0.55) : Color.appBorder, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 1)
+            bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), metric: .fat)
+            bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), metric: .muscle)
+            bodyMetricMiniCard(title: "Water", value: percentText(latest?.waterPercent), metric: .water)
         }
     }
 
@@ -528,14 +517,40 @@ struct ProfileView: View {
 
                 Spacer()
 
-                Text("\(bodyMetrics.count) logs")
+                Text(bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "\(bodyMetrics.count) logs" : "\(searchedBodyMetrics.count) found")
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.appMuted)
             }
 
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(.appMuted)
+
+                TextField("Search date, source, weight...", text: $bodyMetricSearchText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.appText)
+
+                if !bodyMetricSearchText.isEmpty {
+                    Button {
+                        bodyMetricSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.appMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
+
             VStack(spacing: 8) {
-                ForEach(bodyMetrics.prefix(6)) { entry in
+                ForEach(searchedBodyMetrics) { entry in
                     bodyMetricHistoryRow(entry)
                 }
             }
@@ -665,9 +680,9 @@ struct ProfileView: View {
 
                     if let pendingScannedBodyMetric {
                         HStack(spacing: 10) {
-                            bodyMetricMiniCard(title: "Weight", value: "\(String(format: "%.1f", pendingScannedBodyMetric.weightKg))kg", color: .neonGreen)
-                            bodyMetricMiniCard(title: "Fat", value: percentText(pendingScannedBodyMetric.bodyFatPercent), color: .fitOrange)
-                            bodyMetricMiniCard(title: "Muscle", value: percentText(pendingScannedBodyMetric.musclePercent), color: .neonCyan)
+                            bodyMetricReadoutCard(title: "Weight", value: "\(String(format: "%.1f", pendingScannedBodyMetric.weightKg))kg", color: .neonGreen)
+                            bodyMetricReadoutCard(title: "Fat", value: percentText(pendingScannedBodyMetric.bodyFatPercent), color: .fitOrange)
+                            bodyMetricReadoutCard(title: "Muscle", value: percentText(pendingScannedBodyMetric.musclePercent), color: .neonCyan)
                         }
                     }
 
@@ -810,10 +825,11 @@ struct ProfileView: View {
                 liveTargetBadge
             }
 
-            HStack(spacing: 9) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
                 goalButton(title: "Cut", subtitle: "Fat loss", key: "Lose Weight", color: .neonGreen)
-                goalButton(title: "Maintain", subtitle: "Stable", key: "Maintain", color: .neonCyan)
-                goalButton(title: "Build", subtitle: "Muscle", key: "Build Muscle", color: .orange)
+                goalButton(title: "Recomp", subtitle: "Muscle + leaner", key: "Recomp", color: .neonCyan)
+                goalButton(title: "Maintain", subtitle: "Stable", key: "Maintain", color: .fitPurple)
+                goalButton(title: "Build", subtitle: "Lean bulk", key: "Build Muscle", color: .orange)
             }
 
             Divider()
@@ -848,6 +864,7 @@ struct ProfileView: View {
                 ForEach(activityOptions) { option in
                     Button {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            calculatorDidChange()
                             activityLevel = option.key
                         }
                     } label: {
@@ -924,7 +941,10 @@ struct ProfileView: View {
                 title: "Age",
                 value: Binding(
                     get: { Double(age) },
-                    set: { age = Int($0.rounded()) }
+                    set: {
+                        calculatorDidChange()
+                        age = Int($0.rounded())
+                    }
                 ),
                 unit: "years",
                 range: 10...100,
@@ -935,7 +955,13 @@ struct ProfileView: View {
 
             MetricStepperCard(
                 title: "Weight",
-                value: $weight,
+                value: Binding(
+                    get: { weight },
+                    set: {
+                        calculatorDidChange()
+                        weight = $0
+                    }
+                ),
                 unit: "kg",
                 range: 40...150,
                 step: 0.5,
@@ -945,7 +971,13 @@ struct ProfileView: View {
 
             MetricStepperCard(
                 title: "Height",
-                value: $height,
+                value: Binding(
+                    get: { height },
+                    set: {
+                        calculatorDidChange()
+                        height = $0
+                    }
+                ),
                 unit: "cm",
                 range: 140...220,
                 step: 1,
@@ -1042,6 +1074,12 @@ struct ProfileView: View {
         )
     }
 
+    private func calculatorDidChange() {
+        if useCustomGoals {
+            useCustomGoals = false
+        }
+    }
+
     private func trendPill(_ delta: Double) -> some View {
         let isDown = delta < -0.15
         let isUp = delta > 0.15
@@ -1085,7 +1123,76 @@ struct ProfileView: View {
         .opacity(isAnalyzingBodyScan || isImportingHealthMetrics ? 0.55 : 1)
     }
 
-    private func bodyMetricMiniCard(title: String, value: String, color: Color) -> some View {
+    private func appleHealthImportButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 17, weight: .black))
+                    .foregroundColor(.appAccentText)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(neonPurple))
+                    .shadow(color: neonPurple.opacity(0.30), radius: 8)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Upload from Apple Health")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appText)
+
+                    Text("Import weight and body metrics for the last year")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(neonPurple)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(neonPurple.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(isAnalyzingBodyScan || isImportingHealthMetrics)
+        .opacity(isAnalyzingBodyScan || isImportingHealthMetrics ? 0.55 : 1)
+    }
+
+    private func bodyMetricMiniCard(title: String, value: String, metric: BodyChartMetric) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                selectedBodyChartMetric = metric
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title.uppercased())
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+
+                Text(value)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(value == "—" ? .appMuted : metric.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(selectedBodyChartMetric == metric ? metric.color.opacity(0.75) : metric.color.opacity(0.16), lineWidth: selectedBodyChartMetric == metric ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func bodyMetricReadoutCard(title: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title.uppercased())
                 .font(.system(size: 9, weight: .heavy))
@@ -1381,6 +1488,25 @@ struct ProfileView: View {
         return DateFormatter.yyyyMMdd.date(from: value)
     }
 
+    private func searchableBodyMetricText(for entry: BodyMetricEntry) -> String {
+        let parts: [String?] = [
+            entry.date.formatted(date: .abbreviated, time: .omitted),
+            entry.date.formatted(.dateTime.weekday(.wide).month(.wide).day().year()),
+            entry.source,
+            entry.note,
+            String(format: "%.1f", entry.weightKg),
+            entry.bodyFatPercent.map { String(format: "%.1f", $0) },
+            entry.musclePercent.map { String(format: "%.1f", $0) },
+            entry.waterPercent.map { String(format: "%.1f", $0) },
+            entry.visceralFat.map { String(format: "%.1f", $0) }
+        ]
+
+        return parts
+        .compactMap { $0 }
+        .joined(separator: " ")
+        .lowercased()
+    }
+
     private func percentText(_ value: Double?) -> String {
         guard let value else {
             return "—"
@@ -1401,6 +1527,8 @@ struct ProfileView: View {
         switch goal {
         case "Lose Weight":
             return "DEFICIT"
+        case "Recomp":
+            return "RECOMP"
         case "Build Muscle":
             return "SURPLUS"
         default:
@@ -1412,10 +1540,12 @@ struct ProfileView: View {
         switch goal {
         case "Lose Weight":
             return .neonGreen
+        case "Recomp":
+            return .neonCyan
         case "Build Muscle":
             return .orange
         default:
-            return .neonCyan
+            return .fitPurple
         }
     }
 
@@ -1423,8 +1553,10 @@ struct ProfileView: View {
         switch goal {
         case "Lose Weight":
             return "-500 kcal/day"
+        case "Recomp":
+            return "-200 kcal/day"
         case "Build Muscle":
-            return "+500 kcal/day"
+            return "+250 kcal/day"
         default:
             return "0 kcal/day"
         }
@@ -1434,8 +1566,10 @@ struct ProfileView: View {
         switch goal {
         case "Lose Weight":
             return "Estimated fat loss: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
+        case "Recomp":
+            return "Small deficit with high protein for recomposition"
         case "Build Muscle":
-            return "Estimated gain pace: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
+            return "Lean surplus: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
         default:
             return "Designed to keep weight stable"
         }
@@ -1518,6 +1652,7 @@ struct ProfileView: View {
     private func goalButton(title: String, subtitle: String, key: String, color: Color) -> some View {
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                calculatorDidChange()
                 goal = key
             }
         } label: {
@@ -1544,6 +1679,7 @@ struct ProfileView: View {
     private func genderButton(_ value: String) -> some View {
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                calculatorDidChange()
                 gender = value
             }
         } label: {
@@ -1657,7 +1793,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
     case fat
     case muscle
     case water
-    case visceral
 
     var id: String { title }
 
@@ -1671,8 +1806,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "Muscle"
         case .water:
             return "Water"
-        case .visceral:
-            return "Visceral"
         }
     }
 
@@ -1686,8 +1819,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "muscle"
         case .water:
             return "water"
-        case .visceral:
-            return "visceral fat"
         }
     }
 
@@ -1697,8 +1828,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "kg"
         case .fat, .muscle, .water:
             return "%"
-        case .visceral:
-            return ""
         }
     }
 
@@ -1712,8 +1841,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "figure.strengthtraining.traditional"
         case .water:
             return "drop.fill"
-        case .visceral:
-            return "waveform.path.ecg"
         }
     }
 
@@ -1727,8 +1854,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return .neonCyan
         case .water:
             return .neonGreen
-        case .visceral:
-            return .fitPurple
         }
     }
 
@@ -1742,8 +1867,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return entry.musclePercent
         case .water:
             return entry.waterPercent
-        case .visceral:
-            return entry.visceralFat
         }
     }
 
@@ -1753,8 +1876,6 @@ private enum BodyChartMetric: CaseIterable, Identifiable {
             return "\(String(format: "%.1f", value)) kg"
         case .fat, .muscle, .water:
             return "\(String(format: "%.1f", value))%"
-        case .visceral:
-            return String(format: "%.1f", value)
         }
     }
 }
@@ -1846,7 +1967,10 @@ private struct MetricStepperCard: View {
 private struct WeightTrendChart: View {
     var entries: [BodyMetricEntry]
     var metric: BodyChartMetric
+    var range: WeightChartRange
     var accentColor: Color
+
+    @State private var selectedIndex: Int?
 
     private var chartValues: [Double] {
         entries.compactMap { metric.value(from: $0) }
@@ -1860,8 +1984,16 @@ private struct WeightTrendChart: View {
         chartValues.max() ?? 1
     }
 
-    private var range: Double {
+    private var valueRange: Double {
         max(maxValue - minValue, metric == .weight ? 1 : 0.5)
+    }
+
+    private var activeSelectedIndex: Int? {
+        guard let selectedIndex, entries.indices.contains(selectedIndex) else {
+            return nil
+        }
+
+        return selectedIndex
     }
 
     var body: some View {
@@ -1887,21 +2019,83 @@ private struct WeightTrendChart: View {
             }
 
             GeometryReader { proxy in
-                ZStack {
-                    chartGrid
-
-                    if entries.count == 1 {
-                        singlePoint(in: proxy.size)
-                    } else {
-                        trendLine(in: proxy.size)
-                        trendPoints(in: proxy.size)
-                    }
-                }
+                chartCanvas(size: proxy.size)
             }
+            .frame(maxHeight: .infinity)
+
+            chartAxisLabels
         }
         .padding(15)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(accentColor.opacity(0.16), lineWidth: 1))
+    }
+
+    private func chartCanvas(size: CGSize) -> some View {
+        ZStack {
+            chartGrid
+
+            if entries.count == 1 {
+                singlePoint(in: size)
+            } else {
+                trendLine(in: size)
+                trendPoints(in: size)
+            }
+
+            if let activeSelectedIndex, let value = metric.value(from: entries[activeSelectedIndex]) {
+                selectedMarker(
+                    entry: entries[activeSelectedIndex],
+                    value: value,
+                    point: chartPoint(for: value, index: activeSelectedIndex, size: size),
+                    chartSize: size
+                )
+            }
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    selectedIndex = nearestIndex(for: value.location.x, width: size.width)
+                }
+        )
+    }
+
+    private var chartAxisLabels: some View {
+        HStack {
+            ForEach(Array(axisLabels.enumerated()), id: \.offset) { index, label in
+                Text(label)
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                if index != axisLabels.count - 1 {
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private var axisLabels: [String] {
+        let calendar = Calendar.current
+        let now = Date()
+
+        switch range {
+        case .days7:
+            return (0..<7).compactMap { offset in
+                calendar.date(byAdding: .day, value: offset - 6, to: now)?
+                    .formatted(.dateTime.weekday(.abbreviated))
+            }
+        case .days30:
+            return [29, 21, 14, 7, 0].compactMap { daysAgo in
+                calendar.date(byAdding: .day, value: -daysAgo, to: now)?
+                    .formatted(.dateTime.day().month(.abbreviated))
+            }
+        case .days365:
+            return [12, 9, 6, 3, 0].compactMap { monthsAgo in
+                calendar.date(byAdding: .month, value: -monthsAgo, to: now)?
+                    .formatted(.dateTime.month(.abbreviated))
+            }
+        }
     }
 
     private var chartGrid: some View {
@@ -1960,6 +2154,40 @@ private struct WeightTrendChart: View {
             .shadow(color: accentColor.opacity(0.5), radius: 10)
     }
 
+    private func selectedMarker(entry: BodyMetricEntry, value: Double, point: CGPoint, chartSize: CGSize) -> some View {
+        ZStack {
+            Path { path in
+                path.move(to: CGPoint(x: point.x, y: 0))
+                path.addLine(to: CGPoint(x: point.x, y: chartSize.height))
+            }
+            .stroke(accentColor.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [4, 5]))
+
+            Circle()
+                .fill(accentColor)
+                .frame(width: 14, height: 14)
+                .overlay(Circle().stroke(Color.appText.opacity(0.85), lineWidth: 2))
+                .position(point)
+
+            VStack(spacing: 3) {
+                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+
+                Text(metric.formatted(value))
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(accentColor)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 13)
+                    .fill(Color.appElevated)
+                    .overlay(RoundedRectangle(cornerRadius: 13).stroke(accentColor.opacity(0.22), lineWidth: 1))
+            )
+            .position(tooltipPosition(for: point, chartSize: chartSize))
+        }
+    }
+
     private func chartPoint(for value: Double, index: Int, size: CGSize) -> CGPoint {
         let x: CGFloat
 
@@ -1969,9 +2197,30 @@ private struct WeightTrendChart: View {
             x = CGFloat(index) / CGFloat(entries.count - 1) * size.width
         }
 
-        let normalized = (value - minValue) / range
+        let normalized = (value - minValue) / valueRange
         let y = size.height - CGFloat(normalized) * size.height
 
         return CGPoint(x: x, y: y)
+    }
+
+    private func nearestIndex(for x: CGFloat, width: CGFloat) -> Int {
+        guard entries.count > 1, width > 0 else {
+            return 0
+        }
+
+        let raw = (x / width) * CGFloat(entries.count - 1)
+        let rounded = Int(raw.rounded())
+
+        return min(max(rounded, 0), entries.count - 1)
+    }
+
+    private func tooltipPosition(for point: CGPoint, chartSize: CGSize) -> CGPoint {
+        let width: CGFloat = 126
+        let height: CGFloat = 56
+        let x = min(max(point.x, width / 2), chartSize.width - width / 2)
+        let preferredY = point.y - 38
+        let y = preferredY < height / 2 ? point.y + 42 : preferredY
+
+        return CGPoint(x: x, y: min(max(y, height / 2), chartSize.height - height / 2))
     }
 }

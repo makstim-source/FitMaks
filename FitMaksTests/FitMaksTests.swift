@@ -14,6 +14,7 @@ struct FitMaksTests {
     @Test func proteinRecommendationUsesSustainableGoalMultipliers() async throws {
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Maintain") == 144)
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Lose Weight") == 160)
+        #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Recomp") == 176)
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Build Muscle") == 176)
     }
 
@@ -28,7 +29,7 @@ struct FitMaksTests {
         )
 
         #expect(abs(bmr - 1_780) < 0.001)
-        #expect(abs(maintenance - 2_759) < 0.001)
+        #expect(abs(maintenance - 2_581) < 0.001)
         #expect(abs(NutritionCalculator.recommendedCalories(
             gender: "Male",
             age: 30,
@@ -36,7 +37,15 @@ struct FitMaksTests {
             height: 180,
             activityLevel: "Moderate",
             goal: "Lose Weight"
-        ) - 2_259) < 0.001)
+        ) - 2_081) < 0.001)
+        #expect(abs(NutritionCalculator.recommendedCalories(
+            gender: "Male",
+            age: 30,
+            weight: 80,
+            height: 180,
+            activityLevel: "Moderate",
+            goal: "Recomp"
+        ) - 2_381) < 0.001)
         #expect(abs(NutritionCalculator.recommendedCalories(
             gender: "Male",
             age: 30,
@@ -44,7 +53,7 @@ struct FitMaksTests {
             height: 180,
             activityLevel: "Moderate",
             goal: "Build Muscle"
-        ) - 3_259) < 0.001)
+        ) - 2_831) < 0.001)
     }
 
     @Test func perfectDayAcceptsThreePercentGrace() async throws {

@@ -35,11 +35,11 @@ enum NutritionCalculator {
     static func activityMultiplier(for activityLevel: String) -> Double {
         switch activityLevel {
         case "Light":
-            return 1.375
+            return 1.3
         case "Moderate":
-            return 1.55
+            return 1.45
         case "Active":
-            return 1.725
+            return 1.6
         default:
             return 1.2
         }
@@ -49,8 +49,10 @@ enum NutritionCalculator {
         switch goal {
         case "Lose Weight":
             return -500
+        case "Recomp":
+            return -200
         case "Build Muscle":
-            return 500
+            return 250
         default:
             return 0
         }
@@ -64,6 +66,8 @@ enum NutritionCalculator {
         switch goal {
         case "Lose Weight":
             return 2.0
+        case "Recomp":
+            return 2.2
         case "Build Muscle":
             return 2.2
         default:
@@ -79,6 +83,8 @@ enum NutritionCalculator {
         switch goal {
         case "Lose Weight":
             return "higher to protect muscle in a deficit"
+        case "Recomp":
+            return "high protein for muscle gain while leaning out"
         case "Build Muscle":
             return "aggressive growth target"
         default:

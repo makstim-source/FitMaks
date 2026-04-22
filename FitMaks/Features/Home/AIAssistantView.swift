@@ -100,7 +100,7 @@ struct AIAssistantView: View {
                 ImagePicker(
                     selectedImage: Binding(
                         get: { self.attachedImage },
-                        set: { if let img = $0 { withAnimation { self.attachedImage = img } } }
+                        set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }
                     ),
                     sourceType: attachmentSource
                 )

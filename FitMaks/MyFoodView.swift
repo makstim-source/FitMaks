@@ -100,7 +100,8 @@ struct MyFoodView: View {
             .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
             .onChange(of: selectedCameraImage) { _, newValue in
                 if let img = newValue {
-                    if isScanningReceipt { queueReceiptScan(images: [img]) } else { let item = ProcessingItem(images: [img], targetTab: currentTab); processingItems.append(item); onProcessQueue([item]) }
+                    let preparedImage = img.preparedForAIIntake()
+                    if isScanningReceipt { queueReceiptScan(images: [preparedImage]) } else { let item = ProcessingItem(images: [preparedImage], targetTab: currentTab); processingItems.append(item); onProcessQueue([item]) }
                     selectedCameraImage = nil; isScanningReceipt = false
                 }
             }
@@ -109,7 +110,7 @@ struct MyFoodView: View {
                 guard !newItems.isEmpty else { return }
                 Task {
                     var loadedImages: [UIImage] = []
-                    for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img) } }
+                    for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img.preparedForAIIntake()) } }
                     await MainActor.run {
                         selectedPhotoItems.removeAll()
                         if !loadedImages.isEmpty {

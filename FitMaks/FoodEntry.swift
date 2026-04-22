@@ -5,7 +5,10 @@ import UIKit
 @Model
 final class FoodEntry {
     var id: UUID
+
+    @Attribute(.externalStorage)
     var imageData: Data
+
     var name: String
     var calories: Double
     var protein: Double
@@ -15,7 +18,7 @@ final class FoodEntry {
     
     init(image: UIImage, name: String, calories: Double, protein: Double, ingredients: String, date: Date, location: String = "fridge") {
         self.id = UUID()
-        self.imageData = image.jpegData(compressionQuality: 0.5) ?? Data()
+        self.imageData = image.preparedForAppStorage().jpegData(compressionQuality: 0.72) ?? Data()
         self.name = name
         self.calories = calories
         self.protein = protein

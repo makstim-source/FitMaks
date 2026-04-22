@@ -81,7 +81,7 @@ final class FavoriteFood {
         self.calories = calories
         self.protein = protein
         self.ingredients = ingredients
-        self.imageData = image?.jpegData(compressionQuality: 0.8)
+        self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 }
 
@@ -107,7 +107,7 @@ final class TrainingEntry {
         self.caloriesBurned = caloriesBurned
         self.duration = duration
         self.date = date
-        self.imageData = image?.jpegData(compressionQuality: 0.8)
+        self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 }
 
@@ -167,7 +167,7 @@ final class SavedRecipe {
         self.protein = protein
         self.ingredients = ingredients
         self.dateSaved = Date()
-        self.imageData = image?.jpegData(compressionQuality: 0.8)
+        self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 
     var asResult: RecipeResult {

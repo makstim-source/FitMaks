@@ -114,9 +114,9 @@ struct ContentView: View {
         }
         .alert("What did you eat?", isPresented: $isShowingTextEntry) { TextField("E.g. 200g chicken and rice", text: $manualText); Button("Analyze") { guard !manualText.isEmpty else { return }; let textImg = generatePlaceholderIcon(systemName: "brain", color: .neonGreen); let item = ProcessingItem(images: [textImg], textPrompt: manualText, isTraining: false, targetDate: selectedDate); withAnimation { processingItems.append(item) }; processQueue(items: [item]); manualText = "" }; Button("Cancel", role: .cancel) { manualText = "" } }
         .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
-        .onChange(of: selectedCameraImage) { _, newValue in if let img = newValue { let item = ProcessingItem(images: [img], isTraining: pickingMode == .training, targetDate: selectedDate); processingItems.append(item); if pickingMode == .training { processTrainingQueue(items: [item]) } else { processQueue(items: [item]) }; selectedCameraImage = nil } }
+        .onChange(of: selectedCameraImage) { _, newValue in if let img = newValue { let preparedImage = img.preparedForAIIntake(); let item = ProcessingItem(images: [preparedImage], isTraining: pickingMode == .training, targetDate: selectedDate); processingItems.append(item); if pickingMode == .training { processTrainingQueue(items: [item]) } else { processQueue(items: [item]) }; selectedCameraImage = nil } }
         .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
-        .onChange(of: selectedPhotoItems) { _, newItems in guard !newItems.isEmpty else { return }; Task { var loadedImages: [UIImage] = []; for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img) } }; await MainActor.run { selectedPhotoItems.removeAll(); if !loadedImages.isEmpty { let newItem = ProcessingItem(images: loadedImages, isTraining: pickingMode == .training, targetDate: selectedDate); withAnimation { processingItems.append(newItem) }; if pickingMode == .training { processTrainingQueue(items: [newItem]) } else { processQueue(items: [newItem]) } } } } }
+        .onChange(of: selectedPhotoItems) { _, newItems in guard !newItems.isEmpty else { return }; Task { var loadedImages: [UIImage] = []; for item in newItems { if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { loadedImages.append(img.preparedForAIIntake()) } }; await MainActor.run { selectedPhotoItems.removeAll(); if !loadedImages.isEmpty { let newItem = ProcessingItem(images: loadedImages, isTraining: pickingMode == .training, targetDate: selectedDate); withAnimation { processingItems.append(newItem) }; if pickingMode == .training { processTrainingQueue(items: [newItem]) } else { processQueue(items: [newItem]) } } } } }
         .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
         .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue, onScanReceiptQueue: processReceiptQueue) }
         .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
@@ -720,14 +720,17 @@ struct ContentView: View {
         originalImage: UIImage,
         destination: AIResultDestination
     ) {
-        let items = results.enumerated().map { index, result in
-            AIReviewFoodItem(
-                image: imageForAnalyzedResult(
-                    item: originalItem,
-                    result: result,
-                    resultIndex: index,
-                    fallbackImage: originalImage
-                ),
+        let items = results.enumerated().map { pair -> AIReviewFoodItem in
+            let (index, result) = pair
+            let reviewImage = imageForAnalyzedResult(
+                item: originalItem,
+                result: result,
+                resultIndex: index,
+                fallbackImage: originalImage
+            ).preparedForAppStorage()
+
+            return AIReviewFoodItem(
+                image: reviewImage,
                 name: result.food_name,
                 calories: result.calories,
                 protein: result.protein,
@@ -950,7 +953,7 @@ struct ContentView: View {
     }
 
     private func showAddingStatus(_ title: String, image: UIImage, usesFridgeQueue: Bool) {
-        let item = ProcessingItem(images: [image], statusTitle: title)
+        let item = ProcessingItem(images: [image.preparedForAppStorage()], statusTitle: title)
 
         withAnimation(.spring()) {
             if usesFridgeQueue {

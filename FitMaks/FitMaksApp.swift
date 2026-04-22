@@ -45,7 +45,7 @@ struct FitMaksApp: App {
             .preferredColorScheme(selectedTheme.palette.preferredScheme)
             .task {
                 guard isShowingLaunchSplash else { return }
-                try? await Task.sleep(nanoseconds: 1_450_000_000)
+                try? await Task.sleep(nanoseconds: 750_000_000)
                 withAnimation(.easeInOut(duration: 0.42)) {
                     isShowingLaunchSplash = false
                 }

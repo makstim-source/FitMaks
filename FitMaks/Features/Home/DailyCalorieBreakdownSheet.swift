@@ -1,8 +1,26 @@
 import SwiftUI
 
+enum DailyGoalBreakdownSection {
+    case calories
+    case protein
+    case steps
+
+    var title: String {
+        switch self {
+        case .calories:
+            return "Calories"
+        case .protein:
+            return "Protein"
+        case .steps:
+            return "Steps"
+        }
+    }
+}
+
 struct DailyCalorieBreakdownSheet: View {
     var entries: [FoodEntry]
     var selectedDate: Date
+    var section: DailyGoalBreakdownSection
     var dayMode: DayMode
     var trainingCalories: Double
     var baseCalories: Double
@@ -40,57 +58,19 @@ struct DailyCalorieBreakdownSheet: View {
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
 
-                        goalCard(
-                            title: "CALORIES",
-                            unit: "kcal",
-                            base: baseCalories,
-                            bonus: calorieBonus,
-                            target: targetCalories,
-                            consumed: consumedCalories,
-                            accentColor: .neonGreen,
-                            isMinimumGoal: false
-                        )
-
-                        if dayMode == .cardio {
-                            Text(trainingCalories > 0 ? "Cardio bonus is using your uploaded workout calories instead of the 500 kcal estimate." : "Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will replace it with the calories from that workout.")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.appMuted)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 4)
-                        }
-
-                        goalCard(
-                            title: "PROTEIN",
-                            unit: "g",
-                            base: baseProtein,
-                            bonus: proteinBonus,
-                            target: targetProtein,
-                            consumed: consumedProtein,
-                            accentColor: .neonCyan,
-                            isMinimumGoal: true
-                        )
-
-                        stepsGoalCard
-
-                        if entries.isEmpty {
-                            emptyFoodState
-                        } else {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Food entries")
-                                    .font(.caption.bold())
-                                    .foregroundColor(.appMuted)
-
-                                ForEach(entries.sorted { ($0.createdAt ?? $0.date) > ($1.createdAt ?? $1.date) }) { entry in
-                                    foodEntryCard(entry)
-                                }
-                            }
+                        switch section {
+                        case .calories:
+                            caloriesSection
+                        case .protein:
+                            proteinSection
+                        case .steps:
+                            stepsSection
                         }
                     }
                     .padding()
                 }
             }
-            .navigationTitle("Daily Goals")
+            .navigationTitle(section.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -103,6 +83,55 @@ struct DailyCalorieBreakdownSheet: View {
             }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    var caloriesSection: some View {
+        VStack(spacing: 16) {
+            goalCard(
+                title: "CALORIES",
+                unit: "kcal",
+                base: baseCalories,
+                bonus: calorieBonus,
+                target: targetCalories,
+                consumed: consumedCalories,
+                accentColor: .neonGreen,
+                isMinimumGoal: false
+            )
+
+            if dayMode == .cardio {
+                Text(trainingCalories > 0 ? "Cardio bonus is using your uploaded workout calories instead of the 500 kcal estimate." : "Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will replace it with the calories from that workout.")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4)
+            }
+
+            foodEntriesSection(title: "Food calories")
+        }
+    }
+
+    var proteinSection: some View {
+        VStack(spacing: 16) {
+            goalCard(
+                title: "PROTEIN",
+                unit: "g",
+                base: baseProtein,
+                bonus: proteinBonus,
+                target: targetProtein,
+                consumed: consumedProtein,
+                accentColor: .neonCyan,
+                isMinimumGoal: true
+            )
+
+            foodEntriesSection(title: "Protein sources")
+        }
+    }
+
+    var stepsSection: some View {
+        VStack(spacing: 16) {
+            stepsGoalCard
+        }
     }
 
     func goalCard(title: String, unit: String, base: Double, bonus: Double, target: Double, consumed: Double, accentColor: Color, isMinimumGoal: Bool) -> some View {
@@ -230,6 +259,24 @@ struct DailyCalorieBreakdownSheet: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
         .background(RoundedRectangle(cornerRadius: 18).fill(Color.gray.opacity(0.12)))
+    }
+
+    func foodEntriesSection(title: String) -> some View {
+        Group {
+            if entries.isEmpty {
+                emptyFoodState
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(title)
+                        .font(.caption.bold())
+                        .foregroundColor(.appMuted)
+
+                    ForEach(entries.sorted { ($0.createdAt ?? $0.date) > ($1.createdAt ?? $1.date) }) { entry in
+                        foodEntryCard(entry)
+                    }
+                }
+            }
+        }
     }
 
     func foodEntryCard(_ entry: FoodEntry) -> some View {

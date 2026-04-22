@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var homeWeeklySteps: [String: Double] = [:]; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
     @State private var isShowingAIAssistant = false
     @State private var isShowingGoalBreakdown = false
+    @State private var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
     @State private var aiErrorMessage: String?
     @State private var pendingAIReview: AIResultReview?
 
@@ -182,6 +183,7 @@ struct ContentView: View {
             DailyCalorieBreakdownSheet(
                 entries: dailyFoodEntries,
                 selectedDate: selectedDate,
+                section: selectedGoalBreakdownSection,
                 dayMode: currentDayMode,
                 trainingCalories: dailyTrainingCalories,
                 baseCalories: baseCaloriesGoal,
@@ -346,7 +348,7 @@ struct ContentView: View {
                     color: caloriesOutsideGrace ? .red : .neonGreen,
                     systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"
                 )
-                .onTapGesture { isShowingGoalBreakdown = true }
+                .onTapGesture { openGoalBreakdown(.calories) }
 
                 HomeMetricTile(
                     title: "Protein",
@@ -356,7 +358,7 @@ struct ContentView: View {
                     color: .neonCyan,
                     systemName: "drop.fill"
                 )
-                .onTapGesture { isShowingGoalBreakdown = true }
+                .onTapGesture { openGoalBreakdown(.protein) }
 
                 HomeMetricTile(
                     title: "Steps",
@@ -368,7 +370,7 @@ struct ContentView: View {
                     color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                     systemName: "shoeprints.fill"
                 )
-                .onTapGesture { isShowingGoalBreakdown = true }
+                .onTapGesture { openGoalBreakdown(.steps) }
             }
 
             modeSelector
@@ -642,6 +644,11 @@ struct ContentView: View {
         } else {
             processQueue(items: [item])
         }
+    }
+
+    private func openGoalBreakdown(_ section: DailyGoalBreakdownSection) {
+        selectedGoalBreakdownSection = section
+        isShowingGoalBreakdown = true
     }
 
     func processQueue(items: [ProcessingItem]) {

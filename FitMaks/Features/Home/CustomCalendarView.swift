@@ -97,13 +97,13 @@ struct CustomCalendarView: View {
                                 proteinGoalMet: proteinGoalMet,
                                 stepsGoalMet: stepsGoalMet,
                                 isPerfectDay: isPerfectDay,
-                                modeEmoji: mode.emoji
+                                mode: mode
                             ) {
                                 selectedDate = date
                                 dismiss()
                             }
                         } else {
-                            Color.clear.frame(width: 40, height: 68)
+                            Color.clear.frame(width: 40, height: 76)
                         }
                     }
                 }
@@ -219,7 +219,7 @@ private struct CalendarDayCell: View {
     var proteinGoalMet: Bool
     var stepsGoalMet: Bool
     var isPerfectDay: Bool
-    var modeEmoji: String
+    var mode: DayMode
     var onTap: () -> Void
 
     private var dayNumber: Int {
@@ -248,6 +248,7 @@ private struct CalendarDayCell: View {
                 }
             }
             .frame(width: 50, height: 50)
+            .scaleEffect(isPerfectDay ? 1.06 : 1)
             .overlay(
                 Circle()
                     .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
@@ -274,8 +275,58 @@ private struct CalendarDayCell: View {
             if isFuture {
                 Color.clear.frame(height: 12)
             } else {
-                Text(modeEmoji)
-                    .font(.system(size: 10))
+                modeBadge
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modeBadge: some View {
+        switch mode {
+        case .chill:
+            modeBadgeIcon("zzz", color: .blue, isText: true)
+        case .cardio:
+            modeBadgeIcon("figure.run", color: .neonGreen)
+        case .gym:
+            modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
+        case .cardioGym:
+            HStack(spacing: -5) {
+                modeBadgeIcon("figure.run", color: .neonGreen)
+                    .zIndex(2)
+                modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
+            }
+            .frame(height: 19)
+        }
+    }
+
+    private func modeBadgeIcon(_ symbol: String, color: Color, isText: Bool = false) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            color.opacity(0.95),
+                            color.opacity(0.32),
+                            Color.appSurface.opacity(0.78)
+                        ],
+                        center: .topLeading,
+                        startRadius: 1,
+                        endRadius: 17
+                    )
+                )
+                .frame(width: 19, height: 19)
+                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 0.8))
+                .shadow(color: color.opacity(isPerfectDay ? 0.75 : 0.45), radius: isPerfectDay ? 8 : 5, x: 0, y: 0)
+
+            if isText {
+                Text(symbol)
+                    .font(.system(size: 7, weight: .black))
+                    .foregroundColor(.white)
+                    .offset(y: -0.5)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.black.opacity(0.86))
             }
         }
     }

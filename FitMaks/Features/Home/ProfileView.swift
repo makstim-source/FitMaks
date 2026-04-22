@@ -40,8 +40,9 @@ struct ProfileView: View {
     @State private var isImportingHealthMetrics = false
     @State private var selectedWeightRange: WeightChartRange = .days30
     @State private var selectedBodyChartMetric: BodyChartMetric = .weight
-    @State private var selectedBodyChartPointIndex: Int?
+    @State private var selectedBodyChartPointDate: Date?
     @State private var isInteractingWithBodyChart = false
+    @State private var lastBodyChartSelectionAt = Date.distantPast
     @State private var bodyMetricSearchText = ""
 
     private var neonPurple: Color { .fitPurple }
@@ -125,6 +126,26 @@ struct ProfileView: View {
         selectedRangeBodyMetrics.filter { selectedBodyChartMetric.value(from: $0) != nil }
     }
 
+    private var selectedBodyMetricForReadout: BodyMetricEntry? {
+        guard let selectedBodyChartPointDate else {
+            return nil
+        }
+
+        return bodyMetrics.first { abs($0.date.timeIntervalSince(selectedBodyChartPointDate)) < 1 }
+    }
+
+    private var bodyMetricReadoutEntry: BodyMetricEntry? {
+        selectedBodyMetricForReadout ?? latestBodyMetric
+    }
+
+    private var bodyMetricReadoutTitle: String {
+        guard let selectedBodyMetricForReadout else {
+            return "Today"
+        }
+
+        return selectedBodyMetricForReadout.date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
     private var searchedBodyMetrics: [BodyMetricEntry] {
         let query = bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -162,17 +183,20 @@ struct ProfileView: View {
                     .padding()
                     .padding(.bottom, 20)
                 }
-
-                if selectedBodyChartPointIndex != nil && !isInteractingWithBodyChart {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeOut(duration: 0.12)) {
-                                selectedBodyChartPointIndex = nil
+                .simultaneousGesture(
+                    TapGesture()
+                        .onEnded {
+                            clearBodyChartSelectionIfExternalTap()
+                        }
+                )
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { _ in
+                            if selectedBodyChartPointDate != nil && !isInteractingWithBodyChart {
+                                clearBodyChartSelection()
                             }
                         }
-                }
+                )
             }
             .navigationTitle("Profile & Goals")
             .navigationBarTitleDisplayMode(.inline)
@@ -372,7 +396,6 @@ struct ProfileView: View {
                         .foregroundColor(selectedBodyChartMetric == .weight ? .neonGreen : .appText)
                         .onTapGesture {
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                selectedBodyChartPointIndex = nil
                                 selectedBodyChartMetric = .weight
                             }
                         }
@@ -404,8 +427,9 @@ struct ProfileView: View {
                         metric: selectedBodyChartMetric,
                         range: selectedWeightRange,
                         accentColor: selectedBodyChartMetric.color,
-                        selectedIndex: $selectedBodyChartPointIndex,
-                        isInteracting: $isInteractingWithBodyChart
+                        selectedDate: $selectedBodyChartPointDate,
+                        isInteracting: $isInteractingWithBodyChart,
+                        onSelectionChanged: noteBodyChartSelection
                     )
                         .frame(height: 184)
                 }
@@ -478,13 +502,38 @@ struct ProfileView: View {
     }
 
     private var bodyCompositionGrid: some View {
-        let latest = latestBodyMetric
-        let weightValue = latest.map { "\(String(format: "%.1f", $0.weightKg))kg" } ?? "—"
+        let entry = bodyMetricReadoutEntry
+        let weightValue = entry.map { "\(String(format: "%.1f", $0.weightKg))kg" } ?? "—"
 
-        return HStack(spacing: 10) {
-            bodyMetricMiniCard(title: "Fat", value: percentText(latest?.bodyFatPercent), metric: .fat)
-            bodyMetricMiniCard(title: "Muscle", value: percentText(latest?.musclePercent), metric: .muscle)
-            bodyMetricMiniCard(title: "Weight", value: weightValue, metric: .weight)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("\(bodyMetricReadoutTitle) metrics")
+                    .font(.caption2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+                    .textCase(.uppercase)
+                    .tracking(0.7)
+
+                Spacer()
+
+                if selectedBodyMetricForReadout != nil {
+                    Button {
+                        clearBodyChartSelection()
+                    } label: {
+                        Label("Back to today", systemImage: "arrow.uturn.backward")
+                            .font(.caption2)
+                            .fontWeight(.heavy)
+                            .foregroundColor(.neonGreen)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack(spacing: 10) {
+                bodyMetricMiniCard(title: "Fat", value: percentText(entry?.bodyFatPercent), metric: .fat)
+                bodyMetricMiniCard(title: "Muscle", value: percentText(entry?.musclePercent), metric: .muscle)
+                bodyMetricMiniCard(title: "Weight", value: weightValue, metric: .weight)
+            }
         }
     }
 
@@ -493,7 +542,7 @@ struct ProfileView: View {
             ForEach(WeightChartRange.allCases) { range in
                 Button {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                        selectedBodyChartPointIndex = nil
+                        clearBodyChartSelection()
                         selectedWeightRange = range
                     }
                 } label: {
@@ -1098,6 +1147,29 @@ struct ProfileView: View {
         }
     }
 
+    private func noteBodyChartSelection() {
+        lastBodyChartSelectionAt = Date()
+    }
+
+    private func clearBodyChartSelection() {
+        withAnimation(.easeOut(duration: 0.12)) {
+            selectedBodyChartPointDate = nil
+            isInteractingWithBodyChart = false
+        }
+    }
+
+    private func clearBodyChartSelectionIfExternalTap() {
+        guard selectedBodyChartPointDate != nil, !isInteractingWithBodyChart else {
+            return
+        }
+
+        guard Date().timeIntervalSince(lastBodyChartSelectionAt) > 0.22 else {
+            return
+        }
+
+        clearBodyChartSelection()
+    }
+
     private func trendPill(_ delta: Double) -> some View {
         let isDown = delta < -0.15
         let isUp = delta > 0.15
@@ -1184,8 +1256,11 @@ struct ProfileView: View {
 
     private func bodyMetricMiniCard(title: String, value: String, metric: BodyChartMetric) -> some View {
         Button {
+            if selectedBodyChartPointDate != nil {
+                noteBodyChartSelection()
+            }
+
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                selectedBodyChartPointIndex = nil
                 selectedBodyChartMetric = metric
             }
         } label: {
@@ -1979,11 +2054,22 @@ private struct WeightTrendChart: View {
     var range: WeightChartRange
     var accentColor: Color
 
-    @Binding var selectedIndex: Int?
+    @Binding var selectedDate: Date?
     @Binding var isInteracting: Bool
+    var onSelectionChanged: () -> Void
+
+    private var metricEntries: [BodyMetricEntry] {
+        entries
+            .filter { metric.value(from: $0) != nil }
+            .sorted { $0.date < $1.date }
+    }
+
+    private var chartEntries: [BodyMetricEntry] {
+        thinnedEntries(metricEntries)
+    }
 
     private var chartValues: [Double] {
-        entries.compactMap { metric.value(from: $0) }
+        metricEntries.compactMap { metric.value(from: $0) }
     }
 
     private var minValue: Double {
@@ -1998,12 +2084,22 @@ private struct WeightTrendChart: View {
         max(maxValue - minValue, metric == .weight ? 1 : 0.5)
     }
 
-    private var activeSelectedIndex: Int? {
-        guard let selectedIndex, entries.indices.contains(selectedIndex) else {
+    private var chartStartDate: Date {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        return calendar.date(byAdding: .day, value: -(range.days - 1), to: todayStart) ?? todayStart
+    }
+
+    private var chartEndDate: Date {
+        Date()
+    }
+
+    private var activeSelectedEntry: BodyMetricEntry? {
+        guard let selectedDate else {
             return nil
         }
 
-        return selectedIndex
+        return metricEntries.first { abs($0.date.timeIntervalSince(selectedDate)) < 1 }
     }
 
     var body: some View {
@@ -2017,9 +2113,9 @@ private struct WeightTrendChart: View {
                 Spacer()
 
                 if
-                    let first = entries.first.flatMap({ metric.value(from: $0) }),
-                    let last = entries.last.flatMap({ metric.value(from: $0) }),
-                    entries.count > 1
+                    let first = metricEntries.first.flatMap({ metric.value(from: $0) }),
+                    let last = metricEntries.last.flatMap({ metric.value(from: $0) }),
+                    metricEntries.count > 1
                 {
                     Text("\(metric.formatted(first)) -> \(metric.formatted(last))")
                         .font(.caption)
@@ -2038,16 +2134,12 @@ private struct WeightTrendChart: View {
         .padding(15)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(accentColor.opacity(0.16), lineWidth: 1))
-        .onChange(of: metric) { _, _ in
-            selectedIndex = nil
-            isInteracting = false
-        }
         .onChange(of: range) { _, _ in
-            selectedIndex = nil
+            selectedDate = nil
             isInteracting = false
         }
         .onDisappear {
-            selectedIndex = nil
+            selectedDate = nil
             isInteracting = false
         }
     }
@@ -2056,31 +2148,37 @@ private struct WeightTrendChart: View {
         ZStack {
             chartGrid
 
-            if entries.count == 1 {
-                singlePoint(in: size)
+            if chartEntries.count == 1, let entry = chartEntries.first, let value = metric.value(from: entry) {
+                singlePoint(entry: entry, value: value, in: size)
             } else {
                 trendLine(in: size)
                 trendPoints(in: size)
             }
 
-            if let activeSelectedIndex, let value = metric.value(from: entries[activeSelectedIndex]) {
+            if let activeSelectedEntry, let value = metric.value(from: activeSelectedEntry) {
                 selectedMarker(
-                    entry: entries[activeSelectedIndex],
+                    entry: activeSelectedEntry,
                     value: value,
-                    point: chartPoint(for: value, index: activeSelectedIndex, size: size),
+                    point: chartPoint(for: activeSelectedEntry, value: value, size: size),
                     chartSize: size
                 )
             }
         }
         .contentShape(Rectangle())
-        .gesture(
+        .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     isInteracting = true
-                    selectedIndex = nearestIndex(for: value.location.x, width: size.width)
+                    if let entry = nearestEntry(for: value.location.x, width: size.width) {
+                        selectedDate = entry.date
+                        onSelectionChanged()
+                    }
                 }
                 .onEnded { value in
-                    selectedIndex = nearestIndex(for: value.location.x, width: size.width)
+                    if let entry = nearestEntry(for: value.location.x, width: size.width) {
+                        selectedDate = entry.date
+                        onSelectionChanged()
+                    }
                     isInteracting = false
                 }
         )
@@ -2139,12 +2237,12 @@ private struct WeightTrendChart: View {
 
     private func trendLine(in size: CGSize) -> some View {
         Path { path in
-            for (index, entry) in entries.enumerated() {
+            for (index, entry) in chartEntries.enumerated() {
                 guard let value = metric.value(from: entry) else {
                     continue
                 }
 
-                let point = chartPoint(for: value, index: index, size: size)
+                let point = chartPoint(for: entry, value: value, size: size)
 
                 if index == 0 {
                     path.move(to: point)
@@ -2161,23 +2259,24 @@ private struct WeightTrendChart: View {
     }
 
     private func trendPoints(in size: CGSize) -> some View {
-        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+        ForEach(Array(chartEntries.enumerated()), id: \.element.id) { index, entry in
             if let value = metric.value(from: entry) {
-                let point = chartPoint(for: value, index: index, size: size)
+                let point = chartPoint(for: entry, value: value, size: size)
+                let isLast = index == chartEntries.count - 1
 
                 Circle()
-                    .fill(index == entries.count - 1 ? accentColor : Color.appText.opacity(0.65))
-                    .frame(width: index == entries.count - 1 ? 11 : 7, height: index == entries.count - 1 ? 11 : 7)
+                    .fill(isLast ? accentColor : Color.appText.opacity(range == .days365 ? 0.52 : 0.65))
+                    .frame(width: isLast ? 11 : (range == .days365 ? 5 : 7), height: isLast ? 11 : (range == .days365 ? 5 : 7))
                     .position(point)
             }
         }
     }
 
-    private func singlePoint(in size: CGSize) -> some View {
+    private func singlePoint(entry: BodyMetricEntry, value: Double, in size: CGSize) -> some View {
         Circle()
             .fill(accentColor)
             .frame(width: 13, height: 13)
-            .position(x: size.width / 2, y: size.height / 2)
+            .position(chartPoint(for: entry, value: value, size: size))
             .shadow(color: accentColor.opacity(0.5), radius: 10)
     }
 
@@ -2215,30 +2314,70 @@ private struct WeightTrendChart: View {
         }
     }
 
-    private func chartPoint(for value: Double, index: Int, size: CGSize) -> CGPoint {
-        let x: CGFloat
-
-        if entries.count <= 1 {
-            x = size.width / 2
-        } else {
-            x = CGFloat(index) / CGFloat(entries.count - 1) * size.width
-        }
-
+    private func chartPoint(for entry: BodyMetricEntry, value: Double, size: CGSize) -> CGPoint {
+        let timeSpan = max(chartEndDate.timeIntervalSince(chartStartDate), 1)
+        let timeProgress = min(max(entry.date.timeIntervalSince(chartStartDate) / timeSpan, 0), 1)
+        let x = CGFloat(timeProgress) * size.width
         let normalized = (value - minValue) / valueRange
         let y = size.height - CGFloat(normalized) * size.height
 
         return CGPoint(x: x, y: y)
     }
 
-    private func nearestIndex(for x: CGFloat, width: CGFloat) -> Int {
-        guard entries.count > 1, width > 0 else {
-            return 0
+    private func nearestEntry(for x: CGFloat, width: CGFloat) -> BodyMetricEntry? {
+        guard width > 0 else {
+            return chartEntries.first
         }
 
-        let raw = (x / width) * CGFloat(entries.count - 1)
-        let rounded = Int(raw.rounded())
+        return chartEntries.min { left, right in
+            abs(xPosition(for: left, width: width) - x) < abs(xPosition(for: right, width: width) - x)
+        }
+    }
 
-        return min(max(rounded, 0), entries.count - 1)
+    private func xPosition(for entry: BodyMetricEntry, width: CGFloat) -> CGFloat {
+        let timeSpan = max(chartEndDate.timeIntervalSince(chartStartDate), 1)
+        let timeProgress = min(max(entry.date.timeIntervalSince(chartStartDate) / timeSpan, 0), 1)
+        return CGFloat(timeProgress) * width
+    }
+
+    private func thinnedEntries(_ entries: [BodyMetricEntry]) -> [BodyMetricEntry] {
+        guard range == .days365, entries.count > 85 else {
+            return entries
+        }
+
+        let threshold = metric == .weight ? 0.25 : 0.2
+        var result: [BodyMetricEntry] = []
+        var lastKeptEntry: BodyMetricEntry?
+        var lastKeptValue: Double?
+
+        for (index, entry) in entries.enumerated() {
+            guard let value = metric.value(from: entry) else {
+                continue
+            }
+
+            let isEdge = index == 0 || index == entries.count - 1
+            let daysSinceLast = lastKeptEntry.map {
+                abs(Calendar.current.dateComponents([.day], from: $0.date, to: entry.date).day ?? 0)
+            } ?? Int.max
+            let movedEnough = abs(value - (lastKeptValue ?? value)) >= threshold
+
+            if isEdge || daysSinceLast >= 3 || movedEnough {
+                result.append(entry)
+                lastKeptEntry = entry
+                lastKeptValue = value
+            }
+        }
+
+        guard result.count > 120 else {
+            return result
+        }
+
+        let stride = max(Int(ceil(Double(result.count) / 110.0)), 1)
+        let sampled = result.enumerated().compactMap { index, entry in
+            (index == 0 || index == result.count - 1 || index % stride == 0) ? entry : nil
+        }
+
+        return sampled
     }
 
     private func tooltipPosition(for point: CGPoint, chartSize: CGSize) -> CGPoint {

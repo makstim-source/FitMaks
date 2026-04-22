@@ -85,7 +85,6 @@ struct MetricStepperCard: View {
 }
 
 struct WeightTrendChart: View {
-    var entries: [BodyMetricEntry]
     var metric: BodyChartMetric
     var range: WeightChartRange
     var accentColor: Color
@@ -94,40 +93,44 @@ struct WeightTrendChart: View {
     @Binding var isInteracting: Bool
     var onSelectionChanged: () -> Void
 
-    private var metricEntries: [BodyMetricEntry] {
-        entries
+    private let metricEntries: [BodyMetricEntry]
+    private let chartEntries: [BodyMetricEntry]
+    private let minValue: Double
+    private let valueRange: Double
+    private let chartStartDate: Date
+    private let chartEndDate: Date
+
+    init(
+        entries: [BodyMetricEntry],
+        metric: BodyChartMetric,
+        range: WeightChartRange,
+        accentColor: Color,
+        selectedDate: Binding<Date?>,
+        isInteracting: Binding<Bool>,
+        onSelectionChanged: @escaping () -> Void
+    ) {
+        self.metric = metric
+        self.range = range
+        self.accentColor = accentColor
+        self._selectedDate = selectedDate
+        self._isInteracting = isInteracting
+        self.onSelectionChanged = onSelectionChanged
+
+        let sortedEntries = entries
             .filter { metric.value(from: $0) != nil }
             .sorted { $0.date < $1.date }
-    }
-
-    private var chartEntries: [BodyMetricEntry] {
-        thinnedEntries(metricEntries)
-    }
-
-    private var chartValues: [Double] {
-        metricEntries.compactMap { metric.value(from: $0) }
-    }
-
-    private var minValue: Double {
-        chartValues.min() ?? 0
-    }
-
-    private var maxValue: Double {
-        chartValues.max() ?? 1
-    }
-
-    private var valueRange: Double {
-        max(maxValue - minValue, metric == .weight ? 1 : 0.5)
-    }
-
-    private var chartStartDate: Date {
+        let values = sortedEntries.compactMap { metric.value(from: $0) }
+        let lowValue = values.min() ?? 0
+        let highValue = values.max() ?? 1
         let calendar = Calendar.current
         let todayStart = calendar.startOfDay(for: Date())
-        return calendar.date(byAdding: .day, value: -(range.days - 1), to: todayStart) ?? todayStart
-    }
 
-    private var chartEndDate: Date {
-        Date()
+        self.metricEntries = sortedEntries
+        self.chartEntries = Self.thinnedEntries(sortedEntries, metric: metric, range: range)
+        self.minValue = lowValue
+        self.valueRange = max(highValue - lowValue, metric == .weight ? 1 : 0.5)
+        self.chartStartDate = calendar.date(byAdding: .day, value: -(range.days - 1), to: todayStart) ?? todayStart
+        self.chartEndDate = Date()
     }
 
     private var activeSelectedEntry: BodyMetricEntry? {
@@ -376,7 +379,7 @@ struct WeightTrendChart: View {
         return CGFloat(timeProgress) * width
     }
 
-    private func thinnedEntries(_ entries: [BodyMetricEntry]) -> [BodyMetricEntry] {
+    private static func thinnedEntries(_ entries: [BodyMetricEntry], metric: BodyChartMetric, range: WeightChartRange) -> [BodyMetricEntry] {
         guard range == .days180, entries.count > 70 else {
             return entries
         }

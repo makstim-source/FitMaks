@@ -153,9 +153,9 @@ struct ProfileView: View {
             return Array(bodyMetrics.prefix(6))
         }
 
-        return bodyMetrics.filter { entry in
+        return Array(bodyMetrics.lazy.filter { entry in
             searchableBodyMetricText(for: entry).contains(query)
-        }
+        }.prefix(24))
     }
 
     var body: some View {
@@ -383,7 +383,9 @@ struct ProfileView: View {
     }
 
     private var weightTrackerCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        let chartMetrics = selectedChartBodyMetrics
+
+        return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Label("BODY TRACKER", systemImage: "chart.xyaxis.line")
@@ -413,7 +415,7 @@ struct ProfileView: View {
             } else {
                 weightRangePicker
 
-                if selectedChartBodyMetrics.isEmpty {
+                if chartMetrics.isEmpty {
                     Text("No \(selectedBodyChartMetric.emptyName.lowercased()) logs in the last \(selectedWeightRange.title.lowercased()).")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -423,7 +425,7 @@ struct ProfileView: View {
                         .background(RoundedRectangle(cornerRadius: 20).fill(Color.appSurface))
                 } else {
                     WeightTrendChart(
-                        entries: selectedChartBodyMetrics,
+                        entries: chartMetrics,
                         metric: selectedBodyChartMetric,
                         range: selectedWeightRange,
                         accentColor: selectedBodyChartMetric.color,
@@ -578,13 +580,16 @@ struct ProfileView: View {
     }
 
     private var bodyMetricHistory: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let visibleHistory = searchedBodyMetrics
+        let searchQuery = bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 sectionTitle("History")
 
                 Spacer()
 
-                Text(bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "\(bodyMetrics.count) logs" : "\(searchedBodyMetrics.count) found")
+                Text(searchQuery.isEmpty ? "\(bodyMetrics.count) logs" : "\(visibleHistory.count) shown")
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.appMuted)
@@ -617,7 +622,7 @@ struct ProfileView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
 
             VStack(spacing: 8) {
-                ForEach(searchedBodyMetrics) { entry in
+                ForEach(visibleHistory) { entry in
                     bodyMetricHistoryRow(entry)
                 }
             }

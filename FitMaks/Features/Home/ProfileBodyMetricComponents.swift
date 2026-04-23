@@ -124,12 +124,14 @@ struct WeightTrendChart: View {
         let highValue = values.max() ?? 1
         let calendar = Calendar.current
         let todayStart = calendar.startOfDay(for: Date())
+        let periodStartDate = calendar.date(byAdding: .day, value: -(range.days - 1), to: todayStart) ?? todayStart
+        let firstDataDate = sortedEntries.first.map { calendar.startOfDay(for: $0.date) }
 
         self.metricEntries = sortedEntries
         self.chartEntries = Self.thinnedEntries(sortedEntries, metric: metric, range: range)
         self.minValue = lowValue
         self.valueRange = max(highValue - lowValue, metric == .weight ? 1 : 0.5)
-        self.chartStartDate = calendar.date(byAdding: .day, value: -(range.days - 1), to: todayStart) ?? todayStart
+        self.chartStartDate = firstDataDate.map { max(periodStartDate, $0) } ?? periodStartDate
         self.chartEndDate = Date()
     }
 
@@ -241,24 +243,19 @@ struct WeightTrendChart: View {
 
     private var axisLabels: [String] {
         let calendar = Calendar.current
-        let now = Date()
+        let labelCount = range == .days30 ? 5 : 4
+        let timeSpan = max(chartEndDate.timeIntervalSince(chartStartDate), 1)
+        let totalDays = max(calendar.dateComponents([.day], from: chartStartDate, to: chartEndDate).day ?? range.days, 1)
 
-        switch range {
-        case .days30:
-            return [29, 21, 14, 7, 0].compactMap { daysAgo in
-                calendar.date(byAdding: .day, value: -daysAgo, to: now)?
-                    .formatted(.dateTime.day().month(.abbreviated))
+        return (0..<labelCount).compactMap { index in
+            let progress = Double(index) / Double(max(labelCount - 1, 1))
+            let date = chartStartDate.addingTimeInterval(timeSpan * progress)
+
+            if totalDays > 120 {
+                return date.formatted(.dateTime.month(.abbreviated))
             }
-        case .days90:
-            return [90, 60, 30, 0].compactMap { daysAgo in
-                calendar.date(byAdding: .day, value: -daysAgo, to: now)?
-                    .formatted(.dateTime.day().month(.abbreviated))
-            }
-        case .days180:
-            return [6, 4, 2, 0].compactMap { monthsAgo in
-                calendar.date(byAdding: .month, value: -monthsAgo, to: now)?
-                    .formatted(.dateTime.month(.abbreviated))
-            }
+
+            return date.formatted(.dateTime.day().month(.abbreviated))
         }
     }
 

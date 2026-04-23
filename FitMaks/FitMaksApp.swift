@@ -4,7 +4,6 @@ import SwiftData
 @main
 struct FitMaksApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @AppStorage("hasSelectedTheme") private var hasSelectedTheme = false
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
     @State private var isShowingLaunchSplash = true
 
@@ -23,13 +22,6 @@ struct FitMaksApp: App {
                             }
                         }
                         .transition(.opacity)
-                    } else if !hasSelectedTheme {
-                        ThemeSelectionView(isFirstRun: true) {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                                hasSelectedTheme = true
-                            }
-                        }
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     } else {
                         ContentView()
                             .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -146,9 +138,17 @@ private struct LaunchSplashView: View {
 private struct OnboardingView: View {
     var onComplete: () -> Void
 
+    @AppStorage("userGender") private var gender: String = "Male"
+    @AppStorage("userAge") private var age: Int = 30
+    @AppStorage("userWeight") private var weight: Double = 80.0
+    @AppStorage("userHeight") private var height: Double = 180.0
+    @AppStorage("userGoal") private var goal: String = "Lose Weight"
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
+    @AppStorage("useCustomGoals") private var useCustomGoals: Bool = false
+
     @State private var page = 0
 
-    private let pages: [OnboardingPage] = [
+    private let introPages: [OnboardingPage] = [
         OnboardingPage(
             eyebrow: "WELCOME TO FITMAKS",
             title: "Your day, finally readable.",
@@ -164,13 +164,6 @@ private struct OnboardingView: View {
             color: .neonCyan
         ),
         OnboardingPage(
-            eyebrow: "GOALS",
-            title: "Set your body data once.",
-            subtitle: "Open Profile after setup. Add weight, height, goal and activity so calories and protein adapt to you.",
-            systemName: "person.crop.circle.badge.checkmark",
-            color: .fitPurple
-        ),
-        OnboardingPage(
             eyebrow: "THE GAME",
             title: "Chase Perfect Days.",
             subtitle: "Perfect Day means protein closed, movement done and calories under target. Cardio adds food budget; Gym adds food budget and a 5k step credit.",
@@ -178,6 +171,46 @@ private struct OnboardingView: View {
             color: .yellow
         )
     ]
+
+    private let goalOptions: [(title: String, subtitle: String, key: String, color: Color)] = [
+        ("Cut", "Fat loss", "Lose Weight", .neonGreen),
+        ("Recomp", "Muscle + leaner", "Recomp", .neonCyan),
+        ("Maintain", "Stable", "Maintain", .fitPurple),
+        ("Build", "Lean bulk", "Build Muscle", .orange)
+    ]
+
+    private let activityOptions: [ActivityOption] = [
+        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job"),
+        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks"),
+        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4x/week"),
+        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training")
+    ]
+
+    private var pageCount: Int { introPages.count + 2 }
+    private var bodySetupPageIndex: Int { introPages.count }
+    private var goalSetupPageIndex: Int { introPages.count + 1 }
+    private var currentColor: Color {
+        if page < introPages.count {
+            return introPages[page].color
+        }
+
+        return page == bodySetupPageIndex ? .fitPurple : .neonGreen
+    }
+
+    private var recommendedCalories: Double {
+        NutritionCalculator.recommendedCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityLevel,
+            goal: goal
+        )
+    }
+
+    private var recommendedProtein: Double {
+        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
+    }
 
     var body: some View {
         ZStack {
@@ -193,6 +226,7 @@ private struct OnboardingView: View {
                     Spacer()
 
                     Button("Skip") {
+                        useCustomGoals = false
                         onComplete()
                     }
                     .font(.system(size: 13, weight: .heavy))
@@ -202,8 +236,8 @@ private struct OnboardingView: View {
                 .padding(.top, 18)
 
                 TabView(selection: $page) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, item in
-                        onboardingPage(item)
+                    ForEach(0..<pageCount, id: \.self) { index in
+                        onboardingContent(for: index)
                             .tag(index)
                     }
                 }
@@ -211,9 +245,9 @@ private struct OnboardingView: View {
 
                 VStack(spacing: 14) {
                     HStack(spacing: 7) {
-                        ForEach(0..<pages.count, id: \.self) { index in
+                        ForEach(0..<pageCount, id: \.self) { index in
                             Capsule()
-                                .fill(index == page ? pages[page].color : Color.appText.opacity(0.14))
+                                .fill(index == page ? currentColor : Color.appText.opacity(0.14))
                                 .frame(width: index == page ? 24 : 7, height: 7)
                                 .animation(.spring(response: 0.32, dampingFraction: 0.8), value: page)
                         }
@@ -221,10 +255,10 @@ private struct OnboardingView: View {
 
                     Button(action: primaryAction) {
                         HStack {
-                            Text(page == pages.count - 1 ? "Start tracking" : "Next")
+                            Text(page == pageCount - 1 ? "Start tracking" : "Next")
                                 .font(.system(size: 17, weight: .black))
 
-                            Image(systemName: page == pages.count - 1 ? "checkmark" : "arrow.right")
+                            Image(systemName: page == pageCount - 1 ? "checkmark" : "arrow.right")
                                 .font(.system(size: 15, weight: .black))
                         }
                         .foregroundColor(.appAccentText)
@@ -232,8 +266,8 @@ private struct OnboardingView: View {
                         .frame(height: 52)
                         .background(
                             Capsule()
-                                .fill(pages[page].color)
-                                .shadow(color: pages[page].color.opacity(0.45), radius: 18, x: 0, y: 8)
+                                .fill(currentColor)
+                                .shadow(color: currentColor.opacity(0.45), radius: 18, x: 0, y: 8)
                         )
                     }
                     .buttonStyle(.plain)
@@ -256,7 +290,7 @@ private struct OnboardingView: View {
             .ignoresSafeArea()
         .overlay(alignment: .topTrailing) {
             Circle()
-                .fill(pages[page].color.opacity(0.18))
+                .fill(currentColor.opacity(0.18))
                 .frame(width: 260, height: 260)
                 .blur(radius: 58)
                 .offset(x: 100, y: -110)
@@ -268,6 +302,17 @@ private struct OnboardingView: View {
                 .frame(width: 300, height: 300)
                 .blur(radius: 65)
                 .offset(x: -130, y: 70)
+        }
+    }
+
+    @ViewBuilder
+    private func onboardingContent(for index: Int) -> some View {
+        if index < introPages.count {
+            onboardingPage(introPages[index])
+        } else if index == bodySetupPageIndex {
+            bodySetupPage
+        } else {
+            goalSetupPage
         }
     }
 
@@ -365,20 +410,227 @@ private struct OnboardingView: View {
         case 1:
             return "Same photo should stay consistent, but portions are still editable."
         case 2:
-            return "First thing after onboarding: open Profile and set your numbers."
-        default:
             return "Perfect Days are about consistency, not punishment."
+        case bodySetupPageIndex:
+            return "These numbers set your first calorie and protein targets. You can edit them later."
+        default:
+            return "Recomp is the option for building muscle while getting leaner."
         }
     }
 
     private func primaryAction() {
-        if page == pages.count - 1 {
+        if page == pageCount - 1 {
+            useCustomGoals = false
             onComplete()
         } else {
             withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
                 page += 1
             }
         }
+    }
+
+    private var bodySetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "YOUR STARTING POINT",
+                    title: "Set your body data.",
+                    subtitle: "FitMaks uses this to calculate calories and protein before your first scan.",
+                    systemName: "person.crop.circle.badge.checkmark",
+                    color: .fitPurple
+                )
+
+                HStack(spacing: 10) {
+                    setupChoiceButton(title: "Male", subtitle: "Formula", isSelected: gender == "Male", color: .fitPurple) {
+                        gender = "Male"
+                    }
+                    setupChoiceButton(title: "Female", subtitle: "Formula", isSelected: gender == "Female", color: .fitPurple) {
+                        gender = "Female"
+                    }
+                }
+
+                onboardingSlider(title: "Age", value: Binding(
+                    get: { Double(age) },
+                    set: { age = Int($0.rounded()) }
+                ), range: 16...80, step: 1, valueText: "\(age)y", color: .fitPurple)
+
+                onboardingSlider(title: "Weight", value: $weight, range: 40...160, step: 0.5, valueText: "\(String(format: "%.1f", weight))kg", color: .neonGreen)
+
+                onboardingSlider(title: "Height", value: $height, range: 140...220, step: 1, valueText: "\(Int(height.rounded()))cm", color: .neonCyan)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private var goalSetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "FIRST TARGETS",
+                    title: "Choose your goal.",
+                    subtitle: "We will calculate a starting target. You can change it anytime in Profile.",
+                    systemName: "target",
+                    color: .neonGreen
+                )
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(goalOptions, id: \.key) { option in
+                        setupChoiceButton(title: option.title, subtitle: option.subtitle, isSelected: goal == option.key, color: option.color) {
+                            goal = option.key
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Activity")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(.appMuted)
+                        .tracking(0.8)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
+                        ForEach(activityOptions) { option in
+                            setupChoiceButton(title: option.title, subtitle: option.subtitle, isSelected: activityLevel == option.key, color: .fitPurple) {
+                                activityLevel = option.key
+                            }
+                        }
+                    }
+                }
+
+                liveTargetPreview
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private func setupHeader(eyebrow: String, title: String, subtitle: String, systemName: String, color: Color) -> some View {
+        VStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 34)
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.22), Color.appSurface, Color.appElevated],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 112, height: 112)
+                    .rotationEffect(.degrees(-5))
+                    .overlay(RoundedRectangle(cornerRadius: 34).stroke(color.opacity(0.25), lineWidth: 1))
+
+                Image(systemName: systemName)
+                    .font(.system(size: 42, weight: .black))
+                    .foregroundColor(color)
+                    .shadow(color: color.opacity(0.6), radius: 14)
+            }
+
+            VStack(spacing: 7) {
+                Text(eyebrow)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(color)
+                    .tracking(1.2)
+
+                Text(title)
+                    .font(.system(size: 27, weight: .black))
+                    .foregroundColor(.appText)
+                    .multilineTextAlignment(.center)
+
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.appMuted)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+        }
+    }
+
+    private func setupChoiceButton(title: String, subtitle: String, isSelected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundColor(isSelected ? .appAccentText : .appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text(subtitle)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(isSelected ? .appAccentText.opacity(0.72) : .appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(13)
+            .background(
+                RoundedRectangle(cornerRadius: 19)
+                    .fill(isSelected ? color : Color.appSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 19).stroke(isSelected ? color.opacity(0.65) : Color.appBorder, lineWidth: 1))
+            )
+            .shadow(color: isSelected ? color.opacity(0.22) : .clear, radius: 12, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func onboardingSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        valueText: String,
+        color: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+
+                Spacer()
+
+                Text(valueText)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(color)
+            }
+
+            Slider(value: value, in: range, step: step)
+                .tint(color)
+        }
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private var liveTargetPreview: some View {
+        HStack(spacing: 10) {
+            onboardingTargetCard(title: "Calories", value: "\(Int(recommendedCalories))", unit: "kcal", color: .neonGreen)
+            onboardingTargetCard(title: "Protein", value: "\(Int(recommendedProtein))", unit: "g", color: .neonCyan)
+        }
+    }
+
+    private func onboardingTargetCard(title: String, value: String, unit: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 26, weight: .black))
+                    .foregroundColor(color)
+
+                Text(unit)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.22), lineWidth: 1))
     }
 }
 

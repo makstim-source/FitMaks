@@ -150,7 +150,8 @@ struct StatsView: View {
     private func stat(for date: Date) -> WeekStat {
         let calendar = Calendar.current
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
+        let setup = allSetups.first(where: { $0.dateID == dateID })
+        let mode = DayMode.fromStoredValue(setup?.mode)
         let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
         let dayTrainingCalories = allTrainingEntries
             .filter { calendar.isDate($0.date, inSameDayAs: date) }
@@ -164,8 +165,8 @@ struct StatsView: View {
             foodEntries: dayFood,
             trainingCalories: dayTrainingCalories,
             mode: mode,
-            baseCalories: baseCalories,
-            baseProtein: baseProtein,
+            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
             steps: weeklySteps[dateID] ?? 0,
             uploadedSteps: dayUploadedTrainingSteps,
             stepTarget: stepTarget

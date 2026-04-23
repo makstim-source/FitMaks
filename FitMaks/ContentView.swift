@@ -32,11 +32,41 @@ struct ContentView: View {
     @State private var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
     @State private var aiErrorMessage: String?
     @State private var pendingAIReview: AIResultReview?
+    @State private var lastKnownBaseCaloriesGoal: Double = 0
+    @State private var lastKnownBaseProteinGoal: Double = 0
 
-    var currentDayMode: DayMode { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
-    func setDayMode(_ mode: DayMode) { let id = DateFormatter.yyyyMMdd.string(from: selectedDate); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: selectedDate, mode: mode)) } }
-    func setDayMode(_ mode: DayMode, for date: Date) { let id = DateFormatter.yyyyMMdd.string(from: date); if let existing = allDailySetups.first(where: { $0.dateID == id }) { existing.mode = mode.rawValue } else { modelContext.insert(DailySetup(date: date, mode: mode)) } }
-    func dayMode(for date: Date) -> DayMode { let id = DateFormatter.yyyyMMdd.string(from: date); let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode; return DayMode.fromStoredValue(storedMode) }
+    var currentDayMode: DayMode { dayMode(for: selectedDate) }
+
+    func setDayMode(_ mode: DayMode) {
+        setDayMode(mode, for: selectedDate)
+    }
+
+    func setDayMode(_ mode: DayMode, for date: Date) {
+        let id = DateFormatter.yyyyMMdd.string(from: date)
+
+        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+            existing.mode = mode.rawValue
+            snapshotPastGoalsIfNeeded(for: date)
+        } else {
+            modelContext.insert(DailySetup(
+                date: date,
+                mode: mode,
+                baseCalories: shouldSnapshotGoals(for: date) ? baseCaloriesGoal : nil,
+                baseProtein: shouldSnapshotGoals(for: date) ? baseProteinGoal : nil
+            ))
+        }
+    }
+
+    func dayMode(for date: Date) -> DayMode {
+        let id = DateFormatter.yyyyMMdd.string(from: date)
+        let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode
+        return DayMode.fromStoredValue(storedMode)
+    }
+
+    func setup(for date: Date) -> DailySetup? {
+        let id = DateFormatter.yyyyMMdd.string(from: date)
+        return allDailySetups.first(where: { $0.dateID == id })
+    }
     
     var calculatedProtein: Double {
         NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
@@ -53,10 +83,16 @@ struct ContentView: View {
     }
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
     var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
+    var selectedBaseCaloriesGoal: Double {
+        setup(for: selectedDate)?.resolvedBaseCalories(for: selectedDate, fallback: baseCaloriesGoal) ?? baseCaloriesGoal
+    }
+    var selectedBaseProteinGoal: Double {
+        setup(for: selectedDate)?.resolvedBaseProtein(for: selectedDate, fallback: baseProteinGoal) ?? baseProteinGoal
+    }
     var dailyTargets: DayTargets {
         DayProgressEngine.targets(
-            baseCalories: baseCaloriesGoal,
-            baseProtein: baseProteinGoal,
+            baseCalories: selectedBaseCaloriesGoal,
+            baseProtein: selectedBaseProteinGoal,
             mode: currentDayMode,
             trainingCalories: dailyTrainingCalories
         )
@@ -66,6 +102,18 @@ struct ContentView: View {
     var targetProtein: Double { dailyTargets.protein }
     var maxCalories: Double { dailyTargets.calories }
     let targetSteps: Double = DayProgressEngine.defaultStepTarget
+    var goalSnapshotSignature: String { "\(Int(baseCaloriesGoal.rounded()))#\(Int(baseProteinGoal.rounded()))" }
+    var loggedPastDaysSignature: String {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let ids = Set(
+            (allFoodEntries.map(\.date) + allTrainingEntries.map(\.date))
+                .filter { $0 < todayStart }
+                .map { DateFormatter.yyyyMMdd.string(from: $0) }
+        )
+
+        return ids.sorted().joined(separator: "|")
+    }
     
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
@@ -117,8 +165,8 @@ struct ContentView: View {
             hasFood: !dailyFoodEntries.isEmpty,
             mode: currentDayMode,
             trainingCalories: dailyTrainingCalories,
-            baseCalories: baseCaloriesGoal,
-            baseProtein: baseProteinGoal,
+            baseCalories: selectedBaseCaloriesGoal,
+            baseProtein: selectedBaseProteinGoal,
             steps: dailySteps,
             uploadedSteps: dailyUploadedTrainingSteps,
             stepTarget: targetSteps
@@ -137,7 +185,8 @@ struct ContentView: View {
             }
 
             let dateID = DateFormatter.yyyyMMdd.string(from: date)
-            let mode = DayMode.fromStoredValue(allDailySetups.first(where: { $0.dateID == dateID })?.mode)
+            let setup = allDailySetups.first(where: { $0.dateID == dateID })
+            let mode = DayMode.fromStoredValue(setup?.mode)
             let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
             let dayTrainingCalories = allTrainingEntries
                 .filter { calendar.isDate($0.date, inSameDayAs: date) }
@@ -151,8 +200,8 @@ struct ContentView: View {
                 foodEntries: dayFood,
                 trainingCalories: dayTrainingCalories,
                 mode: mode,
-                baseCalories: baseCaloriesGoal,
-                baseProtein: baseProteinGoal,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
                 steps: homeWeeklySteps[dateID] ?? 0,
                 uploadedSteps: dayUploadedTrainingSteps,
                 stepTarget: targetSteps
@@ -178,11 +227,26 @@ struct ContentView: View {
             if let entry = selectedEntryForEdit { Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedEntryForEdit = nil } }; AIChatEditView(entry: entry, onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } }, onDone: { withAnimation { selectedEntryForEdit = nil } }).transition(.scale(scale: 0.9).combined(with: .opacity)) }
         }
         .onAppear {
+            initializeGoalSnapshotTracking()
             HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } }
             HealthKitManager.shared.fetchWeeklySteps { steps in DispatchQueue.main.async { self.homeWeeklySteps = steps; self.syncDailyReminders() } }
             syncDailyReminders()
         }
         .onChange(of: selectedDate) { _, newDate in HealthKitManager.shared.fetchSteps(for: newDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } } }
+        .onChange(of: goalSnapshotSignature) { _, _ in
+            preserveMissingPastGoalSnapshots(
+                baseCalories: lastKnownBaseCaloriesGoal,
+                baseProtein: lastKnownBaseProteinGoal
+            )
+            lastKnownBaseCaloriesGoal = baseCaloriesGoal
+            lastKnownBaseProteinGoal = baseProteinGoal
+        }
+        .onChange(of: loggedPastDaysSignature) { _, _ in
+            preserveMissingPastGoalSnapshots(
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal
+            )
+        }
         .onChange(of: dailyReminderSignature) { _, _ in
             syncDailyReminders()
         }
@@ -231,11 +295,11 @@ struct ContentView: View {
                 section: selectedGoalBreakdownSection,
                 dayMode: currentDayMode,
                 trainingCalories: dailyTrainingCalories,
-                baseCalories: baseCaloriesGoal,
+                baseCalories: selectedBaseCaloriesGoal,
                 calorieBonus: calorieGoalBonus,
                 targetCalories: maxCalories,
                 consumedCalories: dailyCaloriesConsumed,
-                baseProtein: baseProteinGoal,
+                baseProtein: selectedBaseProteinGoal,
                 proteinBonus: proteinGoalBonus,
                 targetProtein: targetProtein,
                 consumedProtein: dailyProtein,
@@ -770,6 +834,7 @@ struct ContentView: View {
                         )
 
                         withAnimation(.spring()) {
+                            snapshotPastGoalsIfNeeded(for: entryDate)
                             modelContext.insert(entry)
                             applyTrainingModeSuggestion(from: result, for: entryDate)
                         }
@@ -1008,6 +1073,7 @@ struct ContentView: View {
             for item in selectedItems {
                 switch review.destination {
                 case .diary(let targetDate):
+                    snapshotPastGoalsIfNeeded(for: targetDate)
                     modelContext.insert(FoodEntry(
                         image: item.image,
                         name: item.name,
@@ -1047,6 +1113,8 @@ struct ContentView: View {
         showAddingStatus("Adding to \(shortDayLabel(targetDate))", image: originalImage, usesFridgeQueue: false)
 
         withAnimation(.spring()) {
+            snapshotPastGoalsIfNeeded(for: targetDate)
+
             for (resultIndex, result) in results.enumerated() {
                 let image = resolvedImage(
                     item: originalItem,
@@ -1181,6 +1249,83 @@ struct ContentView: View {
             _ = items.remove(at: index)
         }
         return item
+    }
+
+    private func initializeGoalSnapshotTracking() {
+        guard lastKnownBaseCaloriesGoal == 0 || lastKnownBaseProteinGoal == 0 else {
+            return
+        }
+
+        lastKnownBaseCaloriesGoal = baseCaloriesGoal
+        lastKnownBaseProteinGoal = baseProteinGoal
+        preserveMissingPastGoalSnapshots(
+            baseCalories: baseCaloriesGoal,
+            baseProtein: baseProteinGoal
+        )
+    }
+
+    private func shouldSnapshotGoals(for date: Date) -> Bool {
+        date < Calendar.current.startOfDay(for: Date())
+    }
+
+    private func snapshotPastGoalsIfNeeded(for date: Date) {
+        guard shouldSnapshotGoals(for: date) else {
+            return
+        }
+
+        let id = DateFormatter.yyyyMMdd.string(from: date)
+
+        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+            existing.applyGoalSnapshotIfNeeded(
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal
+            )
+        } else {
+            modelContext.insert(DailySetup(
+                date: date,
+                mode: dayMode(for: date),
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal
+            ))
+        }
+    }
+
+    private func preserveMissingPastGoalSnapshots(baseCalories: Double, baseProtein: Double) {
+        guard baseCalories > 0, baseProtein > 0 else {
+            return
+        }
+
+        for date in loggedPastDatesWithActivity() {
+            let id = DateFormatter.yyyyMMdd.string(from: date)
+
+            if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+                existing.applyGoalSnapshotIfNeeded(
+                    baseCalories: baseCalories,
+                    baseProtein: baseProtein
+                )
+            } else {
+                modelContext.insert(DailySetup(
+                    date: date,
+                    mode: .chill,
+                    baseCalories: baseCalories,
+                    baseProtein: baseProtein
+                ))
+            }
+        }
+    }
+
+    private func loggedPastDatesWithActivity() -> [Date] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let dates = allFoodEntries.map(\.date) + allTrainingEntries.map(\.date)
+        var uniqueByDay: [String: Date] = [:]
+
+        for date in dates where date < todayStart {
+            let day = calendar.startOfDay(for: date)
+            uniqueByDay[DateFormatter.yyyyMMdd.string(from: day)] = day
+        }
+
+        return uniqueByDay.values.sorted()
     }
 
     private func syncDailyReminders() {

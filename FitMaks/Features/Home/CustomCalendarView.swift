@@ -71,14 +71,15 @@ struct CustomCalendarView: View {
                                 .reduce(0) { $0 + max($1.steps ?? 0, 0) }
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
-                            let mode = dayMode(for: date)
+                            let setup = allSetups.first(where: { $0.dateID == dateID })
+                            let mode = DayMode.fromStoredValue(setup?.mode)
                             let progress = DayProgressEngine.progress(
                                 date: date,
                                 foodEntries: dailyEntries,
                                 trainingCalories: trainingCalories,
                                 mode: mode,
-                                baseCalories: baseCalories,
-                                baseProtein: baseProtein,
+                                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
                                 steps: steps,
                                 uploadedSteps: uploadedTrainingSteps,
                                 stepTarget: targetSteps

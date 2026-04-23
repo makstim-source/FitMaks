@@ -28,6 +28,26 @@ struct FitMaksTests {
         #expect(BodyMetricProfileSync.shouldPromoteProfileWeight(candidateDate: sameDay, currentLatestDate: latest, calendar: calendar))
     }
 
+    @Test func pastDailySetupUsesFrozenGoalSnapshot() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 8)))
+        let past = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21, hour: 8)))
+        let setup = DailySetup(date: past, mode: .chill, baseCalories: 2_000, baseProtein: 180)
+
+        #expect(setup.resolvedBaseCalories(for: past, fallback: 1_700, now: now, calendar: calendar) == 2_000)
+        #expect(setup.resolvedBaseProtein(for: past, fallback: 150, now: now, calendar: calendar) == 180)
+    }
+
+    @Test func currentDaySetupUsesLiveGoals() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 8)))
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 6)))
+        let setup = DailySetup(date: today, mode: .chill, baseCalories: 2_000, baseProtein: 180)
+
+        #expect(setup.resolvedBaseCalories(for: today, fallback: 1_700, now: now, calendar: calendar) == 1_700)
+        #expect(setup.resolvedBaseProtein(for: today, fallback: 150, now: now, calendar: calendar) == 150)
+    }
+
     @Test func proteinRecommendationUsesSustainableGoalMultipliers() async throws {
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Maintain") == 144)
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Lose Weight") == 160)

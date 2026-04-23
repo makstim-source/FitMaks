@@ -131,10 +131,40 @@ final class TrainingEntry {
 final class DailySetup {
     @Attribute(.unique) var dateID: String
     var mode: String
+    var baseCalories: Double?
+    var baseProtein: Double?
 
-    init(date: Date, mode: DayMode) {
+    init(date: Date, mode: DayMode, baseCalories: Double? = nil, baseProtein: Double? = nil) {
         self.dateID = DateFormatter.yyyyMMdd.string(from: date)
         self.mode = mode.rawValue
+        self.baseCalories = baseCalories
+        self.baseProtein = baseProtein
+    }
+
+    func applyGoalSnapshotIfNeeded(baseCalories: Double, baseProtein: Double) {
+        if self.baseCalories == nil {
+            self.baseCalories = baseCalories
+        }
+
+        if self.baseProtein == nil {
+            self.baseProtein = baseProtein
+        }
+    }
+
+    func resolvedBaseCalories(for date: Date, fallback: Double, now: Date = Date(), calendar: Calendar = .current) -> Double {
+        guard date < calendar.startOfDay(for: now) else {
+            return fallback
+        }
+
+        return baseCalories ?? fallback
+    }
+
+    func resolvedBaseProtein(for date: Date, fallback: Double, now: Date = Date(), calendar: Calendar = .current) -> Double {
+        guard date < calendar.startOfDay(for: now) else {
+            return fallback
+        }
+
+        return baseProtein ?? fallback
     }
 }
 

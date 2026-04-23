@@ -17,19 +17,40 @@ final class HealthKitManager {
     static let shared = HealthKitManager()
 
     private let healthStore = HKHealthStore()
+    private var stepCountType: HKQuantityType? {
+        HKQuantityType.quantityType(forIdentifier: .stepCount)
+    }
+
+    private var bodyMassType: HKQuantityType? {
+        HKQuantityType.quantityType(forIdentifier: .bodyMass)
+    }
+
+    private var bodyFatType: HKQuantityType? {
+        HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)
+    }
+
+    private var leanBodyMassType: HKQuantityType? {
+        HKQuantityType.quantityType(forIdentifier: .leanBodyMass)
+    }
+
+    private var defaultReadTypes: Set<HKObjectType> {
+        [stepCountType, bodyMassType, bodyFatType, leanBodyMassType].compactMap { $0 }.reduce(into: Set<HKObjectType>()) { result, type in
+            result.insert(type)
+        }
+    }
 
     private init() {}
 
     func fetchSteps(for date: Date, completion: @escaping (Double) -> Void) {
         guard
             HKHealthStore.isHealthDataAvailable(),
-            let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)
+            let stepType = stepCountType
         else {
             completion(0)
             return
         }
 
-        healthStore.requestAuthorization(toShare: nil, read: [stepType]) { success, _ in
+        requestDefaultReadAuthorization { success in
             guard success else {
                 completion(0)
                 return
@@ -58,53 +79,60 @@ final class HealthKitManager {
     func fetchWeeklySteps(completion: @escaping ([String: Double]) -> Void) {
         guard
             HKHealthStore.isHealthDataAvailable(),
-            let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)
+            let stepType = stepCountType
         else {
             completion([:])
             return
         }
 
-        let calendar = Calendar.current
-        let end = calendar.startOfDay(for: Date()).addingTimeInterval(86400)
-        let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
-        let predicate = HKQuery.predicateForSamples(
-            withStart: start,
-            end: end,
-            options: .strictStartDate
-        )
-
-        let query = HKStatisticsCollectionQuery(
-            quantityType: stepType,
-            quantitySamplePredicate: predicate,
-            options: .cumulativeSum,
-            anchorDate: start,
-            intervalComponents: DateComponents(day: 1)
-        )
-
-        query.initialResultsHandler = { _, results, _ in
-            var stepsByDay: [String: Double] = [:]
-
-            results?.enumerateStatistics(from: start, to: end) { stat, _ in
-                stepsByDay[DateFormatter.yyyyMMdd.string(from: stat.startDate)] =
-                    stat.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
+        requestDefaultReadAuthorization { success in
+            guard success else {
+                completion([:])
+                return
             }
 
-            completion(stepsByDay)
-        }
+            let calendar = Calendar.current
+            let end = calendar.startOfDay(for: Date()).addingTimeInterval(86400)
+            let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
+            let predicate = HKQuery.predicateForSamples(
+                withStart: start,
+                end: end,
+                options: .strictStartDate
+            )
 
-        healthStore.execute(query)
+            let query = HKStatisticsCollectionQuery(
+                quantityType: stepType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: start,
+                intervalComponents: DateComponents(day: 1)
+            )
+
+            query.initialResultsHandler = { _, results, _ in
+                var stepsByDay: [String: Double] = [:]
+
+                results?.enumerateStatistics(from: start, to: end) { stat, _ in
+                    stepsByDay[DateFormatter.yyyyMMdd.string(from: stat.startDate)] =
+                        stat.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
+                }
+
+                completion(stepsByDay)
+            }
+
+            self.healthStore.execute(query)
+        }
     }
 
     func fetchSteps(from startDate: Date, to endDate: Date, completion: @escaping ([String: Double]) -> Void) {
         guard
             HKHealthStore.isHealthDataAvailable(),
-            let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)
+            let stepType = stepCountType
         else {
             completion([:])
             return
         }
 
-        healthStore.requestAuthorization(toShare: nil, read: [stepType]) { success, _ in
+        requestDefaultReadAuthorization { success in
             guard success else {
                 completion([:])
                 return
@@ -156,30 +184,20 @@ final class HealthKitManager {
     func fetchBodyMetrics(from startDate: Date, to endDate: Date, completion: @escaping ([HealthBodyMetricSnapshot]) -> Void) {
         guard
             HKHealthStore.isHealthDataAvailable(),
-            let bodyMassType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
+            let bodyMassType = bodyMassType
         else {
             completion([])
             return
         }
 
-        var readTypes: Set<HKObjectType> = [bodyMassType]
-
-        if let bodyFatType = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage) {
-            readTypes.insert(bodyFatType)
-        }
-
-        if let leanBodyMassType = HKQuantityType.quantityType(forIdentifier: .leanBodyMass) {
-            readTypes.insert(leanBodyMassType)
-        }
-
-        healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, _ in
+        requestDefaultReadAuthorization { success in
             guard success else {
                 completion([])
                 return
             }
 
-            let bodyFatType = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)
-            let leanBodyMassType = HKQuantityType.quantityType(forIdentifier: .leanBodyMass)
+            let bodyFatType = self.bodyFatType
+            let leanBodyMassType = self.leanBodyMassType
             let group = DispatchGroup()
             var weightSamples: [HealthQuantitySnapshot] = []
             var bodyFatByDay: [String: HealthQuantitySnapshot] = [:]
@@ -232,6 +250,18 @@ final class HealthKitManager {
 
                 completion(snapshots)
             }
+        }
+    }
+
+    private func requestDefaultReadAuthorization(completion: @escaping (Bool) -> Void) {
+        let readTypes = defaultReadTypes
+        guard HKHealthStore.isHealthDataAvailable(), !readTypes.isEmpty else {
+            completion(false)
+            return
+        }
+
+        healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, _ in
+            completion(success)
         }
     }
 

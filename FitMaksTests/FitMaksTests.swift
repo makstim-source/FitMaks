@@ -28,6 +28,36 @@ struct FitMaksTests {
         #expect(BodyMetricProfileSync.shouldPromoteProfileWeight(candidateDate: sameDay, currentLatestDate: latest, calendar: calendar))
     }
 
+    @Test func dailyBestWeightKeepsLowerSameDayResult() async throws {
+        #expect(BodyMetricDailyBest.shouldReplace(
+            existingWeight: 81.4,
+            existingScore: 2,
+            candidateWeight: 81.1,
+            candidateScore: 1
+        ))
+        #expect(!BodyMetricDailyBest.shouldReplace(
+            existingWeight: 81.1,
+            existingScore: 1,
+            candidateWeight: 81.4,
+            candidateScore: 4
+        ))
+    }
+
+    @Test func dailyBestWeightUsesRicherMetricsWhenWeightTies() async throws {
+        #expect(BodyMetricDailyBest.shouldReplace(
+            existingWeight: 81.30,
+            existingScore: 1,
+            candidateWeight: 81.32,
+            candidateScore: 3
+        ))
+        #expect(!BodyMetricDailyBest.shouldReplace(
+            existingWeight: 81.30,
+            existingScore: 3,
+            candidateWeight: 81.32,
+            candidateScore: 1
+        ))
+    }
+
     @Test func pastDailySetupUsesFrozenGoalSnapshot() async throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 8)))

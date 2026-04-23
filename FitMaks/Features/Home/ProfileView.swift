@@ -1560,24 +1560,6 @@ struct ProfileView: View {
     }
 
     private func upsertHealthBodyMetric(_ snapshot: HealthBodyMetricSnapshot) {
-        if let existing = bodyMetrics.first(where: {
-            $0.source == "Apple Health" && Calendar.current.isDate($0.date, inSameDayAs: snapshot.date)
-        }) {
-            existing.date = snapshot.date
-            existing.weightKg = snapshot.weightKg
-            existing.bodyFatPercent = snapshot.bodyFatPercent
-            existing.musclePercent = snapshot.musclePercent
-            existing.note = "Imported from Apple Health"
-
-            if BodyMetricProfileSync.shouldPromoteProfileWeight(
-                candidateDate: snapshot.date,
-                currentLatestDate: latestBodyMetric?.date
-            ) {
-                weight = snapshot.weightKg
-            }
-            return
-        }
-
         addBodyMetric(
             date: snapshot.date,
             weightKg: snapshot.weightKg,
@@ -1602,13 +1584,6 @@ struct ProfileView: View {
         note: String,
         source: String
     ) {
-        if BodyMetricProfileSync.shouldPromoteProfileWeight(
-            candidateDate: date,
-            currentLatestDate: latestBodyMetric?.date
-        ) {
-            weight = weightKg
-        }
-
         let entry = BodyMetricEntry(
             date: date,
             weightKg: weightKg,
@@ -1621,7 +1596,62 @@ struct ProfileView: View {
             source: source
         )
 
+        if mergeIntoDailyBestIfNeeded(entry) {
+            return
+        }
+
         modelContext.insert(entry)
+
+        if BodyMetricProfileSync.shouldPromoteProfileWeight(
+            candidateDate: date,
+            currentLatestDate: latestBodyMetric?.date
+        ) {
+            weight = weightKg
+        }
+    }
+
+    @discardableResult
+    private func mergeIntoDailyBestIfNeeded(_ candidate: BodyMetricEntry) -> Bool {
+        let sameDayEntries = bodyMetrics.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: candidate.date)
+        }
+
+        guard var keeper = sameDayEntries.first else {
+            return false
+        }
+
+        for entry in sameDayEntries.dropFirst() where BodyMetricDailyBest.shouldReplace(existing: keeper, candidate: entry) {
+            keeper = entry
+        }
+
+        if BodyMetricDailyBest.shouldReplace(existing: keeper, candidate: candidate) {
+            updateBodyMetric(keeper, with: candidate)
+        }
+
+        for duplicate in sameDayEntries where duplicate.id != keeper.id {
+            modelContext.delete(duplicate)
+        }
+
+        if BodyMetricProfileSync.shouldPromoteProfileWeight(
+            candidateDate: keeper.date,
+            currentLatestDate: latestBodyMetric?.date
+        ) {
+            weight = keeper.weightKg
+        }
+
+        return true
+    }
+
+    private func updateBodyMetric(_ entry: BodyMetricEntry, with candidate: BodyMetricEntry) {
+        entry.date = candidate.date
+        entry.weightKg = candidate.weightKg
+        entry.bodyFatPercent = candidate.bodyFatPercent
+        entry.musclePercent = candidate.musclePercent
+        entry.waterPercent = candidate.waterPercent
+        entry.visceralFat = candidate.visceralFat
+        entry.metabolicAge = candidate.metabolicAge
+        entry.note = candidate.note
+        entry.source = candidate.source
     }
 
     private func deleteBodyMetric(_ entry: BodyMetricEntry) {

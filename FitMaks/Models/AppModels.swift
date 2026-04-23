@@ -204,6 +204,60 @@ final class BodyMetricEntry {
     }
 }
 
+enum BodyMetricDailyBest {
+    static let weightTieTolerance: Double = 0.05
+
+    static func measurementScore(
+        bodyFatPercent: Double?,
+        musclePercent: Double?,
+        waterPercent: Double?,
+        visceralFat: Double?,
+        metabolicAge: Double?
+    ) -> Int {
+        [bodyFatPercent, musclePercent, waterPercent, visceralFat, metabolicAge]
+            .filter { $0 != nil }
+            .count
+    }
+
+    static func shouldReplace(
+        existingWeight: Double,
+        existingScore: Int,
+        candidateWeight: Double,
+        candidateScore: Int
+    ) -> Bool {
+        if candidateWeight < existingWeight - weightTieTolerance {
+            return true
+        }
+
+        if abs(candidateWeight - existingWeight) <= weightTieTolerance {
+            return candidateScore > existingScore
+        }
+
+        return false
+    }
+
+    static func shouldReplace(existing: BodyMetricEntry, candidate: BodyMetricEntry) -> Bool {
+        shouldReplace(
+            existingWeight: existing.weightKg,
+            existingScore: measurementScore(
+                bodyFatPercent: existing.bodyFatPercent,
+                musclePercent: existing.musclePercent,
+                waterPercent: existing.waterPercent,
+                visceralFat: existing.visceralFat,
+                metabolicAge: existing.metabolicAge
+            ),
+            candidateWeight: candidate.weightKg,
+            candidateScore: measurementScore(
+                bodyFatPercent: candidate.bodyFatPercent,
+                musclePercent: candidate.musclePercent,
+                waterPercent: candidate.waterPercent,
+                visceralFat: candidate.visceralFat,
+                metabolicAge: candidate.metabolicAge
+            )
+        )
+    }
+}
+
 enum BodyMetricProfileSync {
     static func shouldPromoteProfileWeight(candidateDate: Date, currentLatestDate: Date?, calendar: Calendar = .current) -> Bool {
         guard let currentLatestDate else {

@@ -275,6 +275,8 @@ private struct CalendarDayCell: View {
 
             if isFuture {
                 Color.clear.frame(height: 12)
+            } else if mode == .chill {
+                Color.clear.frame(height: 22)
             } else {
                 modeBadge
             }
@@ -285,7 +287,7 @@ private struct CalendarDayCell: View {
     private var modeBadge: some View {
         switch mode {
         case .chill:
-            modeBadgeIcon("zzz", color: .blue, isText: true)
+            EmptyView()
         case .cardio:
             modeBadgeIcon("figure.run", color: .neonGreen)
         case .gym:
@@ -306,28 +308,29 @@ private struct CalendarDayCell: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            color.opacity(0.95),
-                            color.opacity(0.32),
-                            Color.appSurface.opacity(0.78)
+                            Color.white.opacity(0.95),
+                            color.opacity(0.98),
+                            color.opacity(0.72)
                         ],
                         center: .topLeading,
                         startRadius: 1,
-                        endRadius: 17
+                        endRadius: 21
                     )
                 )
-                .frame(width: 19, height: 19)
-                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 0.8))
-                .shadow(color: color.opacity(isPerfectDay ? 0.75 : 0.45), radius: isPerfectDay ? 8 : 5, x: 0, y: 0)
+                .frame(width: 22, height: 22)
+                .overlay(Circle().stroke(Color.white.opacity(0.42), lineWidth: 1))
+                .shadow(color: color.opacity(isPerfectDay ? 0.95 : 0.72), radius: isPerfectDay ? 10 : 7, x: 0, y: 0)
 
             if isText {
                 Text(symbol)
-                    .font(.system(size: 7, weight: .black))
+                    .font(.system(size: 8, weight: .black))
                     .foregroundColor(.white)
                     .offset(y: -0.5)
             } else {
                 Image(systemName: symbol)
-                    .font(.system(size: 10, weight: .black))
-                    .foregroundColor(.black.opacity(0.86))
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundColor(.black.opacity(0.88))
+                    .shadow(color: .white.opacity(0.24), radius: 1, x: 0, y: 1)
             }
         }
     }

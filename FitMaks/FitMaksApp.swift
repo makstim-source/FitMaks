@@ -173,17 +173,17 @@ private struct OnboardingView: View {
     ]
 
     private let goalOptions: [(title: String, subtitle: String, key: String, color: Color)] = [
-        ("Cut", "Fat loss", "Lose Weight", .neonGreen),
-        ("Recomp", "Muscle + leaner", "Recomp", .neonCyan),
-        ("Maintain", "Stable", "Maintain", .fitPurple),
-        ("Build", "Lean bulk", "Build Muscle", .orange)
+        ("Cut", "Lose fat", "Lose Weight", .neonGreen),
+        ("Recomp", "Lean + muscle", "Recomp", .neonCyan),
+        ("Maintain", "Hold shape", "Maintain", .fitPurple),
+        ("Build", "Gain muscle", "Build Muscle", .orange)
     ]
 
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job"),
-        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks"),
-        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4x/week"),
-        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training")
+        ActivityOption(key: "Sedentary", title: "Desk days", subtitle: "Mostly sitting"),
+        ActivityOption(key: "Light", title: "Daily walks", subtitle: "1-2 workouts"),
+        ActivityOption(key: "Moderate", title: "Train weekly", subtitle: "3-4 workouts"),
+        ActivityOption(key: "Active", title: "Athlete mode", subtitle: "5+ hard days")
     ]
 
     private var pageCount: Int { introPages.count + 2 }
@@ -483,7 +483,7 @@ private struct OnboardingView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Activity")
+                    Text("Normal week")
                         .font(.system(size: 12, weight: .heavy))
                         .foregroundColor(.appMuted)
                         .tracking(0.8)

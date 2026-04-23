@@ -47,10 +47,10 @@ struct ProfileView: View {
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job, little walking"),
-        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks, 1-2 workouts/week"),
-        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4 workouts/week"),
-        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training or physical job")
+        ActivityOption(key: "Sedentary", title: "Desk days", subtitle: "Mostly sitting, little walking"),
+        ActivityOption(key: "Light", title: "Daily walks", subtitle: "Walks or 1-2 workouts/week"),
+        ActivityOption(key: "Moderate", title: "Train weekly", subtitle: "3-4 workouts and normal walking"),
+        ActivityOption(key: "Active", title: "Athlete mode", subtitle: "5+ hard days or physical job")
     ]
 
     private var bmr: Double {
@@ -373,7 +373,7 @@ struct ProfileView: View {
             HStack(spacing: 10) {
                 goalsPreviewMiniStat(title: "BMR", value: "\(Int(bmr))")
                 goalsPreviewMiniStat(title: "Maintain", value: "\(Int(maintenanceCalories))")
-                goalsPreviewMiniStat(title: "Activity", value: "x\(String(format: "%.3g", selectedActivity.multiplier))")
+                goalsPreviewMiniStat(title: "Week", value: "x\(String(format: "%.3g", selectedActivity.multiplier))")
             }
 
             Text(useCustomGoals ? "Custom goals are on, so FitMaks will use your manual calorie and protein targets." : "\(selectedActivity.title) · \(adjustmentText) · \(proteinDetail)")
@@ -945,10 +945,10 @@ struct ProfileView: View {
             }
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
-                goalButton(title: "Cut", subtitle: "Fat loss", key: "Lose Weight", color: .neonGreen)
-                goalButton(title: "Recomp", subtitle: "Muscle + leaner", key: "Recomp", color: .neonCyan)
-                goalButton(title: "Maintain", subtitle: "Stable", key: "Maintain", color: .fitPurple)
-                goalButton(title: "Build", subtitle: "Lean bulk", key: "Build Muscle", color: .orange)
+                goalButton(title: "Cut", subtitle: "Lose fat", key: "Lose Weight", color: .neonGreen)
+                goalButton(title: "Recomp", subtitle: "Lean + muscle", key: "Recomp", color: .neonCyan)
+                goalButton(title: "Maintain", subtitle: "Hold shape", key: "Maintain", color: .fitPurple)
+                goalButton(title: "Build", subtitle: "Gain muscle", key: "Build Muscle", color: .orange)
             }
 
             Divider()
@@ -968,14 +968,14 @@ struct ProfileView: View {
     private var activityCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                sectionTitle("Activity")
+                sectionTitle("Normal week")
 
                 Spacer()
 
                 liveTargetBadge
             }
 
-            Text("Choose what sounds like your real life. Calories update instantly.")
+            Text("Pick your normal week, not your best week. Calories update instantly.")
                 .font(.caption2)
                 .foregroundColor(.appMuted)
 
@@ -1692,11 +1692,11 @@ struct ProfileView: View {
     private var goalBadgeText: String {
         switch goal {
         case "Lose Weight":
-            return "DEFICIT"
+            return "CUT"
         case "Recomp":
             return "RECOMP"
         case "Build Muscle":
-            return "SURPLUS"
+            return "BUILD"
         default:
             return "MAINTAIN"
         }

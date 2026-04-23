@@ -43,7 +43,7 @@ struct ProfileView: View {
     @State private var selectedBodyChartPointDate: Date?
     @State private var isInteractingWithBodyChart = false
     @State private var lastBodyChartSelectionAt = Date.distantPast
-    @State private var bodyMetricSearchText = ""
+    @State private var isShowingBodyMetricHistory = false
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -146,18 +146,6 @@ struct ProfileView: View {
         return selectedBodyMetricForReadout.date.formatted(.dateTime.day().month(.abbreviated))
     }
 
-    private var searchedBodyMetrics: [BodyMetricEntry] {
-        let query = bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        guard !query.isEmpty else {
-            return Array(bodyMetrics.prefix(6))
-        }
-
-        return Array(bodyMetrics.lazy.filter { entry in
-            searchableBodyMetricText(for: entry).contains(query)
-        }.prefix(24))
-    }
-
     var body: some View {
         NavigationView {
             ZStack {
@@ -177,6 +165,7 @@ struct ProfileView: View {
                         goalsHeader
                         recommendationCard
                         changeGoalsButton
+                        profileSectionDivider(title: "Body tracking")
                         weightTrackerCard
                         themeCard
                     }
@@ -222,6 +211,9 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $isShowingWeightInput) {
             manualWeightSheet
+        }
+        .sheet(isPresented: $isShowingBodyMetricHistory) {
+            bodyMetricHistorySheet
         }
         .sheet(isPresented: $isShowingScannedDatePicker) {
             scannedDateConfirmationSheet
@@ -290,6 +282,25 @@ struct ProfileView: View {
             .background(cardBackground)
         }
         .buttonStyle(.plain)
+    }
+
+    private func profileSectionDivider(title: String) -> some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.appBorder)
+                .frame(height: 1)
+
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(1.2)
+                .lineLimit(1)
+
+            Rectangle()
+                .fill(Color.appBorder)
+                .frame(height: 1)
+        }
+        .padding(.vertical, 2)
     }
 
     private var goalSettingsSheet: some View {
@@ -580,8 +591,7 @@ struct ProfileView: View {
     }
 
     private var bodyMetricHistory: some View {
-        let visibleHistory = searchedBodyMetrics
-        let searchQuery = bodyMetricSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let visibleHistory = Array(bodyMetrics.prefix(3))
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -589,44 +599,81 @@ struct ProfileView: View {
 
                 Spacer()
 
-                Text(searchQuery.isEmpty ? "\(bodyMetrics.count) logs" : "\(visibleHistory.count) shown")
+                Text("\(bodyMetrics.count) logs")
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.appMuted)
             }
-
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .black))
-                    .foregroundColor(.appMuted)
-
-                TextField("Search date, source, weight...", text: $bodyMetricSearchText)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.appText)
-
-                if !bodyMetricSearchText.isEmpty {
-                    Button {
-                        bodyMetricSearchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14, weight: .black))
-                            .foregroundColor(.appMuted)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
 
             VStack(spacing: 8) {
                 ForEach(visibleHistory) { entry in
                     bodyMetricHistoryRow(entry)
                 }
             }
+
+            if bodyMetrics.count > visibleHistory.count {
+                Button {
+                    isShowingBodyMetricHistory = true
+                } label: {
+                    HStack {
+                        Text("Other weigh-ins")
+                            .font(.caption)
+                            .fontWeight(.heavy)
+
+                        Spacer()
+
+                        Text("\(bodyMetrics.count - visibleHistory.count) more")
+                            .font(.caption2)
+                            .fontWeight(.heavy)
+                            .foregroundColor(.appMuted)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                    }
+                    .foregroundColor(.appText)
+                    .padding(13)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private var bodyMetricHistorySheet: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 8) {
+                        ForEach(bodyMetrics) { entry in
+                            bodyMetricHistoryRow(entry)
+                        }
+                    }
+                    .padding()
+                    .padding(.bottom, 20)
+                }
+            }
+            .navigationTitle("Weigh-ins")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        isShowingBodyMetricHistory = false
+                    }
+                    .foregroundColor(neonPurple)
+                    .bold()
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+        .presentationDetents([.large])
     }
 
     private var weightInsight: String {
@@ -1586,25 +1633,6 @@ struct ProfileView: View {
         }
 
         return DateFormatter.yyyyMMdd.date(from: value)
-    }
-
-    private func searchableBodyMetricText(for entry: BodyMetricEntry) -> String {
-        let parts: [String?] = [
-            entry.date.formatted(date: .abbreviated, time: .omitted),
-            entry.date.formatted(.dateTime.weekday(.wide).month(.wide).day().year()),
-            entry.source,
-            entry.note,
-            String(format: "%.1f", entry.weightKg),
-            entry.bodyFatPercent.map { String(format: "%.1f", $0) },
-            entry.musclePercent.map { String(format: "%.1f", $0) },
-            entry.waterPercent.map { String(format: "%.1f", $0) },
-            entry.visceralFat.map { String(format: "%.1f", $0) }
-        ]
-
-        return parts
-        .compactMap { $0 }
-        .joined(separator: " ")
-        .lowercased()
     }
 
     private func percentText(_ value: Double?) -> String {

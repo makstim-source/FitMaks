@@ -11,7 +11,6 @@ struct StatsView: View {
     var baseProtein: Double
 
     @State private var weeklySteps: [String: Double] = [:]
-    @State private var animateStreakFlame = false
     @State private var selectedAchievement: StatsAchievement?
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
@@ -97,8 +96,7 @@ struct StatsView: View {
                         StatsHeroScoreCard(
                             currentPerfectStreak: currentPerfectStreak,
                             bestPerfectStreak30: bestPerfectStreak30,
-                            perfectDays30: perfectDays30,
-                            animateStreakFlame: animateStreakFlame
+                            perfectDays30: perfectDays30
                         )
                         StatsAchievementsCard(
                             achievements: achievements,
@@ -138,9 +136,6 @@ struct StatsView: View {
                     DispatchQueue.main.async {
                         self.weeklySteps = steps
                     }
-                }
-                withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
-                    animateStreakFlame = true
                 }
             }
             .sheet(item: $selectedAchievement) { achievement in
@@ -224,8 +219,6 @@ private struct StatsAchievementsCard: View {
 private struct StatsAchievementTile: View {
     let achievement: StatsAchievement
 
-    @State private var unlockedGlow = false
-
     private var tileOpacity: Double {
         achievement.isUnlocked ? 1 : 0.62
     }
@@ -265,12 +258,12 @@ private struct StatsAchievementTile: View {
                             .font(.system(size: 12, weight: .black))
                             .foregroundColor(.white)
                             .offset(x: 18, y: -17)
-                            .opacity(unlockedGlow ? 1 : 0.52)
-                            .shadow(color: .white.opacity(unlockedGlow ? 1 : 0.45), radius: unlockedGlow ? 10 : 4)
+                            .opacity(0.92)
+                            .shadow(color: .white.opacity(0.75), radius: 7)
                     }
                 }
                 .frame(width: 42, height: 42)
-                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.86 : 0.34) : .clear, radius: unlockedGlow ? 20 : 10)
+                .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.54) : .clear, radius: 15)
 
                 Spacer()
 
@@ -280,7 +273,7 @@ private struct StatsAchievementTile: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(achievement.isUnlocked ? achievement.color : achievement.color.opacity(0.07)))
-                    .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.48 : 0.20) : .clear, radius: unlockedGlow ? 12 : 6)
+                    .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.30) : .clear, radius: 8)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -336,13 +329,7 @@ private struct StatsAchievementTile: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.55 : 0.12), lineWidth: achievement.isUnlocked ? 1.5 : 1)
         )
-        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(unlockedGlow ? 0.30 : 0.12) : .clear, radius: unlockedGlow ? 18 : 9, x: 0, y: 7)
-        .onAppear {
-            guard achievement.isUnlocked else { return }
-            withAnimation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true)) {
-                unlockedGlow = true
-            }
-        }
+        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.18) : .clear, radius: 12, x: 0, y: 7)
     }
 }
 
@@ -439,7 +426,6 @@ private struct StatsHeroScoreCard: View {
     let currentPerfectStreak: Int
     let bestPerfectStreak30: Int
     let perfectDays30: Int
-    let animateStreakFlame: Bool
 
     private var cappedStreak: Double {
         min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
@@ -482,7 +468,7 @@ private struct StatsHeroScoreCard: View {
                 VStack(alignment: .trailing, spacing: 0) {
                     ZStack {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: animateStreakFlame ? 68 : 60, weight: .black))
+                            .font(.system(size: 64, weight: .black))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [
@@ -494,9 +480,7 @@ private struct StatsHeroScoreCard: View {
                                     endPoint: .top
                                 )
                             )
-                            .scaleEffect(animateStreakFlame ? 1.06 : 0.95)
-                            .rotationEffect(.degrees(animateStreakFlame ? 2.5 : -2))
-                            .shadow(color: Color.red.opacity(animateStreakFlame ? 0.82 : 0.38), radius: animateStreakFlame ? 20 : 10)
+                            .shadow(color: Color.red.opacity(0.58), radius: 15)
 
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text("\(currentPerfectStreak)")
@@ -692,7 +676,7 @@ private struct StatsDayBadgeRow: View {
                 )
                 StatsDayMetricPill(
                     title: "steps",
-                    value: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps)) / 10k",
+                    value: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
                     isOn: stat.stepWin,
                     color: stat.stepBonus > 0 ? .fitOrange : .yellow,
                     disablesValueAnimation: true
@@ -739,7 +723,6 @@ private struct StatsDayMetricPill: View {
                     transaction.animation = nil
                 }
                 .animation(nil, value: value)
-                .id(disablesValueAnimation ? value : "stable-value")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)

@@ -409,7 +409,7 @@ struct ContentView: View {
                 HomeMetricTile(
                     title: "Steps",
                     value: "\(Int(dailyProgress.effectiveSteps))",
-                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "from screenshot" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k"),
+                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "screen" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k"),
                     progress: dailyProgress.countedSteps / max(targetSteps, 1),
                     bonusProgress: dailyProgress.stepBonus / max(targetSteps, 1),
                     bonusColor: .fitOrange,

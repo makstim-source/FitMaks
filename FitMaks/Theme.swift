@@ -8,12 +8,21 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     static let storageKey = "selectedThemeID"
     static let defaultID = AppTheme.neonPulse.rawValue
+    static let areAlternateThemesEnabled = false
 
     var id: String { rawValue }
 
+    static func resolvedTheme(for storedID: String) -> AppTheme {
+        guard areAlternateThemesEnabled else {
+            return .neonPulse
+        }
+
+        return AppTheme(rawValue: storedID) ?? .neonPulse
+    }
+
     static var current: AppTheme {
         let storedID = UserDefaults.standard.string(forKey: storageKey) ?? defaultID
-        return AppTheme(rawValue: storedID) ?? .neonPulse
+        return resolvedTheme(for: storedID)
     }
 
     var palette: AppPalette {
@@ -146,7 +155,7 @@ struct ThemeSelectionView: View {
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
     private var selectedTheme: AppTheme {
-        AppTheme(rawValue: selectedThemeID) ?? .neonPulse
+        AppTheme.resolvedTheme(for: selectedThemeID)
     }
 
     var body: some View {

@@ -15,6 +15,7 @@ struct AIChatEditView: View {
     @State private var isShowingAttachmentPicker = false
     @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isShowingSaveDialog = false
+    @State private var saveConfirmationText: String?
 
     var onDelete: () -> Void
     var onDone: () -> Void
@@ -204,13 +205,61 @@ struct AIChatEditView: View {
             Button("Fridge (Ingredient) ❄️") { saveAs(isMeal: false) }
             Button("Meals (Dish) 🍲") { saveAs(isMeal: true) }
         }
+        .overlay(alignment: .top) {
+            if let saveConfirmationText {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15, weight: .black))
+
+                    Text(saveConfirmationText)
+                        .font(.system(size: 13, weight: .black))
+                }
+                .foregroundColor(.appAccentText)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(Capsule().fill(Color.neonGreen))
+                .shadow(color: Color.neonGreen.opacity(0.28), radius: 14, x: 0, y: 7)
+                .padding(.top, 58)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
     }
 
     func saveAs(isMeal: Bool) {
+        let destination = isMeal ? "Meals" : "Fridge"
+
         if isMeal {
             modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients))
         } else {
             modelContext.insert(FavoriteFood(image: entry.uiImage, name: entry.name, calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients))
+        }
+
+        do {
+            try modelContext.save()
+            let confirmation = "Saved to \(destination)"
+            messages.append(ChatMessage(text: confirmation, isUser: false, shouldTypewrite: true))
+            showSaveConfirmation(confirmation)
+        } catch {
+            messages.append(ChatMessage(text: "Could not save to \(destination). Please try again.", isUser: false, shouldTypewrite: true))
+        }
+    }
+
+    private func showSaveConfirmation(_ text: String) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            saveConfirmationText = text
+        }
+
+        Task {
+            try? await Task.sleep(nanoseconds: 1_700_000_000)
+            await MainActor.run {
+                guard saveConfirmationText == text else {
+                    return
+                }
+
+                withAnimation(.easeOut(duration: 0.22)) {
+                    saveConfirmationText = nil
+                }
+            }
         }
     }
 

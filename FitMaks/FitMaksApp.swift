@@ -8,7 +8,7 @@ struct FitMaksApp: App {
     @State private var isShowingLaunchSplash = true
 
     private var selectedTheme: AppTheme {
-        AppTheme(rawValue: selectedThemeID) ?? .neonPulse
+        AppTheme.resolvedTheme(for: selectedThemeID)
     }
 
     var body: some Scene {

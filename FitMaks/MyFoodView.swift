@@ -60,6 +60,18 @@ struct MyFoodView: View {
         savedRecipes.sorted { $0.dateSaved > $1.dateSaved }
     }
 
+    @ViewBuilder
+    private var selectedTabContent: some View {
+        switch currentTab {
+        case 0:
+            fridgeTab
+        case 1:
+            mealsTab
+        default:
+            shoppingTab
+        }
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -70,10 +82,8 @@ struct MyFoodView: View {
                         libraryHeader
                         foodTabSwitcher
                     }
-                    
-                    if currentTab == 0 { fridgeTab }
-                    else if currentTab == 1 { mealsTab }
-                    else { shoppingTab }
+
+                    selectedTabContent
                 }
                 
                 editOverlay

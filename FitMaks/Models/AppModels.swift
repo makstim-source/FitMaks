@@ -174,6 +174,16 @@ final class BodyMetricEntry {
     }
 }
 
+enum BodyMetricProfileSync {
+    static func shouldPromoteProfileWeight(candidateDate: Date, currentLatestDate: Date?, calendar: Calendar = .current) -> Bool {
+        guard let currentLatestDate else {
+            return true
+        }
+
+        return candidateDate > currentLatestDate || calendar.isDate(candidateDate, inSameDayAs: currentLatestDate)
+    }
+}
+
 @Model
 final class ShoppingItem {
     var id: UUID = UUID()

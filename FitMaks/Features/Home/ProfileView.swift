@@ -1556,10 +1556,6 @@ struct ProfileView: View {
             for snapshot in snapshots {
                 upsertHealthBodyMetric(snapshot)
             }
-
-            if let latest = snapshots.last {
-                weight = latest.weightKg
-            }
         }
     }
 
@@ -1572,6 +1568,13 @@ struct ProfileView: View {
             existing.bodyFatPercent = snapshot.bodyFatPercent
             existing.musclePercent = snapshot.musclePercent
             existing.note = "Imported from Apple Health"
+
+            if BodyMetricProfileSync.shouldPromoteProfileWeight(
+                candidateDate: snapshot.date,
+                currentLatestDate: latestBodyMetric?.date
+            ) {
+                weight = snapshot.weightKg
+            }
             return
         }
 
@@ -1599,7 +1602,12 @@ struct ProfileView: View {
         note: String,
         source: String
     ) {
-        weight = weightKg
+        if BodyMetricProfileSync.shouldPromoteProfileWeight(
+            candidateDate: date,
+            currentLatestDate: latestBodyMetric?.date
+        ) {
+            weight = weightKg
+        }
 
         let entry = BodyMetricEntry(
             date: date,

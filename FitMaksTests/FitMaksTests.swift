@@ -12,6 +12,22 @@ import UIKit
 
 struct FitMaksTests {
 
+    @Test func historicalWeightLogsDoNotReplaceProfileWeight() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let latest = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 8)))
+        let historical = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 10, hour: 8)))
+
+        #expect(!BodyMetricProfileSync.shouldPromoteProfileWeight(candidateDate: historical, currentLatestDate: latest, calendar: calendar))
+    }
+
+    @Test func currentDayWeightLogsCanReplaceProfileWeight() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let latest = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 8)))
+        let sameDay = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 23, hour: 6)))
+
+        #expect(BodyMetricProfileSync.shouldPromoteProfileWeight(candidateDate: sameDay, currentLatestDate: latest, calendar: calendar))
+    }
+
     @Test func proteinRecommendationUsesSustainableGoalMultipliers() async throws {
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Maintain") == 144)
         #expect(NutritionCalculator.recommendedProtein(weight: 80, goal: "Lose Weight") == 160)

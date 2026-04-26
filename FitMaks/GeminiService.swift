@@ -196,42 +196,22 @@ class GeminiService {
     }
     
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
-        let hasImage = image != nil
-        let hasComment = !userComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-
-        let labelReadingRule = """
-        LABEL READING: When a photo is attached, read EVERY number on the label exactly as printed. \
-        Look for: per-piece/per-slice weight (e.g. "1 slice = 30g"), nutrition per 100g, and total package weight. \
-        Use the EXACT values from the label — do NOT estimate or round. \
-        Calculate the ingredient's calories and protein from (weight × per-100g values / 100).
-        """
-
-        let userInput: String
-        if hasComment && hasImage {
-            userInput = "The user says: \"\(userComment)\" and attached a photo (likely a nutrition label or product package). Use BOTH the text and the photo to update the data.\n\(labelReadingRule)"
-        } else if hasImage {
-            userInput = "The user attached a photo without text. This is a nutrition label or product package.\n\(labelReadingRule)\nFind the matching ingredient in the breakdown and update its row with the real label data. If no ingredient matches, add it as a new row."
-        } else {
-            userInput = "The user says: \"\(userComment)\". Apply this command to update the data."
-        }
+        let comment = userComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effectiveCommand = comment.isEmpty && image != nil
+            ? "Read the attached nutrition label / package and update the data with exact values from it."
+            : comment
 
         let prompt = """
         ACT AS NUTRITIONIST.
         CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot.
         BREAKDOWN: \(currentData.ingredients_breakdown).
-
-        \(userInput)
-
-        CRITICAL RULES:
-        - Keep ALL existing ingredients unless the user explicitly asks to remove one. Never drop rows.
-        - If the user or photo provides real nutrition data for an ingredient, update that ingredient's row with the corrected values.
-        - The top-level calories and protein MUST equal the sum of the ingredient rows.
-        - Even if the user asks a question, YOU MUST return valid JSON with ALL ingredients. Answer in 'ai_response_text' only.
-
-        Return ONLY JSON: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot\\nItem2;Weight;Kcal;Prot", "ai_response_text": "your answer"}
+        USER COMMAND: "\(effectiveCommand)".
+        CRITICAL RULE: Re-calculate totals based on user command.
+        Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
+        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, maxImageDimension: 1280) { [weak self] result, error in
+        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
             completion(result.map { self?.stabilizedFoodResult($0) ?? $0 }, error)
         }
     }
@@ -360,7 +340,6 @@ class GeminiService {
         temperature: Double = 0.2,
         topP: Double? = nil,
         topK: Int? = nil,
-        maxImageDimension: CGFloat = 768,
         completion: @escaping (T?, String?) -> Void
     ) {
         func finish(_ result: T?, _ error: String?) {
@@ -377,8 +356,7 @@ class GeminiService {
         }
 
         var parts: [[String: Any]] = [["text": prompt]]
-        let imageQuality = maxImageDimension > 768 ? 0.7 : 0.5
-        for image in images { if let data = image.resized(toMaxDimension: maxImageDimension).jpegData(compressionQuality: imageQuality)?.base64EncodedString() { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": data]]) } }
+        for image in images { if let data = image.resized(toMaxDimension: 768).jpegData(compressionQuality: 0.5)?.base64EncodedString() { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": data]]) } }
 
         guard
             var components = URLComponents(string: baseUrl)

@@ -393,31 +393,55 @@ class GeminiService {
 
         request.httpBody = bodyData
 
+        performRequest(request, responseType: responseType, retriesRemaining: 2, completion: finish)
+    }
+
+    private func performRequest<T: Decodable>(
+        _ request: URLRequest,
+        responseType: T.Type,
+        retriesRemaining: Int,
+        completion: @escaping (T?, String?) -> Void
+    ) {
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                finish(nil, self.userFacingErrorMessage(error.localizedDescription))
+            if let error {
+                if retriesRemaining > 0, self.isRetryableError(error) {
+                    let delay = Double(3 - retriesRemaining)
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+                completion(nil, self.userFacingErrorMessage(error.localizedDescription))
                 return
             }
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                finish(nil, "No response from Gemini.")
+                completion(nil, "No response from Gemini.")
                 return
             }
 
-            guard let data = data else {
-                finish(nil, "Gemini returned an empty response.")
+            guard let data else {
+                completion(nil, "Gemini returned an empty response.")
                 return
             }
 
             if !(200...299).contains(httpResponse.statusCode) {
+                if retriesRemaining > 0, self.isRetryableStatusCode(httpResponse.statusCode) {
+                    let delay = Double(3 - retriesRemaining)
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+
                 if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
-                    finish(nil, apiError.error.message ?? "Gemini request failed with code \(httpResponse.statusCode).")
+                    completion(nil, apiError.error.message ?? "Gemini request failed with code \(httpResponse.statusCode).")
                     return
                 }
 
                 let responseText = String(data: data, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                finish(nil, responseText?.isEmpty == false ? responseText : "Gemini request failed with code \(httpResponse.statusCode).")
+                completion(nil, responseText?.isEmpty == false ? responseText : "Gemini request failed with code \(httpResponse.statusCode).")
                 return
             }
 
@@ -429,9 +453,9 @@ class GeminiService {
                 let rawText = resultParts.first?["text"] as? String
             else {
                 if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
-                    finish(nil, apiError.error.message ?? "Invalid Gemini response.")
+                    completion(nil, apiError.error.message ?? "Invalid Gemini response.")
                 } else {
-                    finish(nil, "Invalid Gemini response.")
+                    completion(nil, "Invalid Gemini response.")
                 }
                 return
             }
@@ -448,17 +472,32 @@ class GeminiService {
                 let end = cleanText.lastIndex(of: "}"),
                 let finalData = String(cleanText[start...end]).data(using: .utf8)
             else {
-                finish(nil, "Gemini returned invalid JSON.")
+                completion(nil, "Gemini returned invalid JSON.")
                 return
             }
 
             do {
                 let decoded = try JSONDecoder().decode(T.self, from: finalData)
-                finish(decoded, nil)
+                completion(decoded, nil)
             } catch {
-                finish(nil, "Failed to decode Gemini response.")
+                completion(nil, "Failed to decode Gemini response.")
             }
         }.resume()
+    }
+
+    private func isRetryableError(_ error: Error) -> Bool {
+        let code = (error as NSError).code
+        return [
+            NSURLErrorTimedOut,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorDNSLookupFailed
+        ].contains(code)
+    }
+
+    private func isRetryableStatusCode(_ code: Int) -> Bool {
+        [429, 500, 502, 503, 504].contains(code)
     }
 
     private func userFacingErrorMessage(_ message: String) -> String {

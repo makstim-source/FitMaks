@@ -13,8 +13,11 @@ struct MyFoodView: View {
     var initialTab: Int
     var selectedDate: Date
     @Binding var processingItems: [ProcessingItem]
+    @Binding var pendingAIReview: AIResultReview?
     var onProcessQueue: ([ProcessingItem]) -> Void
     var onScanReceiptQueue: ([ProcessingItem]) -> Void
+    var onConfirmReview: (AIResultReview, [AIReviewFoodItem]) -> Void
+    var onRecalculateReview: (AIResultReview) -> Void
     
     @State private var isShowingSourceDialog = false
     @State private var isShowingReceiptSourceDialog = false
@@ -152,6 +155,19 @@ struct MyFoodView: View {
             }
             .sheet(isPresented: $showRecipeSuggestions) { RecipeSuggestionsView(recipes: suggestedRecipes, selectedDate: selectedDate) }
             .sheet(item: $selectedRecipeToShow) { rec in RecipeSheet(recipe: rec, isPreSaved: true, selectedDate: selectedDate) }
+            .sheet(item: $pendingAIReview) { review in
+                AIResultReviewSheet(
+                    review: review,
+                    onCancel: { pendingAIReview = nil },
+                    onRecalculate: { onRecalculateReview(review) },
+                    onConfirm: { items in
+                        onConfirmReview(review, items)
+                        pendingAIReview = nil
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
             .onAppear { if isSelectionMode { currentTab = initialTab } }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)

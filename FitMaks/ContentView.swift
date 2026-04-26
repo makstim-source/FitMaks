@@ -345,8 +345,11 @@ struct ContentView: View {
                 initialTab: initialMyFoodTab,
                 selectedDate: selectedDate,
                 processingItems: $fridgeProcessingItems,
+                pendingAIReview: $pendingAIReview,
                 onProcessQueue: processFridgeQueue,
-                onScanReceiptQueue: processReceiptQueue
+                onScanReceiptQueue: processReceiptQueue,
+                onConfirmReview: { review, items in confirmAIReview(review, selectedItems: items) },
+                onRecalculateReview: { review in retryReviewIgnoringCache(review) }
             )
         }
         .sheet(isPresented: $isShowingProfile) {
@@ -409,7 +412,10 @@ struct ContentView: View {
         } message: {
             Text(aiErrorMessage ?? "The AI request failed.")
         }
-        .sheet(item: $pendingAIReview) { review in
+        .sheet(item: Binding<AIResultReview?>(
+            get: { isShowingMyFood ? nil : pendingAIReview },
+            set: { pendingAIReview = $0 }
+        )) { review in
             AIResultReviewSheet(
                 review: review,
                 onCancel: { pendingAIReview = nil },

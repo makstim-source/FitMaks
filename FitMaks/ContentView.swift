@@ -2,14 +2,14 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-// MARK: - 🔥 ГЛАВНЫЙ ЭКРАН 🔥
+// MARK: - Main Home Screen
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContext) var modelContext
     @Query(sort: \FoodEntry.date, order: .forward) var allFoodEntries: [FoodEntry]
     @Query(sort: \TrainingEntry.date, order: .forward) var allTrainingEntries: [TrainingEntry]
     @Query var allDailySetups: [DailySetup]
-    @Query var favorites: [FavoriteFood] // 🔥 Достаем холодильник
-    
+    @Query var favorites: [FavoriteFood]
+
     @AppStorage("userGender") private var gender: String = "Male"
     @AppStorage("userAge") private var age: Int = 30
     @AppStorage("userWeight") private var weight: Double = 80.0
@@ -20,20 +20,36 @@ struct ContentView: View {
     @AppStorage("customCalories") private var customCalories: Double = 0.0
     @AppStorage("customProtein") private var customProtein: Double = 0.0
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
-    
-    @State private var pickingMode: EntryMode = .food
-    @State private var selectedDate = Date()
-    @State private var isShowingSourceDialog = false; @State private var isShowingCamera = false; @State private var selectedCameraImage: UIImage?; @State private var isShowingPhotoPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []; @State private var isShowingTextEntry = false; @State private var manualText = ""
-    @State private var processingItems: [ProcessingItem] = []; @State private var fridgeProcessingItems: [ProcessingItem] = []; @State private var selectedEntryForEdit: FoodEntry?
-    
-    @State private var isShowingCalendar = false; @State private var dailySteps: Double = 0; @State private var homeWeeklySteps: [String: Double] = [:]; @State private var isShowingMyFood = false; @State private var isSelectionModeForFridge = false; @State private var initialMyFoodTab = 0; @State private var isShowingProfile = false; @State private var isShowingStats = false
+
+    @State var pickingMode: EntryMode = .food
+    @State var selectedDate = Date()
+    @State private var isShowingSourceDialog = false
+    @State private var isShowingCamera = false
+    @State var selectedCameraImage: UIImage?
+    @State private var isShowingPhotoPicker = false
+    @State var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var isShowingTextEntry = false
+    @State var manualText = ""
+    @State var processingItems: [ProcessingItem] = []
+    @State var fridgeProcessingItems: [ProcessingItem] = []
+    @State private var selectedEntryForEdit: FoodEntry?
+    @State private var isShowingCalendar = false
+    @State private var dailySteps: Double = 0
+    @State private var homeWeeklySteps: [String: Double] = [:]
+    @State private var isShowingMyFood = false
+    @State private var isSelectionModeForFridge = false
+    @State private var initialMyFoodTab = 0
+    @State private var isShowingProfile = false
+    @State private var isShowingStats = false
     @State private var isShowingAIAssistant = false
-    @State private var isShowingGoalBreakdown = false
-    @State private var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
-    @State private var aiErrorMessage: String?
-    @State private var pendingAIReview: AIResultReview?
-    @State private var lastKnownBaseCaloriesGoal: Double = 0
-    @State private var lastKnownBaseProteinGoal: Double = 0
+    @State var isShowingGoalBreakdown = false
+    @State var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
+    @State var aiErrorMessage: String?
+    @State var pendingAIReview: AIResultReview?
+    @State var lastKnownBaseCaloriesGoal: Double = 0
+    @State var lastKnownBaseProteinGoal: Double = 0
+
+    // MARK: - Day Mode
 
     var currentDayMode: DayMode { dayMode(for: selectedDate) }
 
@@ -67,7 +83,9 @@ struct ContentView: View {
         let id = DateFormatter.yyyyMMdd.string(from: date)
         return allDailySetups.first(where: { $0.dateID == id })
     }
-    
+
+    // MARK: - Goals & Targets
+
     var calculatedProtein: Double {
         NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
     }
@@ -114,7 +132,9 @@ struct ContentView: View {
 
         return ids.sorted().joined(separator: "|")
     }
-    
+
+    // MARK: - Daily Data
+
     var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
     var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
@@ -152,7 +172,11 @@ struct ContentView: View {
         let trainingSignature = todayTrainingEntries.map { "\($0.id.uuidString):\(Int($0.caloriesBurned)):\(Int($0.steps ?? 0))" }.joined(separator: "|")
         return "\(DateFormatter.yyyyMMdd.string(from: Date()))#\(foodSignature)#\(trainingSignature)#\(Int(todayStepsForNotifications))#\(todayMode.rawValue)#\(Int(baseProteinGoal))"
     }
-    var dailyFeed: [TimelineItem] { let foods = dailyFoodEntries.map { TimelineItem.food($0) }; let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }; return (foods + trainings).sorted { $0.createdAt > $1.createdAt } }
+    var dailyFeed: [TimelineItem] {
+        let foods = dailyFoodEntries.map { TimelineItem.food($0) }
+        let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }
+        return (foods + trainings).sorted { $0.createdAt > $1.createdAt }
+    }
     var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
@@ -211,6 +235,8 @@ struct ContentView: View {
         return AchievementEngine.homePerfectStreak(in: recentDays)
     }
 
+    // MARK: - Body
+
     var body: some View {
         ZStack {
             homeBackground
@@ -223,16 +249,43 @@ struct ContentView: View {
             }
             .padding(.top, 8)
             .blur(radius: selectedEntryForEdit != nil ? 15 : 0)
-            
-            if let entry = selectedEntryForEdit { Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedEntryForEdit = nil } }; AIChatEditView(entry: entry, onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } }, onDone: { withAnimation { selectedEntryForEdit = nil } }).transition(.scale(scale: 0.9).combined(with: .opacity)) }
+
+            if let entry = selectedEntryForEdit {
+                Color.black.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture { withAnimation { selectedEntryForEdit = nil } }
+                AIChatEditView(
+                    entry: entry,
+                    onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } },
+                    onDone: { withAnimation { selectedEntryForEdit = nil } }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
         }
         .onAppear {
             initializeGoalSnapshotTracking()
-            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } }
-            HealthKitManager.shared.fetchWeeklySteps { steps in DispatchQueue.main.async { self.homeWeeklySteps = steps; self.syncDailyReminders() } }
+            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in
+                DispatchQueue.main.async {
+                    self.dailySteps = steps
+                    self.syncDailyReminders()
+                }
+            }
+            HealthKitManager.shared.fetchWeeklySteps { steps in
+                DispatchQueue.main.async {
+                    self.homeWeeklySteps = steps
+                    self.syncDailyReminders()
+                }
+            }
             syncDailyReminders()
         }
-        .onChange(of: selectedDate) { _, newDate in HealthKitManager.shared.fetchSteps(for: newDate) { steps in DispatchQueue.main.async { self.dailySteps = steps; self.syncDailyReminders() } } }
+        .onChange(of: selectedDate) { _, newDate in
+            HealthKitManager.shared.fetchSteps(for: newDate) { steps in
+                DispatchQueue.main.async {
+                    self.dailySteps = steps
+                    self.syncDailyReminders()
+                }
+            }
+        }
         .onChange(of: goalSnapshotSignature) { _, _ in
             preserveMissingPastGoalSnapshots(
                 baseCalories: lastKnownBaseCaloriesGoal,
@@ -263,7 +316,9 @@ struct ContentView: View {
             Button("Analyze") { submitManualFoodText() }
             Button("Cancel", role: .cancel) { manualText = "" }
         }
-        .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
+        .fullScreenCover(isPresented: $isShowingCamera) {
+            ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera)
+        }
         .onChange(of: selectedCameraImage) { _, newValue in
             handleCameraImage(newValue)
         }
@@ -271,11 +326,47 @@ struct ContentView: View {
         .onChange(of: selectedPhotoItems) { _, newItems in
             handleSelectedPhotoItems(newItems)
         }
-        .sheet(isPresented: $isShowingCalendar) { CustomCalendarView(selectedDate: $selectedDate, allEntries: allFoodEntries, allTrainingEntries: allTrainingEntries, baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal, targetSteps: targetSteps, allSetups: allDailySetups).presentationDetents([.large]).presentationDragIndicator(.visible) }
-        .sheet(isPresented: $isShowingMyFood) { MyFoodView(isSelectionMode: isSelectionModeForFridge, initialTab: initialMyFoodTab, selectedDate: selectedDate, processingItems: $fridgeProcessingItems, onProcessQueue: processFridgeQueue, onScanReceiptQueue: processReceiptQueue) }
-        .sheet(isPresented: $isShowingProfile) { ProfileView(gender: $gender, age: $age, weight: $weight, height: $height, goal: $goal, activityLevel: $activityLevel, useCustomGoals: $useCustomGoals, customCalories: $customCalories, customProtein: $customProtein, calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein) }
-        .sheet(isPresented: $isShowingStats) { StatsView(allFoodEntries: allFoodEntries, allTrainingEntries: allTrainingEntries, allSetups: allDailySetups, baseCalories: useCustomGoals ? customCalories : calculatedCalories, baseProtein: baseProteinGoal) }
-        // 🔥 ПЕРЕДАЕМ ДАТУ И ХОЛОДИЛЬНИК В ИИ-ТРЕНЕР 🔥
+        .sheet(isPresented: $isShowingCalendar) {
+            CustomCalendarView(
+                selectedDate: $selectedDate,
+                allEntries: allFoodEntries,
+                allTrainingEntries: allTrainingEntries,
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal,
+                targetSteps: targetSteps,
+                allSetups: allDailySetups
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingMyFood) {
+            MyFoodView(
+                isSelectionMode: isSelectionModeForFridge,
+                initialTab: initialMyFoodTab,
+                selectedDate: selectedDate,
+                processingItems: $fridgeProcessingItems,
+                onProcessQueue: processFridgeQueue,
+                onScanReceiptQueue: processReceiptQueue
+            )
+        }
+        .sheet(isPresented: $isShowingProfile) {
+            ProfileView(
+                gender: $gender, age: $age, weight: $weight, height: $height,
+                goal: $goal, activityLevel: $activityLevel,
+                useCustomGoals: $useCustomGoals,
+                customCalories: $customCalories, customProtein: $customProtein,
+                calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein
+            )
+        }
+        .sheet(isPresented: $isShowingStats) {
+            StatsView(
+                allFoodEntries: allFoodEntries,
+                allTrainingEntries: allTrainingEntries,
+                allSetups: allDailySetups,
+                baseCalories: useCustomGoals ? customCalories : calculatedCalories,
+                baseProtein: baseProteinGoal
+            )
+        }
         .sheet(isPresented: $isShowingAIAssistant) {
             AIAssistantView(
                 selectedDate: selectedDate,
@@ -333,8 +424,7 @@ struct ContentView: View {
         }
     }
 
-    func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); if let icon = UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 60, weight: .bold))?.withTintColor(UIColor(color), renderingMode: .alwaysOriginal) { icon.draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: (size.height - icon.size.height) / 2)) } } }
-    func generateEmojiIcon(emoji: String) -> UIImage { let size = CGSize(width: 150, height: 150); let renderer = UIGraphicsImageRenderer(size: size); return renderer.image { _ in UIColor(white: 0.15, alpha: 1.0).setFill(); UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 25).fill(); let safeEmoji = emoji.isEmpty ? "🍽️" : emoji; let nsString = safeEmoji as NSString; let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 75)]; let stringSize = nsString.size(withAttributes: attributes); nsString.draw(at: CGPoint(x: (size.width - stringSize.width) / 2, y: (size.height - stringSize.height) / 2), withAttributes: attributes) } }
+    // MARK: - UI Components
 
     private var homeBackground: some View {
         HomeBackground()
@@ -661,728 +751,5 @@ struct ContentView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .blur(radius: 0.5)
         )
-    }
-
-    private func modeLabel(_ mode: DayMode) -> String {
-        switch mode {
-        case .chill:
-            return "Chill"
-        case .cardio:
-            return "Cardio"
-        case .gym:
-            return "Gym"
-        case .cardioGym:
-            return "Both"
-        }
-    }
-
-    private func submitManualFoodText() {
-        guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
-        }
-
-        let textImage = generatePlaceholderIcon(systemName: "brain", color: .neonGreen)
-        let item = ProcessingItem(
-            images: [textImage],
-            textPrompt: manualText,
-            isTraining: false,
-            targetDate: selectedDate
-        )
-
-        enqueueHomeProcessingItem(item)
-        processQueue(items: [item])
-        manualText = ""
-    }
-
-    private func handleCameraImage(_ image: UIImage?) {
-        guard let image else {
-            return
-        }
-
-        let item = ProcessingItem(
-            images: [image.preparedForAIIntake()],
-            isTraining: pickingMode == .training,
-            targetDate: selectedDate
-        )
-
-        enqueueHomeProcessingItem(item)
-        processHomeProcessingItem(item)
-        selectedCameraImage = nil
-    }
-
-    private func handleSelectedPhotoItems(_ items: [PhotosPickerItem]) {
-        guard !items.isEmpty else {
-            return
-        }
-
-        let targetDate = selectedDate
-        let isTraining = pickingMode == .training
-
-        Task {
-            var loadedImages: [UIImage] = []
-            for item in items {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    loadedImages.append(image.preparedForAIIntake())
-                }
-            }
-
-            await MainActor.run {
-                selectedPhotoItems.removeAll()
-                guard !loadedImages.isEmpty else {
-                    return
-                }
-
-                let item = ProcessingItem(
-                    images: loadedImages,
-                    isTraining: isTraining,
-                    targetDate: targetDate
-                )
-
-                enqueueHomeProcessingItem(item)
-                processHomeProcessingItem(item)
-            }
-        }
-    }
-
-    private func enqueueHomeProcessingItem(_ item: ProcessingItem) {
-        withAnimation {
-            processingItems.append(item)
-        }
-    }
-
-    private func processHomeProcessingItem(_ item: ProcessingItem) {
-        if item.isTraining {
-            processTrainingQueue(items: [item])
-        } else {
-            processQueue(items: [item])
-        }
-    }
-
-    private func openGoalBreakdown(_ section: DailyGoalBreakdownSection) {
-        selectedGoalBreakdownSection = section
-        isShowingGoalBreakdown = true
-    }
-
-    func processQueue(items: [ProcessingItem]) {
-        Task {
-            await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
-                for item in items {
-                    group.addTask {
-                        let (results, error) = await AIProcessingEngine.analyzeFood(for: item)
-                        return (item.id, results, error)
-                    }
-                }
-
-                for await (id, results, error) in group {
-                    await MainActor.run {
-                        guard let item = finishProcessingItem(id: id, from: &processingItems) else {
-                            return
-                        }
-
-                        let originalImage = item.images.first ?? UIImage()
-                        let entryDate = item.targetDate ?? selectedDate
-
-                        guard let results, !results.isEmpty else {
-                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Food analysis failed. Please try again.")
-                            return
-                        }
-
-                        stageFoodResultsIfNeeded(
-                            results,
-                            originalItem: item,
-                            originalImage: originalImage,
-                            targetDate: entryDate
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    func processTrainingQueue(items: [ProcessingItem]) {
-        Task {
-            await withTaskGroup(of: (UUID, TrainingResult?, String?).self) { group in
-                for item in items {
-                    group.addTask {
-                        let (result, error) = await AIProcessingEngine.analyzeTraining(for: item)
-                        return (item.id, result, error)
-                    }
-                }
-
-                for await (id, result, error) in group {
-                    await MainActor.run {
-                        guard let item = finishProcessingItem(id: id, from: &processingItems) else {
-                            return
-                        }
-
-                        let processedImage = item.images.first ?? UIImage()
-                        let entryDate = item.targetDate ?? selectedDate
-
-                        guard let result else {
-                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Workout analysis failed. Please try again.")
-                            return
-                        }
-
-                        let entry = TrainingEntry(
-                            image: processedImage,
-                            name: result.activity_name,
-                            caloriesBurned: result.calories_burned,
-                            steps: result.steps,
-                            duration: result.duration,
-                            date: entryDate
-                        )
-
-                        withAnimation(.spring()) {
-                            snapshotPastGoalsIfNeeded(for: entryDate)
-                            modelContext.insert(entry)
-                            applyTrainingModeSuggestion(from: result, for: entryDate)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    func processFridgeQueue(items: [ProcessingItem]) {
-        Task {
-            await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
-                for item in items {
-                    group.addTask {
-                        let (results, error) = await AIProcessingEngine.analyzeFood(for: item)
-                        return (item.id, results, error)
-                    }
-                }
-
-                for await (id, results, error) in group {
-                    await MainActor.run {
-                        guard let item = finishProcessingItem(id: id, from: &fridgeProcessingItems) else {
-                            return
-                        }
-
-                        let originalImage = item.images.first ?? UIImage()
-
-                        guard let results, !results.isEmpty else {
-                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "My Food analysis failed. Please try again.")
-                            return
-                        }
-
-                        stageLibraryResultsIfNeeded(
-                            results,
-                            originalItem: item,
-                            originalImage: originalImage
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    func processReceiptQueue(items: [ProcessingItem]) {
-        Task {
-            await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
-                for item in items {
-                    group.addTask {
-                        let (results, error) = await AIProcessingEngine.scanReceipt(for: item)
-                        return (item.id, results, error)
-                    }
-                }
-
-                for await (id, results, error) in group {
-                    await MainActor.run {
-                        guard let item = finishProcessingItem(id: id, from: &fridgeProcessingItems) else {
-                            return
-                        }
-
-                        guard let results, !results.isEmpty else {
-                            aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Receipt scan failed. Please try again.")
-                            return
-                        }
-
-                        stageReceiptResultsIfNeeded(results, originalItem: item)
-                    }
-                }
-            }
-        }
-    }
-
-    private func deleteFoodEntry(_ entry: FoodEntry) {
-        GeminiService.shared.invalidateFoodImageCache(for: entry.uiImage)
-        modelContext.delete(entry)
-    }
-
-    private func stageFoodResultsIfNeeded(
-        _ results: [FoodResult],
-        originalItem: ProcessingItem,
-        originalImage: UIImage,
-        targetDate: Date
-    ) {
-        if results.count > 1 {
-            presentAIReview(
-                results: results,
-                originalItem: originalItem,
-                originalImage: originalImage,
-                destination: .diary(targetDate)
-            )
-            return
-        }
-
-        addFoodResults(results, originalItem: originalItem, originalImage: originalImage, targetDate: targetDate)
-    }
-
-    private func stageLibraryResultsIfNeeded(
-        _ results: [FoodResult],
-        originalItem: ProcessingItem,
-        originalImage: UIImage
-    ) {
-        if results.count > 1 {
-            presentAIReview(
-                results: results,
-                originalItem: originalItem,
-                originalImage: originalImage,
-                destination: originalItem.targetTab == 1 ? .meals : .fridge
-            )
-            return
-        }
-
-        addLibraryResults(results, originalItem: originalItem, originalImage: originalImage)
-    }
-
-    private func stageReceiptResultsIfNeeded(_ results: [FoodResult], originalItem: ProcessingItem) {
-        if results.count > 1 {
-            presentAIReview(
-                results: results,
-                originalItem: originalItem,
-                originalImage: originalItem.images.first ?? UIImage(),
-                destination: .receipt
-            )
-            return
-        }
-
-        addReceiptResults(results)
-    }
-
-    private func presentAIReview(
-        results: [FoodResult],
-        originalItem: ProcessingItem,
-        originalImage: UIImage,
-        destination: AIResultDestination
-    ) {
-        let review = AIResultReview.make(
-            results: results,
-            originalItem: originalItem,
-            originalImage: originalImage,
-            destination: destination,
-            imageForResult: { item, result, index, fallback in
-                resolvedImage(item: item, result: result, resultIndex: index, fallbackImage: fallback)
-            }
-        )
-
-        let status = ProcessingItem(
-            images: [originalImage],
-            targetTab: originalItem.targetTab,
-            targetDate: originalItem.targetDate,
-            statusTitle: "Found \(review.items.count) items"
-        )
-
-        withAnimation(.spring()) {
-            if destination.usesFridgeQueue {
-                fridgeProcessingItems.append(status)
-            } else {
-                processingItems.append(status)
-            }
-        }
-
-        Task {
-            try? await Task.sleep(nanoseconds: 650_000_000)
-
-            await MainActor.run {
-                if destination.usesFridgeQueue {
-                    removeProcessingItems(ids: [status.id], from: &fridgeProcessingItems)
-                } else {
-                    removeProcessingItems(ids: [status.id], from: &processingItems)
-                }
-
-                pendingAIReview = review
-            }
-        }
-    }
-
-    private func retryReviewIgnoringCache(_ review: AIResultReview) {
-        pendingAIReview = nil
-
-        let status = ProcessingItem(
-            images: [review.originalImage],
-            targetTab: review.originalItem.targetTab,
-            targetDate: review.originalItem.targetDate,
-            statusTitle: "Recalculating fresh..."
-        )
-
-        withAnimation(.spring()) {
-            if review.destination.usesFridgeQueue {
-                fridgeProcessingItems.append(status)
-            } else {
-                processingItems.append(status)
-            }
-        }
-
-        Task {
-            let (results, error) = review.destination == .receipt
-                ? await AIProcessingEngine.scanReceipt(for: review.originalItem)
-                : await AIProcessingEngine.analyzeFood(for: review.originalItem, ignoreCache: true)
-
-            await MainActor.run {
-                if review.destination.usesFridgeQueue {
-                    removeProcessingItems(ids: [status.id], from: &fridgeProcessingItems)
-                } else {
-                    removeProcessingItems(ids: [status.id], from: &processingItems)
-                }
-
-                guard let results, !results.isEmpty else {
-                    aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Fresh AI analysis failed. Please try again.")
-                    return
-                }
-
-                if results.count > 1 {
-                    presentAIReview(
-                        results: results,
-                        originalItem: review.originalItem,
-                        originalImage: review.originalImage,
-                        destination: review.destination
-                    )
-                } else {
-                    switch review.destination {
-                    case .diary(let targetDate):
-                        addFoodResults(results, originalItem: review.originalItem, originalImage: review.originalImage, targetDate: targetDate)
-                    case .fridge, .meals:
-                        addLibraryResults(results, originalItem: review.originalItem, originalImage: review.originalImage)
-                    case .receipt:
-                        addReceiptResults(results)
-                    }
-                }
-            }
-        }
-    }
-
-    private func confirmAIReview(_ review: AIResultReview, selectedItems: [AIReviewFoodItem]) {
-        guard !selectedItems.isEmpty else { return }
-
-        showAddingStatus(review.addingStatus, image: review.originalImage, usesFridgeQueue: review.destination.usesFridgeQueue)
-
-        withAnimation(.spring()) {
-            for item in selectedItems {
-                switch review.destination {
-                case .diary(let targetDate):
-                    snapshotPastGoalsIfNeeded(for: targetDate)
-                    modelContext.insert(FoodEntry(
-                        image: item.image,
-                        name: item.name,
-                        calories: item.calories,
-                        protein: item.protein,
-                        ingredients: item.ingredients,
-                        date: targetDate
-                    ))
-                case .fridge, .receipt:
-                    modelContext.insert(FavoriteFood(
-                        image: item.image,
-                        name: item.name,
-                        calories: item.calories,
-                        protein: item.protein,
-                        ingredients: item.ingredients
-                    ))
-                case .meals:
-                    modelContext.insert(SavedRecipe(
-                        image: item.image,
-                        name: item.name,
-                        instructions: "",
-                        calories: item.calories,
-                        protein: item.protein,
-                        ingredients: item.ingredients
-                    ))
-                }
-            }
-        }
-    }
-
-    private func addFoodResults(
-        _ results: [FoodResult],
-        originalItem: ProcessingItem,
-        originalImage: UIImage,
-        targetDate: Date
-    ) {
-        showAddingStatus("Adding to \(shortDayLabel(targetDate))", image: originalImage, usesFridgeQueue: false)
-
-        withAnimation(.spring()) {
-            snapshotPastGoalsIfNeeded(for: targetDate)
-
-            for (resultIndex, result) in results.enumerated() {
-                let image = resolvedImage(
-                    item: originalItem,
-                    result: result,
-                    resultIndex: resultIndex,
-                    fallbackImage: originalImage
-                )
-                modelContext.insert(FoodEntry(
-                    image: image,
-                    name: result.food_name,
-                    calories: result.calories,
-                    protein: result.protein,
-                    ingredients: result.ingredients_breakdown,
-                    date: targetDate
-                ))
-            }
-        }
-    }
-
-    private func addLibraryResults(_ results: [FoodResult], originalItem: ProcessingItem, originalImage: UIImage) {
-        showAddingStatus(originalItem.targetTab == 1 ? "Saving to Meals" : "Saving to Fridge", image: originalImage, usesFridgeQueue: true)
-
-        withAnimation(.spring()) {
-            for (resultIndex, result) in results.enumerated() {
-                let image = resolvedImage(
-                    item: originalItem,
-                    result: result,
-                    resultIndex: resultIndex,
-                    fallbackImage: originalImage
-                )
-
-                if originalItem.targetTab == 1 {
-                    modelContext.insert(SavedRecipe(
-                        image: image,
-                        name: result.food_name,
-                        instructions: "",
-                        calories: result.calories,
-                        protein: result.protein,
-                        ingredients: result.ingredients_breakdown
-                    ))
-                } else {
-                    modelContext.insert(FavoriteFood(
-                        image: image,
-                        name: result.food_name,
-                        calories: result.calories,
-                        protein: result.protein,
-                        ingredients: result.ingredients_breakdown
-                    ))
-                }
-            }
-        }
-    }
-
-    private func resolvedImage(
-        item: ProcessingItem,
-        result: FoodResult,
-        resultIndex: Int,
-        fallbackImage: UIImage
-    ) -> UIImage {
-        AIResultImageResolver.image(
-            for: item,
-            result: result,
-            resultIndex: resultIndex,
-            fallbackImage: fallbackImage,
-            emojiImage: { generateEmojiIcon(emoji: $0) }
-        )
-    }
-
-    private func addReceiptResults(_ results: [FoodResult]) {
-        showAddingStatus("Saving to Fridge", image: generateEmojiIcon(emoji: "🛒"), usesFridgeQueue: true)
-
-        withAnimation(.spring()) {
-            for result in results {
-                modelContext.insert(FavoriteFood(
-                    image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
-                    name: result.food_name,
-                    calories: result.calories,
-                    protein: result.protein,
-                    ingredients: result.ingredients_breakdown
-                ))
-            }
-        }
-    }
-
-    private func showAddingStatus(_ title: String, image: UIImage, usesFridgeQueue: Bool) {
-        let item = ProcessingItem(images: [image.preparedForAppStorage()], statusTitle: title)
-
-        withAnimation(.spring()) {
-            if usesFridgeQueue {
-                fridgeProcessingItems.append(item)
-            } else {
-                processingItems.append(item)
-            }
-        }
-
-        Task {
-            try? await Task.sleep(nanoseconds: 650_000_000)
-            await MainActor.run {
-                if usesFridgeQueue {
-                    removeProcessingItems(ids: [item.id], from: &fridgeProcessingItems)
-                } else {
-                    removeProcessingItems(ids: [item.id], from: &processingItems)
-                }
-            }
-        }
-    }
-
-    private func shortDayLabel(_ date: Date) -> String {
-        if Calendar.current.isDateInToday(date) {
-            return "Today"
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-
-    private func removeProcessingItems(ids: [UUID], from items: inout [ProcessingItem]) {
-        let idSet = Set(ids)
-        withAnimation(.easeInOut) {
-            items.removeAll { idSet.contains($0.id) }
-        }
-    }
-
-    private func finishProcessingItem(id: UUID, from items: inout [ProcessingItem]) -> ProcessingItem? {
-        guard let index = items.firstIndex(where: { $0.id == id }) else {
-            return nil
-        }
-
-        let item = items[index]
-        withAnimation(.easeInOut) {
-            _ = items.remove(at: index)
-        }
-        return item
-    }
-
-    private func initializeGoalSnapshotTracking() {
-        guard lastKnownBaseCaloriesGoal == 0 || lastKnownBaseProteinGoal == 0 else {
-            return
-        }
-
-        lastKnownBaseCaloriesGoal = baseCaloriesGoal
-        lastKnownBaseProteinGoal = baseProteinGoal
-        preserveMissingPastGoalSnapshots(
-            baseCalories: baseCaloriesGoal,
-            baseProtein: baseProteinGoal
-        )
-    }
-
-    private func shouldSnapshotGoals(for date: Date) -> Bool {
-        date < Calendar.current.startOfDay(for: Date())
-    }
-
-    private func snapshotPastGoalsIfNeeded(for date: Date) {
-        guard shouldSnapshotGoals(for: date) else {
-            return
-        }
-
-        let id = DateFormatter.yyyyMMdd.string(from: date)
-
-        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
-            existing.applyGoalSnapshotIfNeeded(
-                baseCalories: baseCaloriesGoal,
-                baseProtein: baseProteinGoal
-            )
-        } else {
-            modelContext.insert(DailySetup(
-                date: date,
-                mode: dayMode(for: date),
-                baseCalories: baseCaloriesGoal,
-                baseProtein: baseProteinGoal
-            ))
-        }
-    }
-
-    private func preserveMissingPastGoalSnapshots(baseCalories: Double, baseProtein: Double) {
-        guard baseCalories > 0, baseProtein > 0 else {
-            return
-        }
-
-        for date in loggedPastDatesWithActivity() {
-            let id = DateFormatter.yyyyMMdd.string(from: date)
-
-            if let existing = allDailySetups.first(where: { $0.dateID == id }) {
-                existing.applyGoalSnapshotIfNeeded(
-                    baseCalories: baseCalories,
-                    baseProtein: baseProtein
-                )
-            } else {
-                modelContext.insert(DailySetup(
-                    date: date,
-                    mode: .chill,
-                    baseCalories: baseCalories,
-                    baseProtein: baseProtein
-                ))
-            }
-        }
-    }
-
-    private func loggedPastDatesWithActivity() -> [Date] {
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
-        let dates = allFoodEntries.map(\.date) + allTrainingEntries.map(\.date)
-        var uniqueByDay: [String: Date] = [:]
-
-        for date in dates where date < todayStart {
-            let day = calendar.startOfDay(for: date)
-            uniqueByDay[DateFormatter.yyyyMMdd.string(from: day)] = day
-        }
-
-        return uniqueByDay.values.sorted()
-    }
-
-    private func syncDailyReminders() {
-        DailyReminderManager.shared.syncDailyReminders(
-            progressToday: todayProgressForNotifications,
-            hasFoodToday: !todayFoodEntries.isEmpty
-        )
-    }
-
-    private func applyTrainingModeSuggestion(from result: TrainingResult, for date: Date) {
-        guard let suggestedMode = suggestedDayMode(from: result) else {
-            return
-        }
-
-        let mergedMode = dayMode(for: date).merged(with: suggestedMode)
-        setDayMode(mergedMode, for: date)
-    }
-
-    private func suggestedDayMode(from result: TrainingResult) -> DayMode? {
-        let modeText = (result.day_mode ?? "").lowercased()
-
-        if modeText.contains("mixed") || modeText.contains("both") {
-            return .cardioGym
-        }
-
-        if modeText.contains("gym") || modeText.contains("strength") {
-            return .gym
-        }
-
-        if modeText.contains("cardio") || modeText.contains("sport") || modeText.contains("padel") {
-            return .cardio
-        }
-
-        let activity = result.activity_name.lowercased()
-        let gymKeywords = ["gym", "strength", "weight", "lifting", "bodybuilding", "resistance", "workout"]
-        let cardioKeywords = ["padel", "tennis", "run", "running", "walk", "cycling", "bike", "cardio", "football", "soccer", "sport"]
-
-        if gymKeywords.contains(where: { activity.contains($0) }) {
-            return .gym
-        }
-
-        if cardioKeywords.contains(where: { activity.contains($0) }) {
-            return .cardio
-        }
-
-        return nil
-    }
-
-    func getStepsColor(steps: Double, target: Double) -> Color { let percent = min(max(steps / target, 0.0), 1.0); return Color(red: 1.0 - (0.5 * percent), green: 0.1, blue: percent) }
-    func changeDate(by days: Int) { if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate), newDate <= Date() { selectedDate = newDate } }
-    func formatDate(_ date: Date) -> String {
-        if Calendar.current.isDateInToday(date) {
-            return "Today"
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year) ? "MMM d" : "MMM d, yyyy"
-        return formatter.string(from: date)
     }
 }

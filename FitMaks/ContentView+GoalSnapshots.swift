@@ -1,0 +1,129 @@
+import SwiftUI
+import SwiftData
+
+// MARK: - Goal Snapshots & Daily Reminders
+extension ContentView {
+
+    func initializeGoalSnapshotTracking() {
+        guard lastKnownBaseCaloriesGoal == 0 || lastKnownBaseProteinGoal == 0 else {
+            return
+        }
+
+        lastKnownBaseCaloriesGoal = baseCaloriesGoal
+        lastKnownBaseProteinGoal = baseProteinGoal
+        preserveMissingPastGoalSnapshots(
+            baseCalories: baseCaloriesGoal,
+            baseProtein: baseProteinGoal
+        )
+    }
+
+    func shouldSnapshotGoals(for date: Date) -> Bool {
+        date < Calendar.current.startOfDay(for: Date())
+    }
+
+    func snapshotPastGoalsIfNeeded(for date: Date) {
+        guard shouldSnapshotGoals(for: date) else {
+            return
+        }
+
+        let id = DateFormatter.yyyyMMdd.string(from: date)
+
+        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+            existing.applyGoalSnapshotIfNeeded(
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal
+            )
+        } else {
+            modelContext.insert(DailySetup(
+                date: date,
+                mode: dayMode(for: date),
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal
+            ))
+        }
+    }
+
+    func preserveMissingPastGoalSnapshots(baseCalories: Double, baseProtein: Double) {
+        guard baseCalories > 0, baseProtein > 0 else {
+            return
+        }
+
+        for date in loggedPastDatesWithActivity() {
+            let id = DateFormatter.yyyyMMdd.string(from: date)
+
+            if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+                existing.applyGoalSnapshotIfNeeded(
+                    baseCalories: baseCalories,
+                    baseProtein: baseProtein
+                )
+            } else {
+                modelContext.insert(DailySetup(
+                    date: date,
+                    mode: .chill,
+                    baseCalories: baseCalories,
+                    baseProtein: baseProtein
+                ))
+            }
+        }
+    }
+
+    func loggedPastDatesWithActivity() -> [Date] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let dates = allFoodEntries.map(\.date) + allTrainingEntries.map(\.date)
+        var uniqueByDay: [String: Date] = [:]
+
+        for date in dates where date < todayStart {
+            let day = calendar.startOfDay(for: date)
+            uniqueByDay[DateFormatter.yyyyMMdd.string(from: day)] = day
+        }
+
+        return uniqueByDay.values.sorted()
+    }
+
+    func syncDailyReminders() {
+        DailyReminderManager.shared.syncDailyReminders(
+            progressToday: todayProgressForNotifications,
+            hasFoodToday: !todayFoodEntries.isEmpty
+        )
+    }
+
+    func applyTrainingModeSuggestion(from result: TrainingResult, for date: Date) {
+        guard let suggestedMode = suggestedDayMode(from: result) else {
+            return
+        }
+
+        let mergedMode = dayMode(for: date).merged(with: suggestedMode)
+        setDayMode(mergedMode, for: date)
+    }
+
+    func suggestedDayMode(from result: TrainingResult) -> DayMode? {
+        let modeText = (result.day_mode ?? "").lowercased()
+
+        if modeText.contains("mixed") || modeText.contains("both") {
+            return .cardioGym
+        }
+
+        if modeText.contains("gym") || modeText.contains("strength") {
+            return .gym
+        }
+
+        if modeText.contains("cardio") || modeText.contains("sport") || modeText.contains("padel") {
+            return .cardio
+        }
+
+        let activity = result.activity_name.lowercased()
+        let gymKeywords = ["gym", "strength", "weight", "lifting", "bodybuilding", "resistance", "workout"]
+        let cardioKeywords = ["padel", "tennis", "run", "running", "walk", "cycling", "bike", "cardio", "football", "soccer", "sport"]
+
+        if gymKeywords.contains(where: { activity.contains($0) }) {
+            return .gym
+        }
+
+        if cardioKeywords.contains(where: { activity.contains($0) }) {
+            return .cardio
+        }
+
+        return nil
+    }
+}

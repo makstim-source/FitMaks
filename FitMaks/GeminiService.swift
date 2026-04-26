@@ -196,14 +196,32 @@ class GeminiService {
     }
     
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
+        let hasImage = image != nil
+        let hasComment = !userComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        let userInput: String
+        if hasComment && hasImage {
+            userInput = "The user says: \"\(userComment)\" and attached a photo (likely a nutrition label or product package). Use BOTH the text and the photo to update the data."
+        } else if hasImage {
+            userInput = "The user attached a photo without text. This is most likely a nutrition label or product package. Read the label carefully: extract the product name, serving size or net weight, calories, and protein per 100g or per serving. Find the matching ingredient in the breakdown and update its row with the real label data. If no ingredient matches, add it as a new row."
+        } else {
+            userInput = "The user says: \"\(userComment)\". Apply this command to update the data."
+        }
+
         let prompt = """
-        ACT AS NUTRITIONIST. 
-        CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot. 
+        ACT AS NUTRITIONIST.
+        CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot.
         BREAKDOWN: \(currentData.ingredients_breakdown).
-        USER COMMAND: "\(userComment)".
-        CRITICAL RULE: Re-calculate totals based on user command.
-        Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
-        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
+
+        \(userInput)
+
+        CRITICAL RULES:
+        - Keep ALL existing ingredients unless the user explicitly asks to remove one. Never drop rows.
+        - If the user or photo provides real nutrition data for an ingredient, update that ingredient's row with the corrected values.
+        - The top-level calories and protein MUST equal the sum of the ingredient rows.
+        - Even if the user asks a question, YOU MUST return valid JSON with ALL ingredients. Answer in 'ai_response_text' only.
+
+        Return ONLY JSON: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot\\nItem2;Weight;Kcal;Prot", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
         sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in

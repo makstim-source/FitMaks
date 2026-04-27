@@ -27,7 +27,7 @@ struct MyFoodView: View {
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingTextEntry = false
     @State private var manualText = ""
-    @State private var isShowingClearAlert = false // 🔥 Для подтверждения очистки
+    @State private var isShowingClearAlert = false
     
     @State private var selectedFavoriteForEdit: FavoriteFood?
     @State private var selectedMealForEdit: SavedRecipe?
@@ -105,12 +105,11 @@ struct MyFoodView: View {
                 Button("Camera") { self.isScanningReceipt = true; self.isShowingCamera = true }
                 Button("Photo Library") { self.isScanningReceipt = true; self.isShowingPhotoPicker = true }
             }
-            // 🔥 АЛЕРТ ОЧИСТКИ 🔥
-            .alert("Очистить список?", isPresented: $isShowingClearAlert) {
-                Button("Удалить всё", role: .destructive) { clearShoppingList() }
-                Button("Отмена", role: .cancel) {}
+            .alert("Clear list?", isPresented: $isShowingClearAlert) {
+                Button("Delete all", role: .destructive) { clearShoppingList() }
+                Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Вы уверены, что хотите полностью очистить список покупок?")
+                Text("Are you sure you want to clear the entire shopping list?")
             }
             .alert("Add Item", isPresented: $isShowingTextEntry) {
                 TextField("E.g. 150g Greek Yogurt", text: $manualText)
@@ -173,7 +172,7 @@ struct MyFoodView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    // MARK: - ПОДВЬЮХИ ДЛЯ ВКЛАДОК
+    // MARK: - Tab Subviews
     private var myFoodBackground: some View {
         LinearGradient(
             colors: [
@@ -601,14 +600,11 @@ struct MyFoodView: View {
         }
     }
 
-    // 🔥 ЛОГИКА ОЧИСТКИ 🔥
     func clearShoppingList() {
         for item in shoppingItems {
             modelContext.delete(item)
         }
     }
-
-    // ОСТАЛЬНЫЕ МЕТОДЫ (Rows, Helpers)...
     func favoriteRow(_ fav: FavoriteFood) -> some View {
         HStack(spacing: 13) {
             if let image = fav.uiImage {

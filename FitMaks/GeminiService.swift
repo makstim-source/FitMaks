@@ -21,7 +21,7 @@ private extension KeyedDecodingContainer {
     }
 }
 
-// MARK: - МОДЕЛИ ОТВЕТОВ ИИ
+// MARK: - AI Response Models
 struct FoodResult: Codable {
     let food_name: String
     let emoji: String?
@@ -159,7 +159,7 @@ private struct GeminiAPIErrorResponse: Decodable {
     let error: APIError
 }
 
-// MARK: - СЕРВИС GEMINI
+// MARK: - Gemini Service
 class GeminiService {
     static let shared = GeminiService()
     private let apiKey = Config.apiKey
@@ -402,7 +402,7 @@ class GeminiService {
         }
     }
     
-    // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
+    // MARK: - AI Coach Chat
     func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], userName: String? = nil, completion: @escaping (String?, String?) -> Void) {
 
         let dayContext = isPastDay

@@ -2,6 +2,25 @@ import Foundation
 import UIKit
 import CryptoKit
 
+// MARK: - Flexible JSON Decoding Helpers
+
+private extension KeyedDecodingContainer {
+    func flexibleDouble(forKey key: Key) throws -> Double {
+        if let value = try? decode(Double.self, forKey: key) { return value }
+        if let value = try? decode(Int.self, forKey: key) { return Double(value) }
+        if let str = try? decode(String.self, forKey: key), let value = Double(str) { return value }
+        return try decode(Double.self, forKey: key)
+    }
+
+    func flexibleOptionalDouble(forKey key: Key) throws -> Double? {
+        guard contains(key), !(try decodeNil(forKey: key)) else { return nil }
+        if let value = try? decode(Double.self, forKey: key) { return value }
+        if let value = try? decode(Int.self, forKey: key) { return Double(value) }
+        if let str = try? decode(String.self, forKey: key) { return Double(str) }
+        return nil
+    }
+}
+
 // MARK: - МОДЕЛИ ОТВЕТОВ ИИ
 struct FoodResult: Codable {
     let food_name: String
@@ -11,6 +30,31 @@ struct FoodResult: Codable {
     let protein: Double
     let ingredients_breakdown: String
     let ai_response_text: String
+
+    private enum CodingKeys: String, CodingKey {
+        case food_name, emoji, source_photo_number, calories, protein, ingredients_breakdown, ai_response_text
+    }
+
+    init(food_name: String, emoji: String?, source_photo_number: Int? = nil, calories: Double, protein: Double, ingredients_breakdown: String, ai_response_text: String) {
+        self.food_name = food_name
+        self.emoji = emoji
+        self.source_photo_number = source_photo_number
+        self.calories = calories
+        self.protein = protein
+        self.ingredients_breakdown = ingredients_breakdown
+        self.ai_response_text = ai_response_text
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        food_name = try c.decode(String.self, forKey: .food_name)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji)
+        source_photo_number = try c.decodeIfPresent(Int.self, forKey: .source_photo_number)
+        calories = try c.flexibleDouble(forKey: .calories)
+        protein = try c.flexibleDouble(forKey: .protein)
+        ingredients_breakdown = (try c.decodeIfPresent(String.self, forKey: .ingredients_breakdown)) ?? ""
+        ai_response_text = (try c.decodeIfPresent(String.self, forKey: .ai_response_text)) ?? ""
+    }
 }
 
 struct TrainingResult: Codable {
@@ -20,6 +64,20 @@ struct TrainingResult: Codable {
     let day_mode: String?
     let duration: String
     let ai_summary: String
+
+    private enum CodingKeys: String, CodingKey {
+        case activity_name, calories_burned, steps, day_mode, duration, ai_summary
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        activity_name = try c.decode(String.self, forKey: .activity_name)
+        calories_burned = try c.flexibleDouble(forKey: .calories_burned)
+        steps = try c.flexibleOptionalDouble(forKey: .steps)
+        day_mode = try c.decodeIfPresent(String.self, forKey: .day_mode)
+        duration = (try c.decodeIfPresent(String.self, forKey: .duration)) ?? ""
+        ai_summary = (try c.decodeIfPresent(String.self, forKey: .ai_summary)) ?? ""
+    }
 }
 
 struct RecipeResult: Codable, Identifiable {
@@ -28,6 +86,25 @@ struct RecipeResult: Codable, Identifiable {
     let cooking_instructions: String
     let estimated_calories: Double
     let estimated_protein: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case recipe_name, cooking_instructions, estimated_calories, estimated_protein
+    }
+
+    init(recipe_name: String, cooking_instructions: String, estimated_calories: Double, estimated_protein: Double) {
+        self.recipe_name = recipe_name
+        self.cooking_instructions = cooking_instructions
+        self.estimated_calories = estimated_calories
+        self.estimated_protein = estimated_protein
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        recipe_name = try c.decode(String.self, forKey: .recipe_name)
+        cooking_instructions = (try c.decodeIfPresent(String.self, forKey: .cooking_instructions)) ?? ""
+        estimated_calories = try c.flexibleDouble(forKey: .estimated_calories)
+        estimated_protein = try c.flexibleDouble(forKey: .estimated_protein)
+    }
 }
 
 struct RecipeListResult: Codable {
@@ -55,6 +132,22 @@ struct BodyMetricScanResult: Codable {
     let visceral_fat: Double?
     let metabolic_age: Double?
     let ai_summary: String
+
+    private enum CodingKeys: String, CodingKey {
+        case measured_date, weight_kg, body_fat_percent, muscle_percent, water_percent, visceral_fat, metabolic_age, ai_summary
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        measured_date = try c.decodeIfPresent(String.self, forKey: .measured_date)
+        weight_kg = try c.flexibleOptionalDouble(forKey: .weight_kg)
+        body_fat_percent = try c.flexibleOptionalDouble(forKey: .body_fat_percent)
+        muscle_percent = try c.flexibleOptionalDouble(forKey: .muscle_percent)
+        water_percent = try c.flexibleOptionalDouble(forKey: .water_percent)
+        visceral_fat = try c.flexibleOptionalDouble(forKey: .visceral_fat)
+        metabolic_age = try c.flexibleOptionalDouble(forKey: .metabolic_age)
+        ai_summary = (try c.decodeIfPresent(String.self, forKey: .ai_summary)) ?? ""
+    }
 }
 
 private struct GeminiAPIErrorResponse: Decodable {

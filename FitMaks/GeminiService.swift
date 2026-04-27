@@ -190,13 +190,14 @@ class GeminiService {
         - Avoid very large restaurant-size assumptions unless the image clearly shows a large portion.
         - The top-level calories and protein MUST equal the sum of the ingredient rows.
         - If the same image is analyzed again, return the same ingredient weights and totals.
+        - If you can identify the product brand/name but cannot read nutrition values from the label, search for its official nutrition data online.
 
-        Return ONLY a single JSON object. 
+        Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
         """
-        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
 
             if let cacheKey, let stabilized {
@@ -220,13 +221,14 @@ class GeminiService {
         Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
         Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
         The top-level calories and protein MUST equal the sum of the ingredient rows.
+        If the user names a specific brand or product, search for its real nutrition data online.
 
-        Return ONLY a single JSON object. 
+        Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
         """
-        sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+        sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
 
             if let stabilized {
@@ -270,6 +272,7 @@ class GeminiService {
         - If uncertain, choose the most likely midpoint, not an extreme.
         - The top-level calories and protein for each item MUST equal the sum of its ingredient rows.
         - If the same images are analyzed again, return the same items, ingredient weights, and totals.
+        - If a nutrition label is partially unreadable, or the product weight/nutrition info is missing, search the internet for the exact product name to find accurate nutrition data.
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
@@ -277,7 +280,7 @@ class GeminiService {
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
         """
 
-        sendToGemini(images: images, prompt: prompt, responseType: FoodItemsResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+        sendToGemini(images: images, prompt: prompt, responseType: FoodItemsResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result?.items.map { self?.stabilizedFoodResult($0) ?? $0 }
 
             if let cacheKey, let stabilized {
@@ -301,10 +304,11 @@ class GeminiService {
         USER COMMAND: "\(effectiveCommand)".
         CRITICAL RULE: Re-calculate totals based on user command.
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
+        If you need accurate nutrition data for a product, search the internet.
         Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
+        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             completion(result.map { self?.stabilizedFoodResult($0) ?? $0 }, error)
         }
     }
@@ -437,6 +441,7 @@ class GeminiService {
         temperature: Double = 0.2,
         topP: Double? = nil,
         topK: Int? = nil,
+        useSearchGrounding: Bool = false,
         completion: @escaping (T?, String?) -> Void
     ) {
         func finish(_ result: T?, _ error: String?) {
@@ -486,7 +491,10 @@ class GeminiService {
             generationConfig["topK"] = topK
         }
 
-        let body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": generationConfig]
+        var body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": generationConfig]
+        if useSearchGrounding {
+            body["tools"] = [["google_search": [String: Any]()]]
+        }
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
             finish(nil, "Failed to encode Gemini request.")

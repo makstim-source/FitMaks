@@ -324,7 +324,7 @@ struct AIAssistantView: View {
         }
         let fridgeNames = favorites.map { "\($0.name) (\(Int($0.calories))kcal, \(Int($0.protein))g protein)" }
 
-        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames) { result, error in
+        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames, userName: AuthService.shared.displayName) { result, error in
             DispatchQueue.main.async {
                 self.isWaiting = false
                 let aiText = result ?? error ?? "Oops, something went wrong connecting to the AI. Try again!"

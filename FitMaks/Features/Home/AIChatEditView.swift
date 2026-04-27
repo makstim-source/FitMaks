@@ -271,7 +271,7 @@ struct AIChatEditView: View {
         withAnimation { attachedImage = nil }
         isWaiting = true
         let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, ingredients_breakdown: entry.ingredients, ai_response_text: "")
-        GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text) { result, error in
+        GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in
             isWaiting = false
             if let res = result {
                 let prefix = entry.name.hasPrefix("👨‍🍳") ? "👨‍🍳 " : (entry.name.hasPrefix("❄️") ? "❄️ " : "")

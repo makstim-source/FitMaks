@@ -292,14 +292,16 @@ class GeminiService {
         }
     }
     
-    func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
+    func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, userName: String? = nil, completion: @escaping (FoodResult?, String?) -> Void) {
         let comment = userComment.trimmingCharacters(in: .whitespacesAndNewlines)
         let effectiveCommand = comment.isEmpty && image != nil
             ? "Read the attached nutrition label / package and update the data with exact values from it."
             : comment
 
+        let nameInstruction = userName.map { "The user's name is \($0). Address them by first name in ai_response_text." } ?? ""
+
         let prompt = """
-        ACT AS NUTRITIONIST.
+        ACT AS NUTRITIONIST. \(nameInstruction)
         CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot.
         BREAKDOWN: \(currentData.ingredients_breakdown).
         USER COMMAND: "\(effectiveCommand)".
@@ -401,8 +403,8 @@ class GeminiService {
     }
     
     // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
-    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?, String?) -> Void) {
-        
+    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], userName: String? = nil, completion: @escaping (String?, String?) -> Void) {
+
         let dayContext = isPastDay
             ? "Selected date: \(selectedDateDescription). Date relation: \(selectedDateRelation). You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire selected date. DO NOT suggest what to eat or do 'later today'."
             : "Selected date: \(selectedDateDescription). Date relation: \(selectedDateRelation). Current time: \(timeOfDay). The day is still ongoing."
@@ -411,8 +413,11 @@ class GeminiService {
             ? "Available food in their Fridge: \(fridgeItems.joined(separator: ", ")). Recommend SPECIFIC items from this list if they need to hit their protein or calorie goals today."
             : ""
             
+        let nameContext = userName.map { "The user's name is \($0). Address them by first name." } ?? ""
+
         let prompt = """
         You are a strict, honest, and highly motivating fitness and nutrition coach.
+        \(nameContext)
         \(dayContext)
         User's daily calorie ceiling: \(Int(targetCalories)) kcal. User's protein minimum: \(Int(targetProtein))g protein.
         Progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed.

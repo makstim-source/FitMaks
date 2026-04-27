@@ -8,7 +8,8 @@ enum ICloudSettingsSync {
         "userGoal", "userActivity", "useCustomGoals",
         "customCalories", "customProtein",
         "hasCompletedOnboarding",
-        "lastKnownBaseCaloriesGoal", "lastKnownBaseProteinGoal"
+        "lastKnownBaseCaloriesGoal", "lastKnownBaseProteinGoal",
+        "appleUserName", "appleUserEmail"
     ]
 
     static func pushToICloud() {

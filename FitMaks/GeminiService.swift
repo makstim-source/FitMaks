@@ -222,6 +222,7 @@ class GeminiService {
         Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
         The top-level calories and protein MUST equal the sum of the ingredient rows.
         If the user names a specific brand or product, search for its real nutrition data online.
+        LANGUAGE RULE: Detect the language the user wrote in. Write food_name, ingredient names, and ai_response_text in that same language.
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
@@ -305,6 +306,7 @@ class GeminiService {
         CRITICAL RULE: Re-calculate totals based on user command.
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
         If you need accurate nutrition data for a product, search the internet.
+        LANGUAGE RULE: Detect the language of USER COMMAND. Write food_name, ingredients_breakdown names, and ai_response_text in that same language.
         Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
@@ -326,6 +328,8 @@ class GeminiService {
         - "duration": workout duration as shown (e.g. "45 min", "1h 12m"). Use "" if not visible.
         - "day_mode": classify as "cardio" (running, cycling, sports, walking), "gym" (strength, weights, resistance), "mixed" (both), or null.
         - "ai_summary": a short 1-2 sentence summary including ALL key metrics you found (avg HR, max HR, distance, strain, zones, pace, reps, sets — anything useful). Be specific with numbers.
+
+        LANGUAGE RULE: Detect the language visible in the screenshot. Write activity_name and ai_summary in that same language.
 
         CRITICAL RULE: You MUST use exactly this structure:
         {"activity_name": "...", "calories_burned": 0, "steps": null, "day_mode": null, "duration": "...", "ai_summary": "..."}
@@ -356,6 +360,7 @@ class GeminiService {
         If weight is not visible or not typed, set weight_kg to null.
         If no date is visible or typed, set measured_date to null.
         Keep ai_summary under 2 short sentences.
+        LANGUAGE RULE: If the user typed a note, detect its language and write ai_summary in that same language. Otherwise use English.
         """
 
         sendToGemini(images: images, prompt: prompt, responseType: BodyMetricScanResult.self, temperature: 0.0, topP: 0.1, topK: 1, completion: completion)
@@ -365,8 +370,9 @@ class GeminiService {
         let list = ingredients.joined(separator: ", ")
         let prompt = """
         You are a Michelin-star fitness chef. I have these ingredients: \(list).
-        Suggest 3 DISTINCT, healthy and high-protein recipes combining SOME or ALL of them. 
+        Suggest 3 DISTINCT, healthy and high-protein recipes combining SOME or ALL of them.
         Use MARKDOWN formatting for instructions (bolding, bullets, emojis).
+        LANGUAGE RULE: Detect the language of the ingredient names. Write recipe_name and cooking_instructions in that same language.
         Return ONLY valid JSON:
         {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35} ]}
         """
@@ -424,6 +430,7 @@ class GeminiService {
         5. Never call the selected date "yesterday" unless Date relation is exactly "yesterday". For older dates, use the exact selected date or say "that day".
         6. Treat calories as an upper limit / deficit target, not a minimum. Being under the calorie ceiling is GOOD unless calories are extremely low and clearly unhealthy. Do NOT say they failed because they did not eat all calories.
         7. Protein is a minimum target. Being under protein is bad; being over protein is good.
+        8. Detect the language of the user's message. Reply in that same language. If this is an initial summary with no user message, reply in English.
 
         Return ONLY a single JSON object:
         {"ai_summary": "your response here"}

@@ -16,6 +16,7 @@ struct AIChatEditView: View {
     @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isShowingSaveDialog = false
     @State private var saveConfirmationText: String?
+    @FocusState private var isInputFocused: Bool
 
     var onDelete: () -> Void
     var onDone: () -> Void
@@ -97,6 +98,7 @@ struct AIChatEditView: View {
                     }
                     .padding()
                 }
+                .onTapGesture { isInputFocused = false }
                 .onChange(of: messages.count) { _, _ in
                     withAnimation {
                         proxy.scrollTo(messages.last?.id, anchor: .bottom)
@@ -142,6 +144,7 @@ struct AIChatEditView: View {
                     }
 
                     TextField("Ask AI or attach label...", text: $userMessage)
+                        .focused($isInputFocused)
                         .font(.system(size: 14, weight: .semibold))
                         .padding(.horizontal, 14)
                         .frame(height: 42)
@@ -264,6 +267,7 @@ struct AIChatEditView: View {
     }
 
     func sendMessage() {
+        isInputFocused = false
         let text = userMessage
         let imageToSend = attachedImage
         messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))

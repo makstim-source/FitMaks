@@ -19,6 +19,7 @@ struct AIAssistantView: View {
     @State private var isShowingAttachmentPicker = false
     @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isWaiting = false
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         NavigationView {
@@ -68,6 +69,7 @@ struct AIAssistantView: View {
                                 }
                             }
                         }
+                        .onTapGesture { isInputFocused = false }
                     }
 
                     chatComposer
@@ -256,6 +258,7 @@ struct AIAssistantView: View {
                 }
 
                 TextField("Ask for a meal move, plan, or review...", text: $userMessage)
+                    .focused($isInputFocused)
                     .padding(.horizontal, 14)
                     .frame(height: 42)
                     .background(Capsule().fill(Color.appElevated))
@@ -286,6 +289,7 @@ struct AIAssistantView: View {
     }
 
     func sendMessage() {
+        isInputFocused = false
         let text = userMessage
         let imageToSend = attachedImage
         messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))

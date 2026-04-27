@@ -20,3 +20,15 @@ struct PendingBodyMetricScan {
     let metabolicAge: Double?
     let note: String
 }
+
+struct GoalSnapshot {
+    let gender: String
+    let age: Int
+    let weight: Double
+    let height: Double
+    let goal: String
+    let activityLevel: String
+    let useCustomGoals: Bool
+    let customCalories: Double
+    let customProtein: Double
+}

@@ -44,6 +44,7 @@ struct ProfileView: View {
     @State private var isShowingBodyMetricHistory = false
     @State private var isShowingSignOutConfirm = false
     @State private var isShowingDeleteConfirm = false
+    @State private var goalSnapshot: GoalSnapshot?
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -192,7 +193,7 @@ struct ProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    Button("Done") {
                         dismiss()
                     }
                     .foregroundColor(neonPurple)
@@ -448,13 +449,39 @@ struct ProfileView: View {
             .navigationTitle("Goals & Data")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        if let snap = goalSnapshot {
+                            gender = snap.gender
+                            age = snap.age
+                            weight = snap.weight
+                            height = snap.height
+                            goal = snap.goal
+                            activityLevel = snap.activityLevel
+                            useCustomGoals = snap.useCustomGoals
+                            customCalories = snap.customCalories
+                            customProtein = snap.customProtein
+                        }
+                        isShowingGoalSettings = false
+                    }
+                    .foregroundColor(.appMuted)
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button("Save") {
                         isShowingGoalSettings = false
                     }
                     .foregroundColor(neonPurple)
                     .bold()
                 }
+            }
+            .onAppear {
+                goalSnapshot = GoalSnapshot(
+                    gender: gender, age: age, weight: weight, height: height,
+                    goal: goal, activityLevel: activityLevel,
+                    useCustomGoals: useCustomGoals,
+                    customCalories: customCalories, customProtein: customProtein
+                )
             }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)

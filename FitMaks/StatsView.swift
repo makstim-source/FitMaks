@@ -428,6 +428,8 @@ private struct StatsHeroScoreCard: View {
     let bestPerfectStreak30: Int
     let perfectDays30: Int
 
+    @State private var flameFlicker = false
+
     private var cappedStreak: Double {
         min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
     }
@@ -481,7 +483,8 @@ private struct StatsHeroScoreCard: View {
                                     endPoint: .top
                                 )
                             )
-                            .shadow(color: Color.red.opacity(0.58), radius: 15)
+                            .scaleEffect(flameFlicker ? 1.08 : 0.94)
+                            .shadow(color: Color.red.opacity(flameFlicker ? 0.7 : 0.38), radius: flameFlicker ? 20 : 12)
 
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text("\(currentPerfectStreak)")
@@ -554,6 +557,12 @@ private struct StatsHeroScoreCard: View {
                 )
         )
         .shadow(color: Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
+        .onAppear {
+            guard currentPerfectStreak > 0 else { return }
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                flameFlicker = true
+            }
+        }
     }
 }
 
@@ -754,6 +763,18 @@ private struct StatsCalorieBalanceRow: View {
         hasFood && stat.consumed > stat.calorieGraceLimit
     }
 
+    private var calorieLabel: String {
+        guard hasFood else { return "— kcal" }
+        let diff = Int(stat.target - stat.consumed)
+        if diff > 0 {
+            return "-\(diff) kcal"
+        } else if diff == 0 {
+            return "0 kcal"
+        } else {
+            return "+\(abs(diff)) kcal"
+        }
+    }
+
     private var statusColor: Color {
         !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
     }
@@ -782,7 +803,7 @@ private struct StatsCalorieBalanceRow: View {
                     .foregroundColor(.appMuted)
                     .frame(width: 34, alignment: .leading)
 
-                Text("\(Int(stat.consumed)) / \(Int(stat.target)) kcal")
+                Text(calorieLabel)
                     .font(.system(size: 12, weight: .heavy))
                     .foregroundColor(.appText)
 

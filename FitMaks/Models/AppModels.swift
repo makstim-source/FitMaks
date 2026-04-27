@@ -106,6 +106,7 @@ final class TrainingEntry {
     var steps: Double?
     var duration: String
     var date: Date
+    var aiSummary: String?
 
     @Attribute(.externalStorage) var imageData: Data?
 
@@ -116,13 +117,14 @@ final class TrainingEntry {
         return UIImage(data: imageData)
     }
 
-    init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, duration: String, date: Date) {
+    init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, duration: String, date: Date, aiSummary: String? = nil) {
         self.createdAt = Date()
         self.name = name.isEmpty ? "Workout" : name
         self.caloriesBurned = max(0, caloriesBurned)
         self.steps = steps.map { max(0, $0) }
         self.duration = duration
         self.date = date
+        self.aiSummary = aiSummary
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 }

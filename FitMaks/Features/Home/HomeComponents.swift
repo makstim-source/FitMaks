@@ -258,6 +258,114 @@ struct HomeTrainingRow: View {
     }
 }
 
+struct TrainingDetailOverlay: View {
+    var entry: TrainingEntry
+    var onDone: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Workout Details")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: onDone) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 14)
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    if let image = entry.uiImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 280)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.2), lineWidth: 1))
+                    }
+
+                    Text(entry.name)
+                        .font(.title3)
+                        .fontWeight(.black)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 12) {
+                        trainingMetric(value: "\(Int(entry.caloriesBurned))", unit: "kcal", icon: "flame.fill", color: .orange)
+                        if !entry.duration.isEmpty {
+                            trainingMetric(value: entry.duration, unit: "", icon: "clock.fill", color: .blue)
+                        }
+                        if let steps = entry.steps, steps > 0 {
+                            trainingMetric(value: "\(Int(steps))", unit: "steps", icon: "figure.walk", color: .green)
+                        }
+                    }
+
+                    if let summary = entry.aiSummary, !summary.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("AI Summary", systemImage: "sparkles")
+                                .font(.caption)
+                                .fontWeight(.heavy)
+                                .foregroundColor(.blue)
+
+                            Text(summary)
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.85))
+                                .lineSpacing(4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.blue.opacity(0.10))
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.15), lineWidth: 1))
+                        )
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color(red: 28/255, green: 28/255, blue: 32/255))
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.blue.opacity(0.18), lineWidth: 1))
+        )
+        .padding(.horizontal, 20)
+        .frame(maxHeight: UIScreen.main.bounds.height * 0.7)
+    }
+
+    private func trainingMetric(value: String, unit: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 17, weight: .black))
+                .foregroundColor(.white)
+
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.gray)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(color.opacity(0.10))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.15), lineWidth: 1))
+        )
+    }
+}
+
 struct HomeProcessingRow: View {
     var item: ProcessingItem
 

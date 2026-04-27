@@ -33,6 +33,7 @@ struct ContentView: View {
     @State var processingItems: [ProcessingItem] = []
     @State var fridgeProcessingItems: [ProcessingItem] = []
     @State private var selectedEntryForEdit: FoodEntry?
+    @State private var selectedTrainingDetail: TrainingEntry?
     @State private var isShowingCalendar = false
     @State private var dailySteps: Double = 0
     @State private var homeWeeklySteps: [String: Double] = [:]
@@ -248,7 +249,7 @@ struct ContentView: View {
                 bottomDock
             }
             .padding(.top, 8)
-            .blur(radius: selectedEntryForEdit != nil ? 15 : 0)
+            .blur(radius: (selectedEntryForEdit != nil || selectedTrainingDetail != nil) ? 15 : 0)
 
             if let entry = selectedEntryForEdit {
                 Color.black.opacity(0.5)
@@ -258,6 +259,17 @@ struct ContentView: View {
                     entry: entry,
                     onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } },
                     onDone: { withAnimation { selectedEntryForEdit = nil } }
+                )
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
+
+            if let training = selectedTrainingDetail {
+                Color.black.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture { withAnimation { selectedTrainingDetail = nil } }
+                TrainingDetailOverlay(
+                    entry: training,
+                    onDone: { withAnimation { selectedTrainingDetail = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
@@ -315,7 +327,7 @@ struct ContentView: View {
             Button("Camera 📷") { pickingMode = .food; self.isShowingCamera = true }
             Button("Library 🖼️") { pickingMode = .food; self.isShowingPhotoPicker = true }
             Button("Type Text ✍️") { self.isShowingTextEntry = true }
-            Button("Training (Whoop) 🏋️‍♂️") { pickingMode = .training; self.isShowingPhotoPicker = true }
+            Button("Training 🏋️‍♂️") { pickingMode = .training; self.isShowingPhotoPicker = true }
         }
         .alert("What did you eat?", isPresented: $isShowingTextEntry) {
             TextField("E.g. 200g chicken and rice", text: $manualText)
@@ -659,6 +671,7 @@ struct ContentView: View {
                                     .swipeToDelete { withAnimation(.spring()) { deleteFoodEntry(entry) } }
                             case .training(let entry):
                                 HomeTrainingRow(entry: entry)
+                                    .onTapGesture { withAnimation(.spring()) { selectedTrainingDetail = entry } }
                                     .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
                             }
                         }

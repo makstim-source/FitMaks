@@ -311,14 +311,18 @@ class GeminiService {
 
     func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
         let prompt = """
-        Extract workout stats from fitness tracker screenshot. Return ONLY a single JSON object.
-        If the screenshot shows steps for the workout/session/day, extract them as "steps".
-        If no steps are visible, use null for "steps".
-        Classify "day_mode" as:
-        - "cardio" for padel, tennis, running, cycling, walking, cardio sessions, sports games.
-        - "gym" for strength training, weights, lifting, bodybuilding, resistance workouts.
-        - "mixed" if both cardio/sport and gym/strength are clearly shown.
-        - null if unclear.
+        Extract workout stats from a fitness app screenshot (any app: Whoop, Apple Fitness, Strava, Garmin, Samsung Health, Fitbit, Nike Run Club, MyFitnessPal, or any other).
+        Read EVERY visible metric: calories, duration, distance, heart rate, steps, strain, etc.
+        Return ONLY a single JSON object.
+
+        RULES:
+        - "activity_name": a clear, descriptive name for the workout.
+        - "calories_burned": total active calories from the session. Use 0 if not visible.
+        - "steps": step count if visible, otherwise null.
+        - "duration": workout duration as shown (e.g. "45 min", "1h 12m"). Use "" if not visible.
+        - "day_mode": classify as "cardio" (running, cycling, sports, walking), "gym" (strength, weights, resistance), "mixed" (both), or null.
+        - "ai_summary": a short 1-2 sentence summary including ALL key metrics you found (avg HR, max HR, distance, strain, zones, pace, reps, sets — anything useful). Be specific with numbers.
+
         CRITICAL RULE: You MUST use exactly this structure:
         {"activity_name": "...", "calories_burned": 0, "steps": null, "day_mode": null, "duration": "...", "ai_summary": "..."}
         """

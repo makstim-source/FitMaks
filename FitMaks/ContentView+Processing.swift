@@ -154,7 +154,8 @@ extension ContentView {
                             caloriesBurned: result.calories_burned,
                             steps: result.steps,
                             duration: result.duration,
-                            date: entryDate
+                            date: entryDate,
+                            aiSummary: result.ai_summary
                         )
 
                         withAnimation(.spring()) {

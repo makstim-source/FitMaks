@@ -213,7 +213,7 @@ struct DailyCalorieBreakdownSheet: View {
             }
 
             if uploadedSteps > actualSteps {
-                Text("Workout screenshots act as provisional steps while Whoop/Apple Health catches up. When Health later shows a higher number, FitMaks uses that instead so the day is not double-counted.")
+                Text("Workout screenshots act as provisional steps while Apple Health catches up. When Health later shows a higher number, FitMaks uses that instead so the day is not double-counted.")
                     .font(.caption)
                     .foregroundColor(.appMuted)
                     .lineSpacing(3)

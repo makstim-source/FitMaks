@@ -17,6 +17,8 @@ final class HealthKitManager {
     static let shared = HealthKitManager()
 
     private let healthStore = HKHealthStore()
+    private var authorizationRequested = false
+
     private var stepCountType: HKQuantityType? {
         HKQuantityType.quantityType(forIdentifier: .stepCount)
     }
@@ -50,9 +52,9 @@ final class HealthKitManager {
             return
         }
 
-        requestDefaultReadAuthorization { success in
+        ensureAuthorization { success in
             guard success else {
-                completion(0)
+                DispatchQueue.main.async { completion(0) }
                 return
             }
 
@@ -69,7 +71,8 @@ final class HealthKitManager {
                 quantitySamplePredicate: predicate,
                 options: .cumulativeSum
             ) { _, result, _ in
-                completion(result?.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0)
+                let steps = result?.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
+                DispatchQueue.main.async { completion(steps) }
             }
 
             self.healthStore.execute(query)
@@ -85,9 +88,9 @@ final class HealthKitManager {
             return
         }
 
-        requestDefaultReadAuthorization { success in
+        ensureAuthorization { success in
             guard success else {
-                completion([:])
+                DispatchQueue.main.async { completion([:]) }
                 return
             }
 
@@ -116,7 +119,7 @@ final class HealthKitManager {
                         stat.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
                 }
 
-                completion(stepsByDay)
+                DispatchQueue.main.async { completion(stepsByDay) }
             }
 
             self.healthStore.execute(query)
@@ -132,9 +135,9 @@ final class HealthKitManager {
             return
         }
 
-        requestDefaultReadAuthorization { success in
+        ensureAuthorization { success in
             guard success else {
-                completion([:])
+                DispatchQueue.main.async { completion([:]) }
                 return
             }
 
@@ -164,7 +167,7 @@ final class HealthKitManager {
                         stat.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
                 }
 
-                completion(stepsByDay)
+                DispatchQueue.main.async { completion(stepsByDay) }
             }
 
             self.healthStore.execute(query)
@@ -190,9 +193,9 @@ final class HealthKitManager {
             return
         }
 
-        requestDefaultReadAuthorization { success in
+        ensureAuthorization { success in
             guard success else {
-                completion([])
+                DispatchQueue.main.async { completion([]) }
                 return
             }
 
@@ -253,14 +256,20 @@ final class HealthKitManager {
         }
     }
 
-    private func requestDefaultReadAuthorization(completion: @escaping (Bool) -> Void) {
+    private func ensureAuthorization(completion: @escaping (Bool) -> Void) {
+        if authorizationRequested {
+            completion(true)
+            return
+        }
+
         let readTypes = defaultReadTypes
         guard HKHealthStore.isHealthDataAvailable(), !readTypes.isEmpty else {
             completion(false)
             return
         }
 
-        healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, _ in
+        healthStore.requestAuthorization(toShare: nil, read: readTypes) { [weak self] success, _ in
+            if success { self?.authorizationRequested = true }
             completion(success)
         }
     }

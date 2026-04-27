@@ -29,11 +29,11 @@ struct SignInView: View {
                     .offset(x: -120, y: 80)
                 }
 
-            VStack(spacing: 28) {
+            VStack(spacing: 20) {
                 Spacer()
 
                 ZStack {
-                    RoundedRectangle(cornerRadius: 42)
+                    RoundedRectangle(cornerRadius: 36)
                         .fill(
                             LinearGradient(
                                 colors: [
@@ -45,40 +45,40 @@ struct SignInView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 140, height: 140)
+                        .frame(width: 110, height: 110)
                         .rotationEffect(.degrees(animatePulse ? -3 : 3))
                         .shadow(color: .neonGreen.opacity(0.3), radius: 24)
 
                     Image(systemName: "sparkles")
-                        .font(.system(size: 52, weight: .black))
+                        .font(.system(size: 42, weight: .black))
                         .foregroundColor(.neonGreen)
                         .scaleEffect(animatePulse ? 1.06 : 0.96)
                         .shadow(color: .neonGreen.opacity(0.7), radius: 18)
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     Text("FitMaks")
-                        .font(.system(size: 36, weight: .black))
+                        .font(.system(size: 32, weight: .black))
                         .foregroundColor(.appText)
                         .tracking(1.2)
 
                     Text("Sign in to sync your data\nacross all your devices")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
-                        .lineSpacing(3)
+                        .lineSpacing(2)
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     featureRow(icon: "icloud.fill", color: .neonCyan, text: "Sync food, workouts & metrics via iCloud")
                     featureRow(icon: "arrow.clockwise", color: .neonGreen, text: "Restore everything after reinstall")
                     featureRow(icon: "lock.shield.fill", color: .fitPurple, text: "Private & secure with Apple ID")
                 }
-                .padding(18)
+                .padding(16)
                 .background(
-                    RoundedRectangle(cornerRadius: 22)
+                    RoundedRectangle(cornerRadius: 20)
                         .fill(Color.appSurface)
-                        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
                 )
                 .padding(.horizontal, 30)
 
@@ -93,7 +93,7 @@ struct SignInView: View {
                     }
                 }
                 .signInWithAppleButtonStyle(.white)
-                .frame(height: 54)
+                .frame(height: 50)
                 .clipShape(Capsule())
                 .padding(.horizontal, 30)
 
@@ -102,7 +102,7 @@ struct SignInView: View {
                 }
                 .font(.system(size: 13, weight: .heavy))
                 .foregroundColor(.appMuted)
-                .padding(.bottom, 30)
+                .padding(.bottom, 20)
             }
         }
         .onAppear {
@@ -113,15 +113,15 @@ struct SignInView: View {
     }
 
     private func featureRow(icon: String, color: Color, text: String) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundColor(color)
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .background(Circle().fill(color.opacity(0.12)))
 
             Text(text)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.appText)
         }
     }

@@ -694,7 +694,7 @@ struct MyFoodView: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "Analyzing..."))
+                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "FitMaks AI analyzing food..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)

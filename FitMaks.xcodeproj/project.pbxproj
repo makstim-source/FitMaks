@@ -29,9 +29,22 @@
 		D37130C02F921EE5009AC8C1 /* FitMaksUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitMaksUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D30BCB722F9F9F0500CA2A1A /* Exceptions for "FitMaks" folder in "FitMaks" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D37130A52F921ED8009AC8C1 /* FitMaks */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D37130A82F921ED8009AC8C1 /* FitMaks */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D30BCB722F9F9F0500CA2A1A /* Exceptions for "FitMaks" folder in "FitMaks" target */,
+			);
 			path = FitMaks;
 			sourceTree = "<group>";
 		};
@@ -400,6 +413,7 @@
 				DEVELOPMENT_TEAM = XXZ3AW4NKT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitMaks/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FitMaks uses the camera to scan meals, labels, receipts, workouts, and scale readings.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks reads Health data for steps, weight, and body metrics when you allow it.";
@@ -438,6 +452,7 @@
 				DEVELOPMENT_TEAM = XXZ3AW4NKT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitMaks/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FitMaks uses the camera to scan meals, labels, receipts, workouts, and scale readings.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks reads Health data for steps, weight, and body metrics when you allow it.";

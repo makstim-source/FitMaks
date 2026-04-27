@@ -84,17 +84,27 @@ struct SignInView: View {
 
                 Spacer()
 
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    AuthService.shared.handleSignIn(result)
-                    if AuthService.shared.isSignedIn {
-                        onContinue()
+                VStack(spacing: 8) {
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        AuthService.shared.handleSignIn(result)
+                        if AuthService.shared.isSignedIn {
+                            onContinue()
+                        }
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(height: 50)
+                    .clipShape(Capsule())
+
+                    if let error = AuthService.shared.lastError {
+                        Text(error)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
                     }
                 }
-                .signInWithAppleButtonStyle(.white)
-                .frame(height: 50)
-                .clipShape(Capsule())
                 .padding(.horizontal, 30)
 
                 Button("Continue without account") {

@@ -7,6 +7,7 @@ final class AuthService {
 
     private(set) var isSignedIn = false
     private(set) var isChecking = true
+    private(set) var lastError: String?
 
     private let userIDKey = "com.fitmaks.appleUserID"
 
@@ -31,9 +32,14 @@ final class AuthService {
     }
 
     func handleSignIn(_ result: Result<ASAuthorization, Error>) {
+        lastError = nil
+
         switch result {
         case .success(let auth):
-            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else {
+                lastError = "Unexpected credential type"
+                return
+            }
             keychainSave(key: userIDKey, value: credential.user)
 
             if let fullName = credential.fullName {
@@ -50,9 +56,13 @@ final class AuthService {
             }
 
             isSignedIn = true
+            ICloudSettingsSync.pushToICloud()
 
-        case .failure:
-            break
+        case .failure(let error):
+            let code = (error as? ASAuthorizationError)?.code
+            if code == .canceled { return }
+            lastError = error.localizedDescription
+            print("[AuthService] Sign in failed: \(error)")
         }
     }
 

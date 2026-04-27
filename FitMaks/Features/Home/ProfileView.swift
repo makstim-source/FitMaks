@@ -334,6 +334,13 @@ struct ProfileView: View {
                 .signInWithAppleButtonStyle(.white)
                 .frame(height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                if let error = AuthService.shared.lastError {
+                    Text(error)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                }
             }
         }
         .padding(18)

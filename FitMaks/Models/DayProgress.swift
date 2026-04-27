@@ -222,16 +222,22 @@ enum DayProgressEngine {
         return best
     }
 
+    static let workoutCalorieCreditRatio: Double = 0.7
+
     private static func bonuses(for mode: DayMode, trainingCalories: Double = 0) -> (calories: Double, protein: Double, steps: Double) {
+        let creditedCardio = trainingCalories > 0
+            ? trainingCalories * workoutCalorieCreditRatio
+            : 500
+
         switch mode {
         case .chill:
             return (0, 0, 0)
         case .cardio:
-            return (trainingCalories > 0 ? trainingCalories : 500, 15, 0)
+            return (creditedCardio, 15, 0)
         case .gym:
             return (300, 25, gymStepBonus)
         case .cardioGym:
-            return ((trainingCalories > 0 ? trainingCalories : 500) + 300, 40, gymStepBonus)
+            return (creditedCardio + 300, 40, gymStepBonus)
         }
     }
 }

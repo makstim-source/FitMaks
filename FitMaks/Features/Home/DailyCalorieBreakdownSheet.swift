@@ -100,12 +100,18 @@ struct DailyCalorieBreakdownSheet: View {
             )
 
             if dayMode.hasCardio {
-                Text(trainingCalories > 0 ? "Cardio bonus is using your uploaded workout calories instead of the 500 kcal estimate." : "Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will replace it with the calories from that workout.")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.appMuted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
+                VStack(alignment: .leading, spacing: 6) {
+                    if trainingCalories > 0 {
+                        Text("Workout burned \(Int(trainingCalories)) kcal → 70% credited = \(Int(trainingCalories * DayProgressEngine.workoutCalorieCreditRatio)) kcal bonus. The 30% discount accounts for the body's tendency to compensate after exercise.")
+                    } else {
+                        Text("Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will use 70% of those calories as your bonus.")
+                    }
+                }
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
             }
 
             foodEntriesSection(title: "Food calories")

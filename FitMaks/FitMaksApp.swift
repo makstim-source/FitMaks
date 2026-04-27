@@ -4,8 +4,30 @@ import SwiftData
 @main
 struct FitMaksApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasSeenSignIn") private var hasSeenSignIn = false
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
     @State private var isShowingLaunchSplash = true
+
+    let modelContainer: ModelContainer
+
+    init() {
+        let config = ModelConfiguration(
+            cloudKitDatabase: .private("iCloud.MaksTim.FitMaks")
+        )
+        do {
+            modelContainer = try ModelContainer(
+                for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                     DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                     ShoppingItem.self,
+                configurations: config
+            )
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+
+        ICloudSettingsSync.startObserving()
+        ICloudSettingsSync.pullFromICloud()
+    }
 
     private var selectedTheme: AppTheme {
         AppTheme.resolvedTheme(for: selectedThemeID)
@@ -15,10 +37,19 @@ struct FitMaksApp: App {
         WindowGroup {
             ZStack {
                 Group {
-                    if !hasCompletedOnboarding {
+                    if !hasSeenSignIn {
+                        SignInView {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+                                hasSeenSignIn = true
+                                ICloudSettingsSync.pullFromICloud()
+                            }
+                        }
+                        .transition(.opacity)
+                    } else if !hasCompletedOnboarding {
                         OnboardingView {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
                                 hasCompletedOnboarding = true
+                                ICloudSettingsSync.pushToICloud()
                             }
                         }
                         .transition(.opacity)
@@ -43,15 +74,7 @@ struct FitMaksApp: App {
                 }
             }
         }
-        .modelContainer(for: [
-            FoodEntry.self,
-            FavoriteFood.self,
-            TrainingEntry.self,
-            DailySetup.self,
-            BodyMetricEntry.self,
-            SavedRecipe.self,
-            ShoppingItem.self // 🔥 Новая база для списка покупок
-        ])
+        .modelContainer(modelContainer)
     }
 }
 

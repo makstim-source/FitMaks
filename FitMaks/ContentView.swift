@@ -313,6 +313,7 @@ struct ContentView: View {
             )
             lastKnownBaseCaloriesGoal = baseCaloriesGoal
             lastKnownBaseProteinGoal = baseProteinGoal
+            ICloudSettingsSync.pushToICloud()
         }
         .onChange(of: loggedPastDaysSignature) { _, _ in
             preserveMissingPastGoalSnapshots(
@@ -372,7 +373,7 @@ struct ContentView: View {
                 onRecalculateReview: { review in retryReviewIgnoringCache(review) }
             )
         }
-        .sheet(isPresented: $isShowingProfile) {
+        .sheet(isPresented: $isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
             ProfileView(
                 gender: $gender, age: $age, weight: $weight, height: $height,
                 goal: $goal, activityLevel: $activityLevel,

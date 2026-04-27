@@ -131,7 +131,7 @@ final class TrainingEntry {
 
 @Model
 final class DailySetup {
-    @Attribute(.unique) var dateID: String
+    var dateID: String
     var mode: String
     var baseCalories: Double?
     var baseProtein: Double?

@@ -43,6 +43,28 @@ extension ContentView {
         }
     }
 
+    func snapshotTodayGoals(baseCalories: Double, baseProtein: Double) {
+        guard baseCalories > 0, baseProtein > 0 else { return }
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let id = DateFormatter.yyyyMMdd.string(from: today)
+        let hasActivity = allFoodEntries.contains { Calendar.current.isDate($0.date, inSameDayAs: today) }
+            || allTrainingEntries.contains { Calendar.current.isDate($0.date, inSameDayAs: today) }
+
+        guard hasActivity else { return }
+
+        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+            existing.applyGoalSnapshotIfNeeded(baseCalories: baseCalories, baseProtein: baseProtein)
+        } else {
+            modelContext.insert(DailySetup(
+                date: today,
+                mode: dayMode(for: today),
+                baseCalories: baseCalories,
+                baseProtein: baseProtein
+            ))
+        }
+    }
+
     func preserveMissingPastGoalSnapshots(baseCalories: Double, baseProtein: Double) {
         guard baseCalories > 0, baseProtein > 0 else {
             return

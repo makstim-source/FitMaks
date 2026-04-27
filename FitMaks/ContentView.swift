@@ -46,8 +46,8 @@ struct ContentView: View {
     @State var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
     @State var aiErrorMessage: String?
     @State var pendingAIReview: AIResultReview?
-    @State var lastKnownBaseCaloriesGoal: Double = 0
-    @State var lastKnownBaseProteinGoal: Double = 0
+    @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
+    @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
 
     // MARK: - Day Mode
 
@@ -287,9 +287,15 @@ struct ContentView: View {
             }
         }
         .onChange(of: goalSnapshotSignature) { _, _ in
+            let oldCalories = lastKnownBaseCaloriesGoal
+            let oldProtein = lastKnownBaseProteinGoal
             preserveMissingPastGoalSnapshots(
-                baseCalories: lastKnownBaseCaloriesGoal,
-                baseProtein: lastKnownBaseProteinGoal
+                baseCalories: oldCalories,
+                baseProtein: oldProtein
+            )
+            snapshotTodayGoals(
+                baseCalories: oldCalories,
+                baseProtein: oldProtein
             )
             lastKnownBaseCaloriesGoal = baseCaloriesGoal
             lastKnownBaseProteinGoal = baseProteinGoal

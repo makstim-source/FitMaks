@@ -9,10 +9,11 @@ struct ContentView: View {
     @Query(sort: \TrainingEntry.date, order: .forward) var allTrainingEntries: [TrainingEntry]
     @Query var allDailySetups: [DailySetup]
     @Query var favorites: [FavoriteFood]
+    @Query(sort: \BodyMetricEntry.date, order: .reverse) var allBodyMetrics: [BodyMetricEntry]
 
     @AppStorage("userGender") private var gender: String = "Male"
     @AppStorage("userAge") private var age: Int = 30
-    @AppStorage("userWeight") private var weight: Double = 80.0
+    @AppStorage("userWeight") var weight: Double = 80.0
     @AppStorage("userHeight") private var height: Double = 180.0
     @AppStorage("userGoal") private var goal: String = "Lose Weight"
     @AppStorage("userActivity") private var activityLevel: String = "Moderate"
@@ -276,6 +277,7 @@ struct ContentView: View {
         }
         .onAppear {
             initializeGoalSnapshotTracking()
+            syncWeightFromHealthKit()
             HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in
                 DispatchQueue.main.async {
                     self.dailySteps = steps

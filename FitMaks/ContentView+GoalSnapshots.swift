@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 // MARK: - Goal Snapshots & Daily Reminders
 extension ContentView {
@@ -147,5 +148,73 @@ extension ContentView {
         }
 
         return nil
+    }
+
+    // MARK: - Auto Weight Sync from HealthKit
+
+    func syncWeightFromHealthKit() {
+        let now = Date()
+        let lastSync = UserDefaults.standard.object(forKey: "lastHealthWeightSyncDate") as? Date ?? .distantPast
+        let cooldown: TimeInterval = 6 * 3600
+
+        guard now.timeIntervalSince(lastSync) > cooldown else { return }
+
+        HealthKitManager.shared.fetchLatestBodyMetrics { [self] snapshot in
+            guard let snapshot else { return }
+
+            let calendar = Calendar.current
+            let alreadyHasToday = allBodyMetrics.contains {
+                calendar.isDate($0.date, inSameDayAs: snapshot.date)
+            }
+
+            guard !alreadyHasToday else {
+                UserDefaults.standard.set(now, forKey: "lastHealthWeightSyncDate")
+                return
+            }
+
+            guard snapshot.date > lastSync else {
+                UserDefaults.standard.set(now, forKey: "lastHealthWeightSyncDate")
+                return
+            }
+
+            let entry = BodyMetricEntry(
+                date: snapshot.date,
+                weightKg: snapshot.weightKg,
+                bodyFatPercent: snapshot.bodyFatPercent,
+                musclePercent: snapshot.musclePercent,
+                source: "Apple Health"
+            )
+            modelContext.insert(entry)
+
+            if BodyMetricProfileSync.shouldPromoteProfileWeight(
+                candidateDate: snapshot.date,
+                currentLatestDate: allBodyMetrics.first?.date
+            ) {
+                weight = snapshot.weightKg
+            }
+
+            UserDefaults.standard.set(now, forKey: "lastHealthWeightSyncDate")
+
+            sendWeightSyncNotification(weightKg: snapshot.weightKg)
+        }
+    }
+
+    private func sendWeightSyncNotification(weightKg: Double) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "FitMaks"
+            content.body = "New weight synced from Apple Health: \(String(format: "%.1f", weightKg)) kg"
+            content.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: "fitmaks.weight.sync.\(Date().timeIntervalSince1970)",
+                content: content,
+                trigger: nil
+            )
+            center.add(request)
+        }
     }
 }

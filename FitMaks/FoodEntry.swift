@@ -21,9 +21,9 @@ final class FoodEntry {
         self.id = UUID()
         self.createdAt = Date()
         self.imageData = image.preparedForAppStorage().jpegData(compressionQuality: 0.72) ?? Data()
-        self.name = name
-        self.calories = calories
-        self.protein = protein
+        self.name = name.isEmpty ? "Food" : name
+        self.calories = max(0, calories)
+        self.protein = max(0, protein)
         self.ingredients = ingredients
         self.date = date
         self.location = location

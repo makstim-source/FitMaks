@@ -89,9 +89,9 @@ final class FavoriteFood {
 
     init(image: UIImage?, name: String, calories: Double, protein: Double, ingredients: String) {
         self.createdAt = Date()
-        self.name = name
-        self.calories = calories
-        self.protein = protein
+        self.name = name.isEmpty ? "Food" : name
+        self.calories = max(0, calories)
+        self.protein = max(0, protein)
         self.ingredients = ingredients
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
@@ -118,9 +118,9 @@ final class TrainingEntry {
 
     init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, duration: String, date: Date) {
         self.createdAt = Date()
-        self.name = name
-        self.caloriesBurned = caloriesBurned
-        self.steps = steps
+        self.name = name.isEmpty ? "Workout" : name
+        self.caloriesBurned = max(0, caloriesBurned)
+        self.steps = steps.map { max(0, $0) }
         self.duration = duration
         self.date = date
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
@@ -307,10 +307,10 @@ final class SavedRecipe {
         protein: Double,
         ingredients: String = ""
     ) {
-        self.name = name
+        self.name = name.isEmpty ? "Meal" : name
         self.instructions = instructions
-        self.calories = calories
-        self.protein = protein
+        self.calories = max(0, calories)
+        self.protein = max(0, protein)
         self.ingredients = ingredients
         self.dateSaved = Date()
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)

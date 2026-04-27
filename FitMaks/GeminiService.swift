@@ -638,8 +638,8 @@ class GeminiService {
             food_name: result.food_name,
             emoji: result.emoji,
             source_photo_number: result.source_photo_number,
-            calories: (result.calories / 5).rounded() * 5,
-            protein: result.protein.rounded(),
+            calories: max(0, (result.calories / 5).rounded() * 5),
+            protein: max(0, result.protein.rounded()),
             ingredients_breakdown: result.ingredients_breakdown,
             ai_response_text: result.ai_response_text
         )

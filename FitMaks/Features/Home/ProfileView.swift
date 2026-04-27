@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import AuthenticationServices
 
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
@@ -324,6 +325,15 @@ struct ProfileView: View {
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.red.opacity(0.18), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+            } else {
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.fullName, .email]
+                } onCompletion: { result in
+                    AuthService.shared.handleSignIn(result)
+                }
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
         .padding(18)

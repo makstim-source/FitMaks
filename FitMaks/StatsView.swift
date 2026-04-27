@@ -676,7 +676,8 @@ private struct StatsDayBadgeRow: View {
                     title: stat.hasFood && stat.consumed > stat.calorieGraceLimit ? "kcal over" : "kcal deficit",
                     value: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
                     isOn: stat.calorieWin,
-                    color: stat.hasFood && stat.consumed > stat.calorieGraceLimit ? .red : .neonGreen
+                    color: stat.hasFood && stat.consumed > stat.calorieGraceLimit ? .red : .neonGreen,
+                    forceHighlight: stat.hasFood && stat.consumed > stat.calorieGraceLimit
                 )
                 StatsDayMetricPill(
                     title: "protein",
@@ -714,17 +715,20 @@ private struct StatsDayMetricPill: View {
     let isOn: Bool
     let color: Color
     var disablesValueAnimation = false
+    var forceHighlight = false
+
+    private var highlighted: Bool { isOn || forceHighlight }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
                 .font(.system(size: 7, weight: .heavy))
-                .foregroundColor(isOn ? color : .gray)
+                .foregroundColor(highlighted ? color : .gray)
                 .tracking(0.5)
 
             Text(value)
                 .font(.system(size: disablesValueAnimation ? 10 : 11, weight: .heavy))
-                .foregroundColor(.white.opacity(isOn ? 0.92 : 0.58))
+                .foregroundColor(.white.opacity(highlighted ? 0.92 : 0.58))
                 .fontDesign(.rounded)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -739,11 +743,11 @@ private struct StatsDayMetricPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isOn ? color.opacity(0.12) : Color.white.opacity(0.045))
+                .fill(highlighted ? color.opacity(0.12) : Color.white.opacity(0.045))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isOn ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
+                .stroke(highlighted ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
         )
     }
 }

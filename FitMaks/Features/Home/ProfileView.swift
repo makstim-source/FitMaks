@@ -42,6 +42,8 @@ struct ProfileView: View {
     @State private var isInteractingWithBodyChart = false
     @State private var lastBodyChartSelectionAt = Date.distantPast
     @State private var isShowingBodyMetricHistory = false
+    @State private var isShowingSignOutConfirm = false
+    @State private var isShowingDeleteConfirm = false
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -165,6 +167,8 @@ struct ProfileView: View {
                         changeGoalsButton
                         profileSectionDivider(title: "Body tracking")
                         weightTrackerCard
+                        profileSectionDivider(title: "Account")
+                        accountCard
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -226,6 +230,108 @@ struct ProfileView: View {
             guard let image else { return }
             analyzeBodyImage(image)
         }
+        .alert("Sign Out", isPresented: $isShowingSignOutConfirm) {
+            Button("Sign Out", role: .destructive) {
+                AuthService.shared.signOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your data stays on this device, but iCloud sync will stop until you sign in again.")
+        }
+        .alert("Delete Account", isPresented: $isShowingDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                AuthService.shared.signOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes your Apple ID link from FitMaks. Your local data stays on this device. To fully delete iCloud data, go to Settings → Apple ID → iCloud → Manage Storage.")
+        }
+    }
+
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(AuthService.shared.isSignedIn ? Color.neonGreen.opacity(0.18) : Color.appSurface)
+
+                    Image(systemName: AuthService.shared.isSignedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(AuthService.shared.isSignedIn ? .neonGreen : .appMuted)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    if AuthService.shared.isSignedIn {
+                        Text(AuthService.shared.displayName ?? "Apple ID connected")
+                            .font(.headline)
+                            .fontWeight(.heavy)
+                            .foregroundColor(.appText)
+
+                        Text("iCloud sync active")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.neonGreen)
+                    } else {
+                        Text("Not signed in")
+                            .font(.headline)
+                            .fontWeight(.heavy)
+                            .foregroundColor(.appText)
+
+                        Text("Data is local only")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.appMuted)
+                    }
+                }
+
+                Spacer()
+            }
+
+            if AuthService.shared.isSignedIn {
+                Button {
+                    isShowingSignOutConfirm = true
+                } label: {
+                    HStack {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Sign Out")
+                            .font(.subheadline)
+                            .fontWeight(.heavy)
+                    }
+                    .foregroundColor(.appMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    isShowingDeleteConfirm = true
+                } label: {
+                    HStack {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Delete Account")
+                            .font(.subheadline)
+                            .fontWeight(.heavy)
+                    }
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.red.opacity(0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.red.opacity(0.18), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.appSurface)
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.appBorder, lineWidth: 1))
+        )
     }
 
     private var goalsHeader: some View {

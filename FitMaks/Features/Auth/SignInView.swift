@@ -85,17 +85,22 @@ struct SignInView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        AuthService.shared.handleSignIn(result)
-                        if AuthService.shared.isSignedIn {
+                    Button {
+                        AuthService.shared.startSignIn {
                             onContinue()
                         }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "apple.logo")
+                                .font(.system(size: 18, weight: .bold))
+                            Text("Sign in with Apple")
+                                .font(.system(size: 17, weight: .bold))
+                        }
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Capsule().fill(.white))
                     }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 50)
-                    .clipShape(Capsule())
 
                     if let error = AuthService.shared.lastError {
                         Text(error)

@@ -1,8 +1,9 @@
 import AuthenticationServices
 import Security
+import UIKit
 
 @Observable
-final class AuthService {
+final class AuthService: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     static let shared = AuthService()
 
     private(set) var isSignedIn = false
@@ -10,8 +11,10 @@ final class AuthService {
     private(set) var lastError: String?
 
     private let userIDKey = "com.fitmaks.appleUserID"
+    private var signInCompletion: (() -> Void)?
 
-    init() {
+    override init() {
+        super.init()
         checkExistingCredential()
     }
 
@@ -31,39 +34,63 @@ final class AuthService {
         }
     }
 
-    func handleSignIn(_ result: Result<ASAuthorization, Error>) {
+    func startSignIn(completion: (() -> Void)? = nil) {
         lastError = nil
+        signInCompletion = completion
 
-        switch result {
-        case .success(let auth):
-            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else {
-                lastError = "Unexpected credential type"
-                return
-            }
-            keychainSave(key: userIDKey, value: credential.user)
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        request.requestedScopes = [.fullName, .email]
 
-            if let fullName = credential.fullName {
-                let name = [fullName.givenName, fullName.familyName]
-                    .compactMap { $0 }
-                    .joined(separator: " ")
-                if !name.isEmpty {
-                    UserDefaults.standard.set(name, forKey: "appleUserName")
-                }
-            }
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
 
-            if let email = credential.email {
-                UserDefaults.standard.set(email, forKey: "appleUserEmail")
-            }
-
-            isSignedIn = true
-            ICloudSettingsSync.pushToICloud()
-
-        case .failure(let error):
-            let code = (error as? ASAuthorizationError)?.code
-            if code == .canceled { return }
-            lastError = error.localizedDescription
-            print("[AuthService] Sign in failed: \(error)")
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = scene.windows.first else {
+            return ASPresentationAnchor()
         }
+        return window
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            lastError = "Unexpected credential type"
+            return
+        }
+        keychainSave(key: userIDKey, value: credential.user)
+
+        if let fullName = credential.fullName {
+            let name = [fullName.givenName, fullName.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            if !name.isEmpty {
+                UserDefaults.standard.set(name, forKey: "appleUserName")
+            }
+        }
+
+        if let email = credential.email {
+            UserDefaults.standard.set(email, forKey: "appleUserEmail")
+        }
+
+        isSignedIn = true
+        ICloudSettingsSync.pushToICloud()
+        signInCompletion?()
+        signInCompletion = nil
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        let code = (error as? ASAuthorizationError)?.code
+        if code == .canceled {
+            signInCompletion = nil
+            return
+        }
+        lastError = error.localizedDescription
+        print("[AuthService] Sign in failed: \(error)")
+        signInCompletion = nil
     }
 
     func signOut() {

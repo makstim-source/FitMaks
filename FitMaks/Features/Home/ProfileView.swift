@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import UIKit
-import AuthenticationServices
 
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
@@ -326,14 +325,21 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    AuthService.shared.handleSignIn(result)
+                Button {
+                    AuthService.shared.startSignIn()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Sign in with Apple")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(.white))
                 }
-                .signInWithAppleButtonStyle(.white)
-                .frame(height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .buttonStyle(.plain)
 
                 if let error = AuthService.shared.lastError {
                     Text(error)

@@ -4,18 +4,18 @@ import UIKit
 
 @Model
 final class FoodEntry {
-    var id: UUID
+    var id: UUID = UUID()
     var createdAt: Date?
 
     @Attribute(.externalStorage)
-    var imageData: Data
+    var imageData: Data = Data()
 
-    var name: String
-    var calories: Double
-    var protein: Double
-    var ingredients: String
-    var date: Date
-    var location: String // "fridge" или "meal"
+    var name: String = ""
+    var calories: Double = 0
+    var protein: Double = 0
+    var ingredients: String = ""
+    var date: Date = Date()
+    var location: String = "fridge"
     
     init(image: UIImage, name: String, calories: Double, protein: Double, ingredients: String, date: Date, location: String = "fridge") {
         self.id = UUID()

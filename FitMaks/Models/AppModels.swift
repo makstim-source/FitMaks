@@ -73,10 +73,10 @@ struct ParsedIng: Identifiable {
 final class FavoriteFood {
     var id: UUID = UUID()
     var createdAt: Date?
-    var name: String
-    var calories: Double
-    var protein: Double
-    var ingredients: String
+    var name: String = ""
+    var calories: Double = 0
+    var protein: Double = 0
+    var ingredients: String = ""
 
     @Attribute(.externalStorage) var imageData: Data?
 
@@ -101,11 +101,11 @@ final class FavoriteFood {
 final class TrainingEntry {
     var id: UUID = UUID()
     var createdAt: Date?
-    var name: String
-    var caloriesBurned: Double
+    var name: String = ""
+    var caloriesBurned: Double = 0
     var steps: Double?
-    var duration: String
-    var date: Date
+    var duration: String = ""
+    var date: Date = Date()
     var aiSummary: String?
 
     @Attribute(.externalStorage) var imageData: Data?
@@ -131,8 +131,8 @@ final class TrainingEntry {
 
 @Model
 final class DailySetup {
-    var dateID: String
-    var mode: String
+    var dateID: String = ""
+    var mode: String = "Chill 💤"
     var baseCalories: Double?
     var baseProtein: Double?
 
@@ -173,15 +173,15 @@ final class DailySetup {
 @Model
 final class BodyMetricEntry {
     var id: UUID = UUID()
-    var date: Date
-    var weightKg: Double
+    var date: Date = Date()
+    var weightKg: Double = 0
     var bodyFatPercent: Double?
     var musclePercent: Double?
     var waterPercent: Double?
     var visceralFat: Double?
     var metabolicAge: Double?
-    var note: String
-    var source: String
+    var note: String = ""
+    var source: String = "Manual"
 
     init(
         date: Date = Date(),
@@ -273,8 +273,8 @@ enum BodyMetricProfileSync {
 @Model
 final class ShoppingItem {
     var id: UUID = UUID()
-    var name: String
-    var isCompleted: Bool
+    var name: String = ""
+    var isCompleted: Bool = false
 
     init(name: String) {
         self.name = name
@@ -285,12 +285,12 @@ final class ShoppingItem {
 @Model
 final class SavedRecipe {
     var id: UUID = UUID()
-    var name: String
-    var instructions: String
-    var calories: Double
-    var protein: Double
-    var dateSaved: Date
-    var ingredients: String
+    var name: String = ""
+    var instructions: String = ""
+    var calories: Double = 0
+    var protein: Double = 0
+    var dateSaved: Date = Date()
+    var ingredients: String = ""
 
     @Attribute(.externalStorage) var imageData: Data?
 

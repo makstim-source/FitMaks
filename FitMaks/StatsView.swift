@@ -674,7 +674,7 @@ private struct StatsDayBadgeRow: View {
             HStack(spacing: 7) {
                 StatsDayMetricPill(
                     title: "kcal",
-                    value: "\(Int(stat.consumed))/\(Int(stat.target))",
+                    value: stat.hasFood ? "\(Int(stat.target - stat.consumed))" : "—",
                     isOn: stat.calorieWin,
                     color: .neonGreen
                 )

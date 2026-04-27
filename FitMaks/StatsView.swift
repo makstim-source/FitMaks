@@ -673,13 +673,13 @@ private struct StatsDayBadgeRow: View {
 
             HStack(spacing: 7) {
                 StatsDayMetricPill(
-                    title: "kcal",
-                    value: stat.hasFood ? "\(Int(stat.target - stat.consumed))" : "—",
+                    title: stat.hasFood && stat.consumed > stat.calorieGraceLimit ? "kcal over" : "kcal deficit",
+                    value: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
                     isOn: stat.calorieWin,
-                    color: .neonGreen
+                    color: stat.hasFood && stat.consumed > stat.calorieGraceLimit ? .red : .neonGreen
                 )
                 StatsDayMetricPill(
-                    title: "prot",
+                    title: "protein",
                     value: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
                     isOn: stat.proteinWin,
                     color: .neonCyan

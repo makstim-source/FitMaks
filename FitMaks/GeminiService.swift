@@ -491,9 +491,12 @@ class GeminiService {
         request.timeoutInterval = 60
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         var generationConfig: [String: Any] = [
-            "response_mime_type": "application/json",
             "temperature": temperature
         ]
+
+        if !useSearchGrounding {
+            generationConfig["response_mime_type"] = "application/json"
+        }
 
         if let topP {
             generationConfig["topP"] = topP

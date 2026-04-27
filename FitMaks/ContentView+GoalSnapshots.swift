@@ -195,18 +195,26 @@ extension ContentView {
 
             UserDefaults.standard.set(now, forKey: "lastHealthWeightSyncDate")
 
-            sendWeightSyncNotification(weightKg: snapshot.weightKg)
+            sendWeightSyncNotification(snapshot: snapshot)
         }
     }
 
-    private func sendWeightSyncNotification(weightKg: Double) {
+    private func sendWeightSyncNotification(snapshot: HealthBodyMetricSnapshot) {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else { return }
 
+            var details = ["\(String(format: "%.1f", snapshot.weightKg)) kg"]
+            if let fat = snapshot.bodyFatPercent {
+                details.append("\(String(format: "%.1f", fat))% fat")
+            }
+            if let muscle = snapshot.musclePercent {
+                details.append("\(String(format: "%.1f", muscle))% muscle")
+            }
+
             let content = UNMutableNotificationContent()
             content.title = "FitMaks"
-            content.body = "New weight synced from Apple Health: \(String(format: "%.1f", weightKg)) kg"
+            content.body = "Synced from Apple Health: \(details.joined(separator: " · "))"
             content.sound = .default
 
             let request = UNNotificationRequest(

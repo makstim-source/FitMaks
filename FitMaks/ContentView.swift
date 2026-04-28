@@ -502,6 +502,7 @@ struct ContentView: View {
             HomeIconButton(systemName: "sparkles", color: .neonCyan) {
                 isShowingAIAssistant = true
             }
+            .accessibilityIdentifier("aiAssistantButton")
         }
         .padding(.horizontal, 16)
     }
@@ -559,6 +560,7 @@ struct ContentView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("statsButton")
         .accessibilityLabel("Open Progress Arena. Current streak \(homePerfectStreak) of 7 days.")
     }
 
@@ -575,6 +577,7 @@ struct ContentView: View {
                     color: caloriesOutsideGrace ? .red : .neonGreen,
                     systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"
                 )
+                .accessibilityIdentifier("caloriesTile")
                 .onTapGesture { openGoalBreakdown(.calories) }
 
                 HomeMetricTile(
@@ -585,6 +588,7 @@ struct ContentView: View {
                     color: .neonCyan,
                     systemName: "drop.fill"
                 )
+                .accessibilityIdentifier("proteinTile")
                 .onTapGesture { openGoalBreakdown(.protein) }
 
                 HomeMetricTile(
@@ -597,6 +601,7 @@ struct ContentView: View {
                     color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                     systemName: "shoeprints.fill"
                 )
+                .accessibilityIdentifier("stepsTile")
                 .onTapGesture { openGoalBreakdown(.steps) }
             }
 
@@ -746,6 +751,7 @@ struct ContentView: View {
                 initialMyFoodTab = 0
                 isShowingMyFood = true
             }
+            .accessibilityIdentifier("foodDockButton")
 
             Spacer()
 
@@ -762,6 +768,7 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("addEntryButton")
             .offset(y: -8)
 
             Spacer()
@@ -769,6 +776,7 @@ struct ContentView: View {
             HomeDockButton(title: "Profile", systemName: "person.crop.circle.fill", color: .fitPurple) {
                 isShowingProfile = true
             }
+            .accessibilityIdentifier("profileDockButton")
         }
         .padding(.horizontal, 30)
         .padding(.top, 6)

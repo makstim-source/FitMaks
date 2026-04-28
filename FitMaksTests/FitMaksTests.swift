@@ -191,8 +191,9 @@ struct FitMaksTests {
             trainingCalories: 642
         )
 
-        #expect(targets.calorieBonus == 642)
-        #expect(targets.calories == 2_642)
+        let credited = 642 * DayProgressEngine.workoutCalorieCreditRatio
+        #expect(targets.calorieBonus == credited)
+        #expect(targets.calories == 2_000 + credited)
         #expect(targets.protein == 195)
     }
 
@@ -219,7 +220,8 @@ struct FitMaksTests {
             trainingCalories: 640
         )
 
-        #expect(targets.calorieBonus == 940)
+        let creditedCardio = 640 * DayProgressEngine.workoutCalorieCreditRatio
+        #expect(targets.calorieBonus == creditedCardio + 300)
         #expect(targets.proteinBonus == 40)
         #expect(targets.stepBonus == 5_000)
     }

@@ -592,11 +592,15 @@ class GeminiService {
                 cleanText = cleanText.replacingOccurrences(of: mdQuotes, with: "")
             }
 
-            guard
-                let start = cleanText.firstIndex(of: "{"),
-                let end = cleanText.lastIndex(of: "}"),
-                let finalData = String(cleanText[start...end]).data(using: .utf8)
-            else {
+            let finalData: Data
+            if let start = cleanText.firstIndex(of: "{"),
+               let end = cleanText.lastIndex(of: "}"),
+               let extracted = String(cleanText[start...end]).data(using: .utf8) {
+                finalData = extracted
+            } else if !cleanText.isEmpty,
+                      let wrapped = self.wrapPlainTextAsJSON(cleanText) {
+                finalData = wrapped
+            } else {
                 completion(nil, "Gemini returned invalid JSON.")
                 return
             }
@@ -608,6 +612,16 @@ class GeminiService {
                 completion(nil, "Failed to decode Gemini response.")
             }
         }.resume()
+    }
+
+    private func wrapPlainTextAsJSON(_ text: String) -> Data? {
+        let escaped = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+        return "{\"ai_summary\":\"\(escaped)\"}".data(using: .utf8)
     }
 
     private func isRetryableError(_ error: Error) -> Bool {

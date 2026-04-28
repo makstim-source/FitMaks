@@ -126,6 +126,7 @@ struct HomeMetricTile: View {
                 .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.09), lineWidth: 1))
         )
+        .accessibilityIdentifier("metric_\(title)")
     }
 }
 
@@ -152,6 +153,7 @@ struct HomeDockButton: View {
             .frame(width: 76)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("dock_\(title)")
     }
 }
 

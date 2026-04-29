@@ -170,7 +170,7 @@ struct HomeDockButton: View {
                     .font(.system(size: 9, weight: .heavy))
                     .foregroundColor(.appMuted)
             }
-            .frame(width: 48)
+            .frame(width: 56)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("dock_\(title)")

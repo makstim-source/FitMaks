@@ -1,9 +1,9 @@
 import SwiftUI
 
 extension ContentView {
-    func latestWeightSharePayload() -> FitMaksSharePayload? {
+    func weightSharePayload(days: Int) -> FitMaksSharePayload? {
         let entries = allBodyMetrics
-            .prefix(30)
+            .prefix(days)
             .reversed()
             .map {
                 FitMaksShareWeightPoint(
@@ -19,7 +19,7 @@ extension ContentView {
         return .weight(
             FitMaksShareWeightSnapshot(
                 title: "Weight trend",
-                subtitle: "Last 30 days",
+                subtitle: "Last \(days) days",
                 accentColor: .neonGreen,
                 leadingValue: "\(String(format: "%.1f", first.value)) kg",
                 trailingValue: "\(String(format: "%.1f", last.value)) kg",
@@ -47,8 +47,10 @@ extension ContentView {
             FitMaksPostOption(id: streakBoardSharePayload().id, title: "Board", payload: streakBoardSharePayload())
         ]
 
-        if let weightPayload = latestWeightSharePayload() {
-            options.append(FitMaksPostOption(id: weightPayload.id, title: "Weight", payload: weightPayload))
+        for days in [30, 90, 180] {
+            if let wp = weightSharePayload(days: days) {
+                options.append(FitMaksPostOption(id: wp.id, title: "\(days)d", payload: wp))
+            }
         }
 
         options.append(contentsOf: achievementPostOptions(limit: nil))

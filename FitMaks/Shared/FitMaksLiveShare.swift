@@ -701,7 +701,7 @@ private struct FitMaksLiveCanvas: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            Text("FitMaks")
+            Text("FitMaks App")
                 .font(.system(size: 20, weight: .black))
                 .foregroundColor(.white.opacity(0.55))
                 .padding(.horizontal, 14)
@@ -736,7 +736,7 @@ private struct FitMaksLiveExportCard: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            Text("FitMaks")
+            Text("FitMaks App")
                 .font(.system(size: 20, weight: .black))
                 .foregroundColor(.white.opacity(0.55))
                 .padding(.horizontal, 14)

@@ -236,7 +236,6 @@ struct FitMaksLiveView: View {
     @State private var contentOffsetY: CGFloat = 0
     @State private var dragOffsetY: CGFloat = 0
     @State private var saveConfirmationText: String?
-    @State private var isShowingFoodBreakdown = false
     @State private var selectedCategoryKey: String?
 
     private let canvasSize = CGSize(width: 1080, height: 1920)
@@ -290,8 +289,7 @@ struct FitMaksLiveView: View {
                             FitMaksLiveCanvas(
                                 payload: payload,
                                 backgroundImage: displayedBackgroundImage,
-                                contentOffsetY: (contentOffsetY + dragOffsetY) / scale,
-                                isShowingFoodBreakdown: isShowingFoodBreakdown
+                                contentOffsetY: (contentOffsetY + dragOffsetY) / scale
                             )
                             .frame(width: 1080, height: 1920)
                             .scaleEffect(scale, anchor: .topLeading)
@@ -413,17 +411,6 @@ struct FitMaksLiveView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            if case .food(let snapshot) = payload, !snapshot.breakdownLines.isEmpty {
-                                liveControlChip(
-                                    title: isShowingFoodBreakdown ? "Hide breakdown" : "Add breakdown",
-                                    isSelected: isShowingFoodBreakdown
-                                ) {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                        isShowingFoodBreakdown.toggle()
-                                    }
-                                }
-                            }
-
                             Spacer()
                         }
                         .padding(.horizontal, 16)
@@ -481,17 +468,9 @@ struct FitMaksLiveView: View {
             }
         }
         .onChange(of: payload.id) { _, _ in
-            if case .food(let snapshot) = payload {
-                isShowingFoodBreakdown = !snapshot.breakdownLines.isEmpty
-            } else {
-                isShowingFoodBreakdown = false
-            }
             selectedCategoryKey = payload.categoryKey
         }
         .onAppear {
-            if case .food(let snapshot) = payload {
-                isShowingFoodBreakdown = !snapshot.breakdownLines.isEmpty
-            }
             selectedCategoryKey = payload.categoryKey
         }
         .fullScreenCover(isPresented: $isShowingCamera) {
@@ -574,7 +553,7 @@ struct FitMaksLiveView: View {
         let renderer: ImageRenderer<AnyView>
         if displayedBackgroundImage == nil {
             let overlayCard = AnyView(
-                FitMaksLiveExportCard(payload: payload, isShowingFoodBreakdown: isShowingFoodBreakdown)
+                FitMaksLiveExportCard(payload: payload)
                     .environment(\.colorScheme, .dark)
             )
             renderer = ImageRenderer(content: overlayCard)
@@ -586,8 +565,7 @@ struct FitMaksLiveView: View {
                 FitMaksLiveCanvas(
                     payload: payload,
                     backgroundImage: displayedBackgroundImage,
-                    contentOffsetY: canvasOffset,
-                    isShowingFoodBreakdown: isShowingFoodBreakdown
+                    contentOffsetY: canvasOffset
                 )
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .environment(\.colorScheme, .dark)
@@ -615,8 +593,6 @@ private struct FitMaksLiveCanvas: View {
     let payload: FitMaksSharePayload
     var backgroundImage: UIImage?
     var contentOffsetY: CGFloat = 0
-    var isShowingFoodBreakdown: Bool = false
-
     var body: some View {
         ZStack {
             backgroundLayer
@@ -695,7 +671,7 @@ private struct FitMaksLiveCanvas: View {
             case .weight(let snapshot):
                 FitMaksLiveWeightCard(snapshot: snapshot)
             case .food(let snapshot):
-                FitMaksLiveFoodCard(snapshot: snapshot, isShowingBreakdown: isShowingFoodBreakdown)
+                FitMaksLiveFoodCard(snapshot: snapshot)
             case .workout(let snapshot):
                 FitMaksLiveWorkoutCard(snapshot: snapshot)
             }
@@ -714,7 +690,6 @@ private struct FitMaksLiveCanvas: View {
 
 private struct FitMaksLiveExportCard: View {
     let payload: FitMaksSharePayload
-    let isShowingFoodBreakdown: Bool
 
     var body: some View {
         Group {
@@ -730,7 +705,7 @@ private struct FitMaksLiveExportCard: View {
             case .weight(let snapshot):
                 FitMaksLiveWeightCard(snapshot: snapshot)
             case .food(let snapshot):
-                FitMaksLiveFoodCard(snapshot: snapshot, isShowingBreakdown: isShowingFoodBreakdown)
+                FitMaksLiveFoodCard(snapshot: snapshot)
             case .workout(let snapshot):
                 FitMaksLiveWorkoutCard(snapshot: snapshot)
             }
@@ -1121,7 +1096,6 @@ private struct FitMaksLiveWeightCard: View {
 
 private struct FitMaksLiveFoodCard: View {
     let snapshot: FitMaksShareFoodSnapshot
-    let isShowingBreakdown: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -1133,37 +1107,9 @@ private struct FitMaksLiveFoodCard: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.78)
 
-            Text(snapshot.subtitle)
-                .font(.system(size: 30, weight: .heavy))
-                .foregroundColor(.white.opacity(0.72))
-                .lineLimit(2)
-
             HStack(spacing: 14) {
                 liveStatPill(title: "Calories", value: snapshot.caloriesText, accent: .neonGreen)
                 liveStatPill(title: "Protein", value: snapshot.proteinText, accent: .neonCyan)
-            }
-
-            if isShowingBreakdown && !snapshot.breakdownLines.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Breakdown")
-                        .font(.system(size: 22, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.74))
-                        .tracking(1)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(snapshot.breakdownLines.prefix(5).enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(size: 26, weight: .semibold))
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 24).fill(Color.white.opacity(0.06)))
-                }
             }
         }
         .padding(34)

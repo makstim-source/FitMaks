@@ -148,11 +148,13 @@ extension ContentView {
                             return
                         }
 
+                        let resolvedCalories = resolvedTrainingCalories(from: result)
                         let entry = TrainingEntry(
                             image: processedImage,
                             name: result.activity_name,
-                            caloriesBurned: result.calories_burned,
+                            caloriesBurned: resolvedCalories,
                             steps: result.steps,
+                            tonnageKg: result.tonnage_kg,
                             duration: result.duration,
                             date: entryDate,
                             aiSummary: result.ai_summary
@@ -234,6 +236,71 @@ extension ContentView {
     func deleteFoodEntry(_ entry: FoodEntry) {
         GeminiService.shared.invalidateFoodImageCache(for: entry.uiImage)
         modelContext.delete(entry)
+    }
+
+    func resolvedTrainingCalories(from result: TrainingResult) -> Double {
+        if result.calories_burned > 0 {
+            return result.calories_burned
+        }
+
+        let durationMinutes = durationMinutes(from: result.duration) ?? fallbackTrainingDurationMinutes(for: result)
+        let met = estimatedMET(for: result)
+        let estimatedCalories = met * 3.5 * max(weight, 45) / 200 * durationMinutes
+        return max(estimatedCalories.rounded(), 120)
+    }
+
+    func durationMinutes(from duration: String) -> Double? {
+        let lower = duration.lowercased()
+        let numbers = lower
+            .replacingOccurrences(of: "[^0-9hms ]", with: " ", options: .regularExpression)
+            .split(separator: " ")
+
+        if lower.contains("h"), let hours = numbers.first.flatMap({ Double($0) }) {
+            let minutes = numbers.dropFirst().first.flatMap { Double($0) } ?? 0
+            return hours * 60 + minutes
+        }
+
+        if let first = numbers.first, let value = Double(first) {
+            return value
+        }
+
+        return nil
+    }
+
+    func fallbackTrainingDurationMinutes(for result: TrainingResult) -> Double {
+        let combined = "\(result.activity_name.lowercased()) \(result.ai_summary.lowercased()) \(result.day_mode?.lowercased() ?? "")"
+
+        if combined.contains("run") || combined.contains("cycling") || combined.contains("padel") || combined.contains("tennis") {
+            return 60
+        }
+
+        if combined.contains("walk") {
+            return 45
+        }
+
+        return 50
+    }
+
+    func estimatedMET(for result: TrainingResult) -> Double {
+        let combined = "\(result.activity_name.lowercased()) \(result.ai_summary.lowercased()) \(result.day_mode?.lowercased() ?? "")"
+
+        if combined.contains("run") || combined.contains("running") {
+            return 9.5
+        }
+        if combined.contains("padel") || combined.contains("tennis") || combined.contains("pickleball") {
+            return 7.3
+        }
+        if combined.contains("cycle") || combined.contains("bike") || combined.contains("cycling") {
+            return 8.2
+        }
+        if combined.contains("walk") || combined.contains("hike") {
+            return 4.4
+        }
+        if combined.contains("gym") || combined.contains("strength") || combined.contains("weight") || combined.contains("leg day") || combined.contains("upper body") || combined.contains("lower body") {
+            return 5.8
+        }
+
+        return 6.0
     }
 
     func stageFoodResultsIfNeeded(

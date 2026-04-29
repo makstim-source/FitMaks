@@ -18,6 +18,7 @@ struct AIChatEditView: View {
     @State private var saveConfirmationText: String?
     @FocusState private var isInputFocused: Bool
 
+    var onShare: (() -> Void)? = nil
     var onDelete: () -> Void
     var onDone: () -> Void
 
@@ -33,31 +34,24 @@ struct AIChatEditView: View {
                 Spacer()
 
                 VStack(spacing: 2) {
-                    Text("Analysis")
-                        .font(.system(size: 16, weight: .black))
-                        .foregroundColor(.appText)
-
                     Text(entry.name)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.appMuted)
-                        .lineLimit(1)
-                        .frame(maxWidth: 150)
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundColor(.appText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 180)
                 }
 
                 Spacer()
 
                 HStack(spacing: 14) {
-                    Button(action: recalculateFresh) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.neonGreen)
-                            .font(.system(size: 17, weight: .bold))
-                    }
-                    .disabled(isWaiting)
-
-                    Button(action: { isShowingSaveDialog = true }) {
-                        Image(systemName: "square.and.arrow.down")
-                            .foregroundColor(.neonCyan)
-                            .font(.system(size: 17, weight: .bold))
+                    if let onShare {
+                        Button(action: onShare) {
+                            Image(systemName: "camera.aperture")
+                                .foregroundColor(.fitOrange)
+                                .font(.system(size: 16, weight: .black))
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     Button(action: onDelete) {
@@ -113,6 +107,34 @@ struct AIChatEditView: View {
                 }
             }
             VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Button(action: recalculateFresh) {
+                        Text("Recalculate")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .frame(maxWidth: .infinity)
+                            .background(Capsule().fill(Color.neonGreen.opacity(isWaiting ? 0.45 : 1)))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isWaiting)
+
+                    Button(action: { isShowingSaveDialog = true }) {
+                        Text("Save to My Food")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .frame(maxWidth: .infinity)
+                            .background(Capsule().fill(Color.neonCyan))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 10)
+
                 if let img = attachedImage {
                     HStack {
                         ZStack(alignment: .topTrailing) {
@@ -205,8 +227,8 @@ struct AIChatEditView: View {
             )
         }
         .confirmationDialog("Save to My Food", isPresented: $isShowingSaveDialog) {
-            Button("Fridge (Ingredient) ❄️") { saveAs(isMeal: false) }
-            Button("Meals (Dish) 🍲") { saveAs(isMeal: true) }
+            Button("Fridge") { saveAs(isMeal: false) }
+            Button("Meals") { saveAs(isMeal: true) }
         }
         .overlay(alignment: .top) {
             if let saveConfirmationText {

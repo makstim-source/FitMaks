@@ -104,6 +104,7 @@ final class TrainingEntry {
     var name: String = ""
     var caloriesBurned: Double = 0
     var steps: Double?
+    var tonnageKg: Double?
     var duration: String = ""
     var date: Date = Date()
     var aiSummary: String?
@@ -117,11 +118,12 @@ final class TrainingEntry {
         return UIImage(data: imageData)
     }
 
-    init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, duration: String, date: Date, aiSummary: String? = nil) {
+    init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, tonnageKg: Double? = nil, duration: String, date: Date, aiSummary: String? = nil) {
         self.createdAt = Date()
         self.name = name.isEmpty ? "Workout" : name
         self.caloriesBurned = max(0, caloriesBurned)
         self.steps = steps.map { max(0, $0) }
+        self.tonnageKg = tonnageKg.map { max(0, $0) }
         self.duration = duration
         self.date = date
         self.aiSummary = aiSummary

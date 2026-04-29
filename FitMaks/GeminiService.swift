@@ -61,12 +61,13 @@ struct TrainingResult: Codable {
     let activity_name: String
     let calories_burned: Double
     let steps: Double?
+    let tonnage_kg: Double?
     let day_mode: String?
     let duration: String
     let ai_summary: String
 
     private enum CodingKeys: String, CodingKey {
-        case activity_name, calories_burned, steps, day_mode, duration, ai_summary
+        case activity_name, calories_burned, steps, tonnage_kg, day_mode, duration, ai_summary
     }
 
     init(from decoder: Decoder) throws {
@@ -74,6 +75,7 @@ struct TrainingResult: Codable {
         activity_name = try c.decode(String.self, forKey: .activity_name)
         calories_burned = try c.flexibleDouble(forKey: .calories_burned)
         steps = try c.flexibleOptionalDouble(forKey: .steps)
+        tonnage_kg = try c.flexibleOptionalDouble(forKey: .tonnage_kg)
         day_mode = try c.decodeIfPresent(String.self, forKey: .day_mode)
         duration = (try c.decodeIfPresent(String.self, forKey: .duration)) ?? ""
         ai_summary = (try c.decodeIfPresent(String.self, forKey: .ai_summary)) ?? ""
@@ -324,9 +326,10 @@ class GeminiService {
         Return ONLY a single JSON object.
 
         RULES:
-        - "activity_name": a clear, descriptive name for the workout.
+        - "activity_name": a clear, descriptive name for the workout. Prefer the exact sport or session type if visible (e.g. "Padel", "Outdoor Run", "Cycling", "Leg Day", "Upper Body", "Treadmill Walk") instead of generic labels like "Workout".
         - "calories_burned": total active calories from the session. Use 0 if not visible.
         - "steps": step count if visible, otherwise null.
+        - "tonnage_kg": for strength workouts only, estimate total lifted tonnage in kilograms if sets/reps/weights are visible. Otherwise null.
         - "duration": workout duration as shown (e.g. "45 min", "1h 12m"). Use "" if not visible.
         - "day_mode": classify as "cardio" (running, cycling, sports, walking), "gym" (strength, weights, resistance), "mixed" (both), or null.
         - "ai_summary": a short 1-2 sentence summary including ALL key metrics you found (avg HR, max HR, distance, strain, zones, pace, reps, sets — anything useful). Be specific with numbers.
@@ -334,7 +337,7 @@ class GeminiService {
         LANGUAGE RULE: Detect the language visible in the screenshot. Write activity_name and ai_summary in that same language.
 
         CRITICAL RULE: You MUST use exactly this structure:
-        {"activity_name": "...", "calories_burned": 0, "steps": null, "day_mode": null, "duration": "...", "ai_summary": "..."}
+        {"activity_name": "...", "calories_burned": 0, "steps": null, "tonnage_kg": null, "day_mode": null, "duration": "...", "ai_summary": "..."}
         """
         sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
     }

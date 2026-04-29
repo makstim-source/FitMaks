@@ -418,6 +418,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "FitMaks uses the camera to scan meals, labels, receipts, workouts, and scale readings.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks reads Health data for steps, weight, and body metrics when you allow it.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FitMaks may request permission to update Health data if you enable Health write features.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "FitMaks saves your post images to Photos when you tap Save.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "FitMaks lets you choose meal, label, receipt, workout, and scale screenshots for AI analysis.";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -457,6 +458,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "FitMaks uses the camera to scan meals, labels, receipts, workouts, and scale readings.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FitMaks reads Health data for steps, weight, and body metrics when you allow it.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FitMaks may request permission to update Health data if you enable Health write features.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "FitMaks saves your post images to Photos when you tap Save.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "FitMaks lets you choose meal, label, receipt, workout, and scale screenshots for AI analysis.";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

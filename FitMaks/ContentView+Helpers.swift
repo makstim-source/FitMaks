@@ -48,9 +48,22 @@ extension ContentView {
         case .cardio:
             return "Cardio"
         case .gym:
-            return "Gym"
+            return "Strength"
         case .cardioGym:
-            return "Both"
+            return "Hybrid"
+        }
+    }
+
+    func modePostLabel(_ mode: DayMode) -> String {
+        switch mode {
+        case .chill:
+            return "Chill day"
+        case .cardio:
+            return "Cardio day"
+        case .gym:
+            return "Strength day"
+        case .cardioGym:
+            return "Hybrid day"
         }
     }
 

@@ -138,19 +138,39 @@ struct HomeDockButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: systemName)
-                    .font(.system(size: 20, weight: .black))
-                    .foregroundColor(color)
-                    .frame(width: 50, height: 50)
-                    .background(Circle().fill(Color.appSurface))
-                    .overlay(Circle().stroke(color.opacity(0.18), lineWidth: 1))
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.appSurface, Color.appElevated],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+
+                    Circle()
+                        .stroke(color.opacity(0.22), lineWidth: 1)
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: systemName)
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [color.opacity(0.92), color],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
+                .shadow(color: color.opacity(0.22), radius: 10, y: 4)
 
                 Text(title)
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(.system(size: 9, weight: .heavy))
                     .foregroundColor(.appMuted)
             }
-            .frame(width: 76)
+            .frame(width: 48)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("dock_\(title)")
@@ -256,12 +276,14 @@ struct HomeTrainingRow: View {
 
     private var trainingSummary: String {
         let stepsText = (entry.steps ?? 0) > 0 ? " · \(Int(entry.steps ?? 0)) steps" : ""
-        return "\(Int(entry.caloriesBurned)) kcal burned\(stepsText) · \(entry.duration)"
+        let tonnageText = (entry.tonnageKg ?? 0) > 0 ? " · \(Int(entry.tonnageKg ?? 0)) kg" : ""
+        return "\(Int(entry.caloriesBurned)) kcal burned\(stepsText)\(tonnageText) · \(entry.duration)"
     }
 }
 
 struct TrainingDetailOverlay: View {
     var entry: TrainingEntry
+    var onShare: (() -> Void)? = nil
     var onDone: () -> Void
 
     var body: some View {
@@ -271,6 +293,17 @@ struct TrainingDetailOverlay: View {
                     .font(.headline)
                     .foregroundColor(.white)
                 Spacer()
+                if let onShare {
+                    Button(action: onShare) {
+                        Label("Share", systemImage: "camera.aperture")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Color.fitOrange))
+                    }
+                    .buttonStyle(.plain)
+                }
                 Button(action: onDone) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
@@ -305,6 +338,9 @@ struct TrainingDetailOverlay: View {
                         }
                         if let steps = entry.steps, steps > 0 {
                             trainingMetric(value: "\(Int(steps))", unit: "steps", icon: "figure.walk", color: .green)
+                        }
+                        if let tonnage = entry.tonnageKg, tonnage > 0 {
+                            trainingMetric(value: "\(Int(tonnage))", unit: "kg", icon: "dumbbell.fill", color: .purple)
                         }
                     }
 

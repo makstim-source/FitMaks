@@ -5,6 +5,7 @@ import PhotosUI
 // MARK: - Main Home Screen
 struct ContentView: View {
     @Environment(\.modelContext) var modelContext
+    @AppStorage("seenAchievementUnlockIDs") private var seenAchievementUnlockIDs = ""
     @Query(sort: \FoodEntry.date, order: .forward) var allFoodEntries: [FoodEntry]
     @Query(sort: \TrainingEntry.date, order: .forward) var allTrainingEntries: [TrainingEntry]
     @Query var allDailySetups: [DailySetup]
@@ -43,6 +44,10 @@ struct ContentView: View {
     @State private var initialMyFoodTab = 0
     @State private var isShowingProfile = false
     @State private var isShowingStats = false
+    @State private var isShowingAchievements = false
+    @State private var livePayload: FitMaksSharePayload?
+    @State private var achievementBanner: StatsAchievement?
+    @State private var pendingAchievementBanners: [StatsAchievement] = []
     @State private var isShowingAIAssistant = false
     @State var isShowingGoalBreakdown = false
     @State var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
@@ -237,6 +242,60 @@ struct ContentView: View {
         return AchievementEngine.homePerfectStreak(in: recentDays)
     }
 
+    var homeLast30Stats: [DayProgress] {
+        let calendar = Calendar.current
+
+        return (0..<30).compactMap { index in
+            let daysBack = 29 - index
+            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
+                return nil
+            }
+
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = allDailySetups.first(where: { $0.dateID == dateID })
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            let dayTrainingCalories = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + $1.caloriesBurned }
+            let dayUploadedTrainingSteps = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: dayFood,
+                trainingCalories: dayTrainingCalories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
+                steps: homeWeeklySteps[dateID] ?? 0,
+                uploadedSteps: dayUploadedTrainingSteps,
+                stepTarget: targetSteps
+            )
+        }
+    }
+
+    var homeRecentSevenDayStats: [DayProgress] {
+        Array(homeLast30Stats.suffix(7))
+    }
+
+    var homeAchievementCollection: StatsAchievementCollection {
+        AchievementEngine.achievementCollection(
+            last30Stats: homeLast30Stats,
+            recentSevenDayStats: homeRecentSevenDayStats,
+            foodEntries: allFoodEntries
+        )
+    }
+
+    var unlockedAchievementSignature: String {
+        homeAchievementCollection.all
+            .filter(\.isUnlocked)
+            .map(\.id)
+            .sorted()
+            .joined(separator: "|")
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -252,12 +311,29 @@ struct ContentView: View {
             .padding(.top, 8)
             .blur(radius: (selectedEntryForEdit != nil || selectedTrainingDetail != nil) ? 15 : 0)
 
+            if let achievementBanner {
+                VStack {
+                    StatsAchievementUnlockBanner(achievement: achievementBanner) {
+                        dismissAchievementBanner()
+                    }
+                    .padding(.top, 8)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(12)
+            }
+
             if let entry = selectedEntryForEdit {
                 Color.black.opacity(0.5)
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture { withAnimation { selectedEntryForEdit = nil } }
                 AIChatEditView(
                     entry: entry,
+                    onShare: {
+                        livePayload = foodSharePayload(for: entry)
+                    },
                     onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } },
                     onDone: { withAnimation { selectedEntryForEdit = nil } }
                 )
@@ -270,6 +346,9 @@ struct ContentView: View {
                     .onTapGesture { withAnimation { selectedTrainingDetail = nil } }
                 TrainingDetailOverlay(
                     entry: training,
+                    onShare: {
+                        livePayload = workoutSharePayload(for: training)
+                    },
                     onDone: { withAnimation { selectedTrainingDetail = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -287,10 +366,14 @@ struct ContentView: View {
             HealthKitManager.shared.fetchWeeklySteps { steps in
                 DispatchQueue.main.async {
                     self.homeWeeklySteps = steps
+                    refreshAchievementBannerQueue()
                     self.syncDailyReminders()
                 }
             }
             syncDailyReminders()
+        }
+        .onChange(of: unlockedAchievementSignature) { _, _ in
+            refreshAchievementBannerQueue()
         }
         .onChange(of: selectedDate) { _, newDate in
             HealthKitManager.shared.fetchSteps(for: newDate) { steps in
@@ -379,7 +462,8 @@ struct ContentView: View {
                 goal: $goal, activityLevel: $activityLevel,
                 useCustomGoals: $useCustomGoals,
                 customCalories: $customCalories, customProtein: $customProtein,
-                calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein
+                calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein,
+                postOptions: universalPostOptions()
             )
         }
         .sheet(isPresented: $isShowingStats) {
@@ -388,8 +472,22 @@ struct ContentView: View {
                 allTrainingEntries: allTrainingEntries,
                 allSetups: allDailySetups,
                 baseCalories: useCustomGoals ? customCalories : calculatedCalories,
-                baseProtein: baseProteinGoal
+                baseProtein: baseProteinGoal,
+                postOptions: universalPostOptions()
             )
+        }
+        .sheet(isPresented: $isShowingAchievements) {
+            AchievementsView(
+                allFoodEntries: allFoodEntries,
+                allTrainingEntries: allTrainingEntries,
+                allSetups: allDailySetups,
+                baseCalories: useCustomGoals ? customCalories : calculatedCalories,
+                baseProtein: baseProteinGoal,
+                postOptions: universalPostOptions()
+            )
+        }
+        .sheet(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: universalPostOptions())
         }
         .sheet(isPresented: $isShowingAIAssistant) {
             AIAssistantView(
@@ -499,10 +597,12 @@ struct ContentView: View {
 
             Spacer()
 
-            HomeIconButton(systemName: "sparkles", color: .neonCyan) {
-                isShowingAIAssistant = true
+            HStack(spacing: 10) {
+                HomeIconButton(systemName: "sparkles", color: .neonCyan) {
+                    isShowingAIAssistant = true
+                }
+                .accessibilityIdentifier("aiAssistantButton")
             }
-            .accessibilityIdentifier("aiAssistantButton")
         }
         .padding(.horizontal, 16)
     }
@@ -528,40 +628,40 @@ struct ContentView: View {
                     Circle()
                         .trim(from: 0, to: CGFloat(min(Double(homePerfectStreak) / 7, 1)))
                         .stroke(
-                            Color.yellow,
+                            Color.fitOrange,
                             style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
                         .padding(4)
 
-                    Image(systemName: homePerfectStreak >= 7 ? "trophy.fill" : "trophy")
+                    Image(systemName: homePerfectStreak >= 7 ? "flame.fill" : "flame")
                         .font(.system(size: 16, weight: .black))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [Color.yellow, Color.fitOrange],
+                                colors: [Color.fitOrange, Color.red],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .shadow(color: Color.yellow.opacity(0.35), radius: homePerfectStreak > 0 ? 8 : 0)
+                        .shadow(color: Color.fitOrange.opacity(0.35), radius: homePerfectStreak > 0 ? 8 : 0)
                 }
                 .frame(width: 42, height: 42)
-                .overlay(Circle().stroke(Color.yellow.opacity(0.22), lineWidth: 1))
+                .overlay(Circle().stroke(Color.fitOrange.opacity(0.22), lineWidth: 1))
                 .shadow(color: Color.black.opacity(0.20), radius: 10)
 
                 Text("\(homePerfectStreak)/7")
                     .font(.system(size: 8, weight: .heavy))
-                    .foregroundColor(homePerfectStreak >= 7 ? .black : .yellow)
-                    .padding(.horizontal, 6)
+                    .foregroundColor(homePerfectStreak >= 7 ? .black : .fitOrange)
+                    .padding(.horizontal, 5)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.yellow : Color.black))
-                    .overlay(Capsule().stroke(Color.yellow.opacity(0.55), lineWidth: 1))
+                    .background(Capsule().fill(homePerfectStreak >= 7 ? Color.fitOrange : Color.black))
+                    .overlay(Capsule().stroke(Color.fitOrange.opacity(0.55), lineWidth: 1))
                     .offset(x: 7, y: 5)
             }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("statsButton")
-        .accessibilityLabel("Open Progress Arena. Current streak \(homePerfectStreak) of 7 days.")
+        .accessibilityLabel("Open Streak Mode. Current streak \(homePerfectStreak) of 7 days.")
     }
 
     private var dailyCommandCard: some View {
@@ -592,7 +692,7 @@ struct ContentView: View {
                 HomeMetricTile(
                     title: "Steps",
                     value: "\(Int(dailyProgress.effectiveSteps))",
-                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "screen" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k"),
+                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "screen" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k strength" : "of 10k"),
                     progress: dailyProgress.countedSteps / max(targetSteps, 1),
                     bonusProgress: dailyProgress.stepBonus / max(targetSteps, 1),
                     bonusColor: .fitOrange,
@@ -742,24 +842,29 @@ struct ContentView: View {
     }
 
     private var bottomDock: some View {
-        HStack {
-            HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
-                isSelectionModeForFridge = false
-                initialMyFoodTab = 0
-                isShowingMyFood = true
-            }
+        HStack(spacing: 0) {
+            HStack(spacing: 10) {
+                HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
+                    isSelectionModeForFridge = false
+                    initialMyFoodTab = 0
+                    isShowingMyFood = true
+                }
 
-            Spacer()
+                HomeDockButton(title: "Post", systemName: "camera", color: .fitOrange) {
+                    livePayload = todaySharePayload()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
 
             Button(action: { isShowingSourceDialog = true }) {
                 ZStack {
                     Circle()
-                    .fill(Color.neonGreen)
-                        .frame(width: 66, height: 66)
+                        .fill(Color.neonGreen)
+                        .frame(width: 62, height: 62)
                         .shadow(color: Color.neonGreen.opacity(0.45), radius: 18, x: 0, y: 8)
 
                     Image(systemName: "plus")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.system(size: 26, weight: .black))
                         .foregroundColor(.appAccentText)
                 }
             }
@@ -767,14 +872,20 @@ struct ContentView: View {
             .accessibilityLabel("Add Entry")
             .accessibilityIdentifier("addEntryButton")
             .offset(y: -8)
+            .padding(.horizontal, 10)
 
-            Spacer()
+            HStack(spacing: 10) {
+                HomeDockButton(title: "Badges", systemName: "sparkles.rectangle.stack.fill", color: .yellow) {
+                    isShowingAchievements = true
+                }
 
-            HomeDockButton(title: "Profile", systemName: "person.crop.circle.fill", color: .fitPurple) {
-                isShowingProfile = true
+                HomeDockButton(title: "Profile", systemName: "person.crop.circle.badge.checkmark", color: .fitPurple) {
+                    isShowingProfile = true
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 30)
+        .padding(.horizontal, 14)
         .padding(.top, 6)
         .padding(.bottom, 14)
         .background(
@@ -783,5 +894,68 @@ struct ContentView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .blur(radius: 0.5)
         )
+    }
+
+    private func refreshAchievementBannerQueue() {
+        let seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        let unlocked = homeAchievementCollection.all.filter(\.isUnlocked)
+        let unseen = unlocked.filter { !seenIDs.contains($0.id) }
+
+        guard !unseen.isEmpty else { return }
+
+        pendingAchievementBanners = unseen.sorted { lhs, rhs in
+            if lhs.family != rhs.family {
+                return lhs.family == .core
+            }
+
+            if lhs.rarity.rawValue != rhs.rarity.rawValue {
+                return lhs.rarity.rawValue > rhs.rarity.rawValue
+            }
+
+            return lhs.title < rhs.title
+        }
+
+        if achievementBanner == nil {
+            showNextAchievementBanner()
+        }
+    }
+
+    private func showNextAchievementBanner() {
+        guard !pendingAchievementBanners.isEmpty else { return }
+
+        let next = pendingAchievementBanners.removeFirst()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            achievementBanner = next
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+            if achievementBanner?.id == next.id {
+                dismissAchievementBanner()
+            }
+        }
+    }
+
+    private func dismissAchievementBanner() {
+        guard let current = achievementBanner else { return }
+
+        var seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        seenIDs.insert(current.id)
+        seenAchievementUnlockIDs = seenIDs.sorted().joined(separator: "|")
+
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+            achievementBanner = nil
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            showNextAchievementBanner()
+        }
     }
 }

@@ -228,6 +228,9 @@ enum DayProgressEngine {
         let creditedCardio = trainingCalories > 0
             ? trainingCalories * workoutCalorieCreditRatio
             : 500
+        let creditedStrength = trainingCalories > 0
+            ? trainingCalories * workoutCalorieCreditRatio
+            : 300
 
         switch mode {
         case .chill:
@@ -235,9 +238,9 @@ enum DayProgressEngine {
         case .cardio:
             return (creditedCardio, 15, 0)
         case .gym:
-            return (300, 25, gymStepBonus)
+            return (creditedStrength, 25, gymStepBonus)
         case .cardioGym:
-            return (creditedCardio + 300, 40, gymStepBonus)
+            return (creditedCardio + creditedStrength, 40, gymStepBonus)
         }
     }
 }

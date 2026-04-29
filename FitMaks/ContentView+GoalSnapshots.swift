@@ -122,6 +122,7 @@ extension ContentView {
 
     func suggestedDayMode(from result: TrainingResult) -> DayMode? {
         let modeText = (result.day_mode ?? "").lowercased()
+        let combinedText = "\(result.activity_name.lowercased()) \(result.ai_summary.lowercased()) \(modeText)"
 
         if modeText.contains("mixed") || modeText.contains("both") {
             return .cardioGym
@@ -135,15 +136,29 @@ extension ContentView {
             return .cardio
         }
 
-        let activity = result.activity_name.lowercased()
-        let gymKeywords = ["gym", "strength", "weight", "lifting", "bodybuilding", "resistance", "workout"]
-        let cardioKeywords = ["padel", "tennis", "run", "running", "walk", "cycling", "bike", "cardio", "football", "soccer", "sport"]
+        let gymKeywords = [
+            "gym", "strength", "weight", "weights", "lifting", "bodybuilding", "resistance",
+            "upper body", "lower body", "push", "pull", "leg day", "legs", "hypertrophy",
+            "crossfit", "functional fitness", "workout"
+        ]
+        let cardioKeywords = [
+            "padel", "tennis", "run", "running", "walk", "walking", "cycling", "bike", "biking",
+            "cardio", "football", "soccer", "sport", "elliptical", "stairmaster", "rowing",
+            "hike", "hiking", "pickleball"
+        ]
 
-        if gymKeywords.contains(where: { activity.contains($0) }) {
+        let hasGym = gymKeywords.contains { combinedText.contains($0) }
+        let hasCardio = cardioKeywords.contains { combinedText.contains($0) }
+
+        if hasGym && hasCardio {
+            return .cardioGym
+        }
+
+        if hasGym {
             return .gym
         }
 
-        if cardioKeywords.contains(where: { activity.contains($0) }) {
+        if hasCardio {
             return .cardio
         }
 

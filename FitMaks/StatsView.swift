@@ -3,15 +3,19 @@ import SwiftData
 
 struct StatsView: View {
     @Environment(\.dismiss) var dismiss
+    @AppStorage("seenAchievementUnlockIDs") private var seenAchievementUnlockIDs = ""
 
     var allFoodEntries: [FoodEntry]
     var allTrainingEntries: [TrainingEntry]
     var allSetups: [DailySetup]
     var baseCalories: Double
     var baseProtein: Double
+    var postOptions: [FitMaksPostOption] = []
 
     @State private var weeklySteps: [String: Double] = [:]
-    @State private var selectedAchievement: StatsAchievement?
+    @State private var achievementBanner: StatsAchievement?
+    @State private var pendingAchievementBanners: [StatsAchievement] = []
+    @State private var livePayload: FitMaksSharePayload?
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
@@ -70,11 +74,20 @@ struct StatsView: View {
         }
     }
 
-    private var achievements: [StatsAchievement] {
-        AchievementEngine.achievements(
+    private var achievementCollection: StatsAchievementCollection {
+        AchievementEngine.achievementCollection(
             last30Stats: last30Stats,
-            recentSevenDayStats: currentSevenDayStats
+            recentSevenDayStats: currentSevenDayStats,
+            foodEntries: allFoodEntries
         )
+    }
+
+    private var unlockedAchievementSignature: String {
+        achievementCollection.all
+            .filter(\.isUnlocked)
+            .map(\.id)
+            .sorted()
+            .joined(separator: "|")
     }
 
     var body: some View {
@@ -96,11 +109,17 @@ struct StatsView: View {
                         StatsHeroScoreCard(
                             currentPerfectStreak: currentPerfectStreak,
                             bestPerfectStreak30: bestPerfectStreak30,
-                            perfectDays30: perfectDays30
-                        )
-                        StatsAchievementsCard(
-                            achievements: achievements,
-                            selectedAchievement: $selectedAchievement
+                            perfectDays30: perfectDays30,
+                            onShare: {
+                                livePayload = .streak(
+                                    FitMaksShareStreakSnapshot(
+                                        current: currentPerfectStreak,
+                                        target: Int(AppRules.weeklyStreakTarget),
+                                        best30: bestPerfectStreak30,
+                                        perfect30: perfectDays30
+                                    )
+                                )
+                            }
                         )
                         StatsMetricGrid(
                             calorieWins: calorieWins,
@@ -121,10 +140,34 @@ struct StatsView: View {
                     .padding(.top, 16)
                     .padding(.bottom, 42)
                 }
+
+                if let achievementBanner {
+                    VStack {
+                        StatsAchievementUnlockBanner(achievement: achievementBanner) {
+                            dismissAchievementBanner()
+                        }
+                        .padding(.top, 8)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(20)
+                }
             }
-            .navigationTitle("Progress Arena")
+            .navigationTitle("Streak Mode")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        livePayload = streakPayload
+                    } label: {
+                        Image(systemName: "camera")
+                            .font(.system(size: 16, weight: .black))
+                    }
+                    .foregroundColor(.fitOrange)
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") { dismiss() }
                         .foregroundColor(.neonGreen)
@@ -137,12 +180,14 @@ struct StatsView: View {
                         self.weeklySteps = steps
                     }
                 }
+                refreshAchievementBannerQueue()
             }
-            .sheet(item: $selectedAchievement) { achievement in
-                StatsAchievementDetailSheet(achievement: achievement)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
+            .onChange(of: unlockedAchievementSignature) { _, _ in
+                refreshAchievementBannerQueue()
             }
+        }
+        .sheet(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
@@ -173,14 +218,373 @@ struct StatsView: View {
         )
     }
 
+    private func refreshAchievementBannerQueue() {
+        let seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        let unlocked = achievementCollection.all.filter(\.isUnlocked)
+        let unseen = unlocked.filter { !seenIDs.contains($0.id) }
+
+        guard !unseen.isEmpty else { return }
+
+        let ordered = unseen.sorted { lhs, rhs in
+            if lhs.family != rhs.family {
+                return lhs.family == .core
+            }
+
+            if lhs.rarity.rawValue != rhs.rarity.rawValue {
+                return lhs.rarity.rawValue > rhs.rarity.rawValue
+            }
+
+            return lhs.title < rhs.title
+        }
+
+        pendingAchievementBanners = ordered
+
+        if achievementBanner == nil {
+            showNextAchievementBanner()
+        }
+    }
+
+    private func showNextAchievementBanner() {
+        guard !pendingAchievementBanners.isEmpty else { return }
+
+        let next = pendingAchievementBanners.removeFirst()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            achievementBanner = next
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+            if achievementBanner?.id == next.id {
+                dismissAchievementBanner()
+            }
+        }
+    }
+
+    private func dismissAchievementBanner() {
+        guard let current = achievementBanner else { return }
+
+        var seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        seenIDs.insert(current.id)
+        seenAchievementUnlockIDs = seenIDs.sorted().joined(separator: "|")
+
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+            achievementBanner = nil
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            showNextAchievementBanner()
+        }
+    }
+
+    private var streakPayload: FitMaksSharePayload {
+        .streak(
+            FitMaksShareStreakSnapshot(
+                current: currentPerfectStreak,
+                target: Int(AppRules.weeklyStreakTarget),
+                best30: bestPerfectStreak30,
+                perfect30: perfectDays30
+            )
+        )
+    }
+
+    private var streakBoardPayload: FitMaksSharePayload {
+        .streakBoard(
+            FitMaksShareStreakBoardSnapshot(
+                rows: stats.map { stat in
+                    let isOver = stat.hasFood && stat.consumed > stat.calorieGraceLimit
+                    return FitMaksShareStreakBoardRow(
+                        dayName: StatsFormatters.dayName(stat.date),
+                        dayNumber: StatsFormatters.dayNumber(stat.date),
+                        modeEmoji: stat.mode.emoji,
+                        calorieWin: stat.calorieWin,
+                        proteinWin: stat.proteinWin,
+                        stepWin: stat.stepWin,
+                        isPerfect: stat.isPerfect,
+                        calorieTitle: isOver ? "kcal over" : "kcal deficit",
+                        calorieValue: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
+                        calorieColor: isOver ? .red : .neonGreen,
+                        proteinValue: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
+                        stepsValue: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
+                        stepsColor: stat.stepBonus > 0 ? .fitOrange : .yellow
+                    )
+                }
+            )
+        )
+    }
+
+    private func sharedPostOptions() -> [FitMaksPostOption] {
+        [
+            FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
+            FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
+        ] + achievementCollection.all.map {
+            FitMaksPostOption(
+                id: UUID(),
+                title: $0.title,
+                payload: .achievement(
+                    FitMaksShareAchievementSnapshot(
+                        title: $0.title,
+                        subtitle: $0.subtitle,
+                        detail: $0.detail,
+                        progressText: $0.progressText,
+                        icon: $0.icon,
+                        color: $0.color,
+                        isUnlocked: $0.isUnlocked
+                    )
+                )
+            )
+        }
+    }
+
+}
+
+struct AchievementsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var allFoodEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
+    var allSetups: [DailySetup]
+    var baseCalories: Double
+    var baseProtein: Double
+    var postOptions: [FitMaksPostOption] = []
+
+    @State private var weeklySteps: [String: Double] = [:]
+    @State private var selectedAchievement: StatsAchievement?
+    @State private var livePayload: FitMaksSharePayload?
+
+    private let stepTarget: Double = DayProgressEngine.defaultStepTarget
+
+    private var last30Stats: [DayProgress] {
+        let calendar = Calendar.current
+
+        return (0..<30).compactMap { index in
+            let daysBack = 29 - index
+            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
+                return nil
+            }
+
+            return stat(for: date)
+        }
+    }
+
+    private var currentSevenDayStats: [DayProgress] {
+        let calendar = Calendar.current
+
+        return (0..<7).compactMap { index in
+            guard let date = calendar.date(byAdding: .day, value: -index, to: Date()) else {
+                return nil
+            }
+
+            return stat(for: date)
+        }
+    }
+
+    private var achievementCollection: StatsAchievementCollection {
+        AchievementEngine.achievementCollection(
+            last30Stats: last30Stats,
+            recentSevenDayStats: currentSevenDayStats,
+            foodEntries: allFoodEntries
+        )
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HomeBackground()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 18) {
+                        StatsAchievementsCard(
+                            collection: achievementCollection,
+                            selectedAchievement: $selectedAchievement
+                        )
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 42)
+                }
+            }
+            .navigationTitle("Achievements")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .foregroundColor(.neonGreen)
+                        .bold()
+                }
+            }
+            .onAppear {
+                HealthKitManager.shared.fetchWeeklySteps { steps in
+                    DispatchQueue.main.async {
+                        self.weeklySteps = steps
+                    }
+                }
+            }
+            .sheet(item: $selectedAchievement) { achievement in
+                StatsAchievementDetailSheet(
+                    achievement: achievement,
+                    onShare: {
+                        livePayload = .achievement(
+                            FitMaksShareAchievementSnapshot(
+                                title: achievement.title,
+                                subtitle: achievement.subtitle,
+                                detail: achievement.detail,
+                                progressText: achievement.progressText,
+                                icon: achievement.icon,
+                                color: achievement.color,
+                                isUnlocked: achievement.isUnlocked
+                            )
+                        )
+                    }
+                )
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .sheet(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    private func stat(for date: Date) -> DayProgress {
+        let calendar = Calendar.current
+        let dateID = DateFormatter.yyyyMMdd.string(from: date)
+        let setup = allSetups.first(where: { $0.dateID == dateID })
+        let mode = DayMode.fromStoredValue(setup?.mode)
+        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+        let dayTrainingCalories = allTrainingEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + $1.caloriesBurned }
+        let dayUploadedTrainingSteps = allTrainingEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+
+        return DayProgressEngine.progress(
+            date: date,
+            foodEntries: dayFood,
+            trainingCalories: dayTrainingCalories,
+            mode: mode,
+            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+            steps: weeklySteps[dateID] ?? 0,
+            uploadedSteps: dayUploadedTrainingSteps,
+            stepTarget: stepTarget
+        )
+    }
+
+    private var streakPayload: FitMaksSharePayload {
+        .streak(
+            FitMaksShareStreakSnapshot(
+                current: AchievementEngine.currentPerfectStreak(in: last30Stats),
+                target: Int(AppRules.weeklyStreakTarget),
+                best30: AchievementEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true),
+                perfect30: last30Stats.filter { $0.isPerfect }.count
+            )
+        )
+    }
+
+    private var streakBoardPayload: FitMaksSharePayload {
+        .streakBoard(
+            FitMaksShareStreakBoardSnapshot(
+                rows: currentSevenDayStats.map { stat in
+                    let isOver = stat.hasFood && stat.consumed > stat.calorieGraceLimit
+                    return FitMaksShareStreakBoardRow(
+                        dayName: StatsFormatters.dayName(stat.date),
+                        dayNumber: StatsFormatters.dayNumber(stat.date),
+                        modeEmoji: stat.mode.emoji,
+                        calorieWin: stat.calorieWin,
+                        proteinWin: stat.proteinWin,
+                        stepWin: stat.stepWin,
+                        isPerfect: stat.isPerfect,
+                        calorieTitle: isOver ? "kcal over" : "kcal deficit",
+                        calorieValue: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
+                        calorieColor: isOver ? .red : .neonGreen,
+                        proteinValue: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
+                        stepsValue: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
+                        stepsColor: stat.stepBonus > 0 ? .fitOrange : .yellow
+                    )
+                }
+            )
+        )
+    }
+
+    private func sharedPostOptions() -> [FitMaksPostOption] {
+        [
+            FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
+            FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
+        ] + achievementCollection.all.map {
+            FitMaksPostOption(
+                id: UUID(),
+                title: $0.title,
+                payload: .achievement(
+                    FitMaksShareAchievementSnapshot(
+                        title: $0.title,
+                        subtitle: $0.subtitle,
+                        detail: $0.detail,
+                        progressText: $0.progressText,
+                        icon: $0.icon,
+                        color: $0.color,
+                        isUnlocked: $0.isUnlocked
+                    )
+                )
+            )
+        }
+    }
 }
 
 private struct StatsAchievementsCard: View {
-    let achievements: [StatsAchievement]
+    let collection: StatsAchievementCollection
     @Binding var selectedAchievement: StatsAchievement?
 
+    private let coreColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+    private var unlockedChaosCount: Int { collection.chaos.filter(\.isUnlocked).count }
+    private var wideChaosIDs: Set<String> {
+        Set(
+            collection.orderedChaos
+                .filter(isWideCandidate)
+                .prefix(3)
+                .map(\.id)
+        )
+    }
+    private var chaosRows: [ChaosBadgeRow] {
+        var rows: [ChaosBadgeRow] = []
+        let badges = collection.orderedChaos
+        var index = 0
+
+        while index < badges.count {
+            let current = badges[index]
+
+            if shouldUseWideTile(for: current) {
+                rows.append(.single(current))
+                index += 1
+                continue
+            }
+
+            if index + 1 < badges.count {
+                let next = badges[index + 1]
+                if !shouldUseWideTile(for: next) {
+                    rows.append(.pair(current, next))
+                    index += 2
+                    continue
+                }
+            }
+
+            rows.append(.single(current))
+            index += 1
+        }
+
+        return rows
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Trophy Case")
                     .font(.system(size: 13, weight: .heavy))
@@ -188,26 +592,85 @@ private struct StatsAchievementsCard: View {
 
                 Spacer()
 
-                Text("unlock next")
+                Text("core + chaos")
                     .font(.caption2)
                     .fontWeight(.heavy)
                     .foregroundColor(.appMuted)
             }
 
-            Text("Visible goals make streaks feel collectible: perfect-day trophies, plus a separate protein statue for closing protein every day.")
+            Text("Core trophies show the serious streaks. Chaos badges catch the funny, honest, and oddly shareable parts of real progress.")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.appMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
-                ForEach(achievements) { achievement in
-                    Button {
-                        selectedAchievement = achievement
-                    } label: {
-                        StatsAchievementTile(achievement: achievement)
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Core Trophies", systemImage: "shield.lefthalf.filled")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(.appText)
+
+                LazyVGrid(columns: coreColumns, spacing: 10) {
+                    ForEach(collection.core) { achievement in
+                        Button {
+                            selectedAchievement = achievement
+                        } label: {
+                            StatsAchievementTile(achievement: achievement, layout: .core)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Chaos Badges", systemImage: "sparkles")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(.appText)
+
+                    Spacer()
+
+                    Text("\(unlockedChaosCount)/\(collection.chaos.count) unlocked")
+                        .font(.caption2.weight(.heavy))
+                        .foregroundColor(.neonGreen)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
+                }
+
+                Text("Side quests with more personality: chicken era, bounce-back days, gym brain, honest cheat-meal logs, and other crimes against average behavior.")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appMuted)
+
+                VStack(spacing: 10) {
+                    ForEach(Array(chaosRows.enumerated()), id: \.offset) { _, row in
+                        switch row {
+                        case .single(let achievement):
+                            Button {
+                                selectedAchievement = achievement
+                            } label: {
+                                StatsAchievementTile(achievement: achievement, layout: .chaosWide)
+                            }
+                            .buttonStyle(.plain)
+
+                        case .pair(let leading, let trailing):
+                            HStack(spacing: 10) {
+                                Button {
+                                    selectedAchievement = leading
+                                } label: {
+                                    StatsAchievementTile(achievement: leading, layout: .chaosCompact)
+                                }
+                                .buttonStyle(.plain)
+
+                                Button {
+                                    selectedAchievement = trailing
+                                } label: {
+                                    StatsAchievementTile(achievement: trailing, layout: .chaosCompact)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -215,13 +678,162 @@ private struct StatsAchievementsCard: View {
         .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
         .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
     }
+
+    private func shouldUseWideTile(for achievement: StatsAchievement) -> Bool {
+        wideChaosIDs.contains(achievement.id)
+    }
+
+    private func isWideCandidate(_ achievement: StatsAchievement) -> Bool {
+        achievement.title.count >= 20
+            || achievement.subtitle.count >= 30
+            || achievement.rarity == .hard
+            || achievement.rarity == .legendary
+    }
+}
+
+private enum ChaosBadgeRow {
+    case single(StatsAchievement)
+    case pair(StatsAchievement, StatsAchievement)
+}
+
+private enum StatsAchievementTileLayout {
+    case core
+    case chaosCompact
+    case chaosWide
+}
+
+struct StatsAchievementUnlockBanner: View {
+    let achievement: StatsAchievement
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                achievement.color.opacity(0.96),
+                                Color.white.opacity(0.74),
+                                achievement.color.opacity(0.68)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Image(systemName: achievement.icon)
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundColor(.appAccentText)
+            }
+            .frame(width: 50, height: 50)
+            .shadow(color: achievement.color.opacity(0.55), radius: 16)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Achievement unlocked")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(achievement.color)
+                    .tracking(0.8)
+
+                Text(achievement.title)
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+
+                Text(achievement.subtitle)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appMuted)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(.appMuted)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.appText.opacity(0.06)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color.appElevated.opacity(0.98))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(achievement.color.opacity(0.38), lineWidth: 1.2)
+                )
+        )
+        .shadow(color: achievement.color.opacity(0.22), radius: 22, x: 0, y: 10)
+    }
 }
 
 private struct StatsAchievementTile: View {
     let achievement: StatsAchievement
+    var layout: StatsAchievementTileLayout = .core
 
     private var tileOpacity: Double {
         achievement.isUnlocked ? 1 : 0.62
+    }
+
+    private var isWide: Bool {
+        layout == .chaosWide
+    }
+
+    private var minHeight: CGFloat? {
+        switch layout {
+        case .core:
+            return nil
+        case .chaosCompact:
+            return 154
+        case .chaosWide:
+            return 138
+        }
+    }
+
+    private var titleFontSize: CGFloat {
+        switch layout {
+        case .core:
+            return 13
+        case .chaosCompact:
+            return 13
+        case .chaosWide:
+            return 16
+        }
+    }
+
+    private var subtitleFont: Font {
+        switch layout {
+        case .core, .chaosCompact:
+            return .caption2
+        case .chaosWide:
+            return .caption
+        }
+    }
+
+    private var titleLineLimit: Int {
+        switch layout {
+        case .core:
+            return 2
+        case .chaosCompact:
+            return 3
+        case .chaosWide:
+            return 2
+        }
+    }
+
+    private var subtitleLineLimit: Int {
+        switch layout {
+        case .core:
+            return 2
+        case .chaosCompact:
+            return 3
+        case .chaosWide:
+            return 2
+        }
     }
 
     var body: some View {
@@ -256,7 +868,7 @@ private struct StatsAchievementTile: View {
 
                     if achievement.isUnlocked {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .black))
+                            .font(.system(size: isWide ? 13 : 12, weight: .black))
                             .foregroundColor(.white)
                             .offset(x: 18, y: -17)
                             .opacity(0.92)
@@ -269,7 +881,7 @@ private struct StatsAchievementTile: View {
                 Spacer()
 
                 Text(achievement.progressText)
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(.system(size: isWide ? 11 : 10, weight: .heavy))
                     .foregroundColor(achievement.isUnlocked ? .appAccentText : .appMuted)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
@@ -279,16 +891,16 @@ private struct StatsAchievementTile: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(achievement.title)
-                    .font(.system(size: 13, weight: .black))
+                    .font(.system(size: titleFontSize, weight: .black))
                     .foregroundColor(.appText.opacity(tileOpacity))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(titleLineLimit)
+                    .minimumScaleFactor(isWide ? 0.84 : 0.76)
 
                 Text(achievement.subtitle)
-                    .font(.caption2)
+                    .font(subtitleFont)
                     .fontWeight(.semibold)
                     .foregroundColor(.appMuted)
-                    .lineLimit(2)
+                    .lineLimit(subtitleLineLimit)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -305,7 +917,7 @@ private struct StatsAchievementTile: View {
             .frame(height: 7)
         }
         .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(
@@ -334,8 +946,24 @@ private struct StatsAchievementTile: View {
     }
 }
 
+private struct StatsDetailLabel: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 9, weight: .heavy))
+            .foregroundColor(color)
+            .tracking(0.7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(color.opacity(0.12)))
+    }
+}
+
 private struct StatsAchievementDetailSheet: View {
     let achievement: StatsAchievement
+    var onShare: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -364,15 +992,33 @@ private struct StatsAchievementDetailSheet: View {
                     .shadow(color: achievement.color.opacity(0.35), radius: 16)
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(achievement.title)
-                            .font(.title2)
-                            .fontWeight(.black)
-                            .foregroundColor(.appText)
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(achievement.title)
+                                .font(.title2)
+                                .fontWeight(.black)
+                                .foregroundColor(.appText)
+
+                            Spacer(minLength: 0)
+
+                            if let onShare {
+                                Button(action: onShare) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.system(size: 17, weight: .black))
+                                        .foregroundColor(achievement.color)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
 
                         Text(achievement.subtitle)
                             .font(.subheadline)
                             .fontWeight(.heavy)
                             .foregroundColor(achievement.color)
+
+                        HStack(spacing: 8) {
+                            StatsDetailLabel(text: achievement.family.label, color: achievement.color)
+                            StatsDetailLabel(text: achievement.rarity.label, color: achievement.color.opacity(0.82))
+                        }
                     }
                 }
 
@@ -427,8 +1073,7 @@ private struct StatsHeroScoreCard: View {
     let currentPerfectStreak: Int
     let bestPerfectStreak30: Int
     let perfectDays30: Int
-
-    @State private var flameFlicker = false
+    var onShare: (() -> Void)? = nil
 
     private var cappedStreak: Double {
         min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
@@ -468,6 +1113,17 @@ private struct StatsHeroScoreCard: View {
 
                 Spacer()
 
+                if let onShare {
+                    Button(action: onShare) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16, weight: .black))
+                            .foregroundColor(.black.opacity(0.78))
+                            .frame(width: 38, height: 38)
+                            .background(Circle().fill(Color.white.opacity(0.22)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 VStack(alignment: .trailing, spacing: 0) {
                     ZStack {
                         Image(systemName: "flame.fill")
@@ -483,8 +1139,8 @@ private struct StatsHeroScoreCard: View {
                                     endPoint: .top
                                 )
                             )
-                            .scaleEffect(flameFlicker ? 1.08 : 0.94)
-                            .shadow(color: Color.red.opacity(flameFlicker ? 0.7 : 0.38), radius: flameFlicker ? 20 : 12)
+                            .scaleEffect(0.98)
+                            .shadow(color: Color.red.opacity(0.45), radius: 14)
 
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text("\(currentPerfectStreak)")
@@ -557,12 +1213,6 @@ private struct StatsHeroScoreCard: View {
                 )
         )
         .shadow(color: Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
-        .onAppear {
-            guard currentPerfectStreak > 0 else { return }
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                flameFlicker = true
-            }
-        }
     }
 }
 

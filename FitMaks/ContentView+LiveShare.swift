@@ -1,15 +1,18 @@
 import SwiftUI
 
 extension ContentView {
-    func weightSharePayload(days: Int) -> FitMaksSharePayload? {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let entries = allBodyMetrics
+    func bodySharePayload(metric: BodyChartMetric, range: WeightChartRange) -> FitMaksSharePayload? {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -range.days, to: Date()) ?? Date()
+        let sourceEntries = allBodyMetrics
             .filter { $0.date >= cutoff }
             .sorted { $0.date < $1.date }
-            .map {
-                FitMaksShareWeightPoint(
-                    label: $0.date.formatted(.dateTime.day().month(.abbreviated)),
-                    value: $0.weightKg
+
+        let entries = sourceEntries
+            .compactMap { entry -> FitMaksShareWeightPoint? in
+                guard let value = metric.value(from: entry) else { return nil }
+                return FitMaksShareWeightPoint(
+                    label: entry.date.formatted(.dateTime.day().month(.abbreviated)),
+                    value: value
                 )
             }
 
@@ -19,18 +22,23 @@ extension ContentView {
 
         return .weight(
             FitMaksShareWeightSnapshot(
-                title: "Weight trend",
-                subtitle: "Last \(days) days",
-                accentColor: .neonGreen,
-                leadingValue: "\(String(format: "%.1f", first.value)) kg",
-                trailingValue: "\(String(format: "%.1f", last.value)) kg",
+                title: "My body",
+                subtitle: "\(metric.title) · \(range.title)",
+                accentColor: metric.color,
+                leadingValue: metric.formatted(first.value),
+                trailingValue: metric.formatted(last.value),
+                weightValue: nil,
+                fatValue: nil,
+                muscleValue: nil,
+                xAxisLabels: shareXAxisLabels(from: entries),
                 points: entries
             )
         )
     }
 
     func achievementPostOptions(limit: Int? = nil) -> [FitMaksPostOption] {
-        let source = limit.map { Array(homeAchievementCollection.all.prefix($0)) } ?? homeAchievementCollection.all
+        let all = homeAchievementCollection.all.filter { $0.isUnlocked || $0.current > 0 }
+        let source = limit.map { Array(all.prefix($0)) } ?? all
 
         return source.map {
             FitMaksPostOption(
@@ -48,9 +56,17 @@ extension ContentView {
             FitMaksPostOption(id: streakBoardSharePayload().id, title: "Board", payload: streakBoardSharePayload())
         ]
 
-        for days in [30, 90, 180] {
-            if let wp = weightSharePayload(days: days) {
-                options.append(FitMaksPostOption(id: wp.id, title: "\(days)d", payload: wp))
+        for range in WeightChartRange.allCases {
+            for metric in BodyChartMetric.allCases {
+                if let payload = bodySharePayload(metric: metric, range: range) {
+                    options.append(
+                        FitMaksPostOption(
+                            id: payload.id,
+                            title: "\(metric.title) · \(range.title)",
+                            payload: payload
+                        )
+                    )
+                }
             }
         }
 
@@ -65,16 +81,7 @@ extension ContentView {
             ? (caloriesOutsideGrace ? "over" : "grace")
             : "deficit"
 
-        let headline: String
-        if isPerfectPastDay {
-            headline = "Perfect day."
-        } else if dailyProgress.proteinWin && dailyProgress.calorieWin {
-            headline = "Clean day."
-        } else if dailyProgress.stepWin {
-            headline = "Still moving."
-        } else {
-            headline = "Today, readable."
-        }
+        let headline = posterDayline(for: selectedDate)
 
         let subheadline = "\(formatDate(selectedDate)) · \(modeLabel(currentDayMode))"
 
@@ -86,6 +93,7 @@ extension ContentView {
                 modeSymbolName: modeShareSymbol(currentDayMode),
                 headline: headline,
                 subheadline: subheadline,
+                isPerfectDay: dailyProgress.isPerfect,
                 metrics: [
                     FitMaksShareMetric(
                         title: "Calories",
@@ -99,8 +107,8 @@ extension ContentView {
                     ),
                     FitMaksShareMetric(
                         title: "Protein",
-                        value: "\(Int(dailyProtein))g",
-                        subtitle: "of \(Int(targetProtein))g",
+                        value: "\(Int(dailyProtein))",
+                        subtitle: "grams",
                         progress: min(max(dailyProtein / max(targetProtein, 1), 0), 1),
                         color: .neonCyan,
                         systemImage: "drop.fill"
@@ -108,10 +116,8 @@ extension ContentView {
                     FitMaksShareMetric(
                         title: "Steps",
                         value: "\(Int(dailyProgress.effectiveSteps))",
-                        subtitle: dailyProgress.uploadedSteps > 0
-                            ? "screen"
-                            : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k gym" : "of 10k"),
-                        progress: min(max(dailyProgress.countedSteps / max(targetSteps, 1), 0), 1),
+                        subtitle: "goal 10k",
+                        progress: min(max(dailyProgress.effectiveSteps / max(targetSteps, 1), 0), 1),
                         color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                         systemImage: "shoeprints.fill"
                     )
@@ -160,12 +166,16 @@ extension ContentView {
         .achievement(
             FitMaksShareAchievementSnapshot(
                 title: achievement.title,
+                familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
                 subtitle: achievement.subtitle,
                 detail: achievement.detail,
+                goalText: achievement.goalText,
                 progressText: achievement.progressText,
                 icon: achievement.icon,
                 color: achievement.color,
-                isUnlocked: achievement.isUnlocked
+                isUnlocked: achievement.isUnlocked,
+                progress: achievement.progress,
+                hasStarted: achievement.current > 0
             )
         )
     }
@@ -200,7 +210,7 @@ extension ContentView {
 
         return .workout(
             FitMaksShareWorkoutSnapshot(
-                name: compactWorkoutTitle(entry.name),
+                name: workoutShareTitle(for: entry),
                 subtitle: entry.aiSummary?.isEmpty == false ? entry.aiSummary ?? formatDate(entry.date) : formatDate(entry.date),
                 caloriesText: "\(Int(entry.caloriesBurned)) kcal",
                 stepsText: (entry.steps ?? 0) > 0 ? "\(Int(entry.steps ?? 0))" : nil,
@@ -214,13 +224,54 @@ extension ContentView {
     }
 
     private func shareBreakdownLines(from ingredients: String) -> [String] {
+        ShareFormatters.breakdownLines(from: ingredients)
+    }
+
+    private func compactWorkoutTitle(_ raw: String) -> String {
+        ShareFormatters.compactWorkoutTitle(raw)
+    }
+
+    private func workoutShareTitle(for entry: TrainingEntry) -> String {
+        let base = compactWorkoutTitle(entry.name)
+        let fullWeekday = ShareFormatters.weekdayName(for: entry.date)
+        let shortWeekday = ShareFormatters.shortWeekdayName(for: entry.date)
+
+        let full = "\(fullWeekday) \(base)"
+        if full.count <= 28 {
+            return full
+        }
+
+        let short = "\(shortWeekday) \(base)"
+        if short.count <= 28 {
+            return short
+        }
+
+        let maxBaseLength = max(12, 28 - shortWeekday.count - 1)
+        return "\(shortWeekday) \(ShareFormatters.truncatedWordBoundary(base, maxLength: maxBaseLength))"
+    }
+
+    private func cleanShareFoodName(_ raw: String) -> String {
+        ShareFormatters.cleanFoodName(raw)
+    }
+
+    private func shareXAxisLabels(from points: [FitMaksShareWeightPoint]) -> [String] {
+        ShareFormatters.xAxisLabels(from: points.map(\.label))
+    }
+
+    private func posterDayline(for date: Date) -> String {
+        ShareFormatters.posterDayline(for: date)
+    }
+}
+
+enum ShareFormatters {
+    static func breakdownLines(from ingredients: String) -> [String] {
         ingredients
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
 
-    private func compactWorkoutTitle(_ raw: String) -> String {
+    static func compactWorkoutTitle(_ raw: String) -> String {
         let cleaned = raw
             .replacingOccurrences(of: "Workout", with: "")
             .replacingOccurrences(of: "Training", with: "")
@@ -244,14 +295,73 @@ extension ContentView {
         return result.isEmpty ? String(cleaned.prefix(40)) : result
     }
 
-    private func cleanShareFoodName(_ raw: String) -> String {
+    static func cleanFoodName(_ raw: String) -> String {
         raw
             .replacingOccurrences(of: "👨‍🍳 ", with: "")
             .replacingOccurrences(of: "❄️ ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func modeShareSymbol(_ mode: DayMode) -> String {
+    static func xAxisLabels(from labels: [String]) -> [String] {
+        guard !labels.isEmpty else { return [] }
+        if labels.count == 1 { return [labels[0]] }
+
+        let first = labels.first
+        let middle = labels[labels.count / 2]
+        let last = labels.last
+
+        return [first, middle, last]
+            .compactMap { $0 }
+            .reduce(into: [String]()) { result, label in
+                if result.last != label {
+                    result.append(label)
+                }
+            }
+    }
+
+    static func posterDayline(for date: Date) -> String {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        switch weekday {
+        case 2: return "What a Monday."
+        case 3: return "Full push Tuesday."
+        case 4: return "Winning Wednesday."
+        case 5: return "Locked-in Thursday."
+        case 6: return "No-slip Friday."
+        case 7: return "Strong Saturday."
+        case 1: return "Sunday reset."
+        default: return "Today."
+        }
+    }
+
+    static func weekdayName(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: date)
+    }
+
+    static func shortWeekdayName(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+
+    static func truncatedWordBoundary(_ text: String, maxLength: Int) -> String {
+        guard text.count > maxLength else { return text }
+        let prefix = String(text.prefix(maxLength))
+        if let lastSpace = prefix.lastIndex(of: " ") {
+            let trimmed = prefix[..<lastSpace].trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.count >= 8 {
+                return String(trimmed)
+            }
+        }
+        return prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+extension ContentView {
+    func modeShareSymbol(_ mode: DayMode) -> String {
         switch mode {
         case .chill:
             return "moon.zzz.fill"

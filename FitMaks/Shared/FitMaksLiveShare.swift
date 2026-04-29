@@ -311,7 +311,7 @@ struct FitMaksLiveView: View {
                                     }
                             )
 
-                            if displayedBackgroundImage == nil && payload.expectsPhotoBackground {
+                            if displayedBackgroundImage == nil {
                                 PhotosPicker(
                                     selection: $selectedPhotoItem,
                                     matching: .images

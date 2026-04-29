@@ -2,9 +2,10 @@ import SwiftUI
 
 extension ContentView {
     func weightSharePayload(days: Int) -> FitMaksSharePayload? {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         let entries = allBodyMetrics
-            .prefix(days)
-            .reversed()
+            .filter { $0.date >= cutoff }
+            .sorted { $0.date < $1.date }
             .map {
                 FitMaksShareWeightPoint(
                     label: $0.date.formatted(.dateTime.day().month(.abbreviated)),

@@ -1180,13 +1180,26 @@ private struct FitMaksLiveWorkoutCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            workoutHero
+            HStack(spacing: 14) {
+                livePosterTag(isStrengthCard ? "Strength" : "Cardio", color: snapshot.accentColor)
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(snapshot.accentColor.opacity(0.14))
+                        .frame(width: 68, height: 68)
+                    Image(systemName: snapshot.systemImage)
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundColor(snapshot.accentColor)
+                }
+            }
 
             Text(snapshot.name)
-                .font(.system(size: 58, weight: .black))
+                .font(.system(size: 62, weight: .black))
                 .foregroundColor(.white)
                 .lineLimit(3)
-                .minimumScaleFactor(0.65)
+                .minimumScaleFactor(0.6)
 
             Text(snapshot.subtitle)
                 .font(.system(size: 30, weight: .heavy))
@@ -1194,7 +1207,7 @@ private struct FitMaksLiveWorkoutCard: View {
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+            HStack(spacing: 12) {
                 ForEach(workoutMetrics, id: \.title) { metric in
                     liveStatPill(title: metric.title, value: metric.value, accent: metric.accent)
                 }
@@ -1202,53 +1215,6 @@ private struct FitMaksLiveWorkoutCard: View {
         }
         .padding(34)
         .background(liveCardBackground)
-    }
-
-    @ViewBuilder
-    private var workoutHero: some View {
-        if isStrengthCard {
-            ZStack {
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.fitPurple.opacity(0.34),
-                                Color.fitPurple.opacity(0.16),
-                                Color.white.opacity(0.03)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                HStack(spacing: 20) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(width: 124, height: 124)
-                        Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 46, weight: .black))
-                            .foregroundColor(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        livePosterTag("Strength day", color: .fitPurple)
-                        Text("Built, not just burned.")
-                            .font(.system(size: 34, weight: .black))
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 26)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 220)
-            .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.white.opacity(0.08), lineWidth: 1))
-        } else {
-            shareImageHeader(image: snapshot.image, fallbackColor: snapshot.accentColor, systemName: snapshot.systemImage)
-        }
     }
 
     private var workoutMetrics: [(title: String, value: String, accent: Color)] {

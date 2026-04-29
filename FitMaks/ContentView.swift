@@ -843,7 +843,7 @@ struct ContentView: View {
 
     private var bottomDock: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 16) {
                 HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
                     isSelectionModeForFridge = false
                     initialMyFoodTab = 0
@@ -872,9 +872,9 @@ struct ContentView: View {
             .accessibilityLabel("Add Entry")
             .accessibilityIdentifier("addEntryButton")
             .offset(y: -8)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 14)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 16) {
                 HomeDockButton(title: "Badges", systemName: "sparkles.rectangle.stack.fill", color: .yellow) {
                     isShowingAchievements = true
                 }
@@ -885,7 +885,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 20)
         .padding(.top, 6)
         .padding(.bottom, 14)
         .background(

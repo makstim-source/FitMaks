@@ -47,9 +47,9 @@ struct AIChatEditView: View {
                 HStack(spacing: 14) {
                     if let onShare {
                         Button(action: onShare) {
-                            Image(systemName: "camera.aperture")
+                            Text("Share")
+                                .font(.system(size: 14, weight: .black))
                                 .foregroundColor(.fitOrange)
-                                .font(.system(size: 16, weight: .black))
                         }
                         .buttonStyle(.plain)
                     }

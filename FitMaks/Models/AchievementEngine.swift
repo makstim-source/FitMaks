@@ -52,6 +52,7 @@ struct StatsAchievement: Identifiable {
     var progress: Double { min(Double(current) / Double(max(threshold, 1)), 1) }
     var progressText: String { isUnlocked ? "Unlocked" : "\(unit.format(min(current, threshold)))/\(unit.format(threshold))" }
     var currentText: String { "\(unit.format(min(current, threshold))) of \(unit.format(threshold))" }
+    var goalText: String { unit.format(threshold) }
 }
 
 struct StatsAchievementCollection {

@@ -12,72 +12,32 @@ struct ContentView: View {
     @Query var favorites: [FavoriteFood]
     @Query(sort: \BodyMetricEntry.date, order: .reverse) var allBodyMetrics: [BodyMetricEntry]
 
-    @AppStorage("userGender") private var gender: String = "Male"
-    @AppStorage("userAge") private var age: Int = 30
+    @AppStorage("userGender") fileprivate var gender: String = "Male"
+    @AppStorage("userAge") fileprivate var age: Int = 30
     @AppStorage("userWeight") var weight: Double = 80.0
-    @AppStorage("userHeight") private var height: Double = 180.0
-    @AppStorage("userGoal") private var goal: String = "Lose Weight"
-    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
-    @AppStorage("useCustomGoals") private var useCustomGoals: Bool = false
-    @AppStorage("customCalories") private var customCalories: Double = 0.0
-    @AppStorage("customProtein") private var customProtein: Double = 0.0
+    @AppStorage("userHeight") fileprivate var height: Double = 180.0
+    @AppStorage("userGoal") fileprivate var goal: String = "Lose Weight"
+    @AppStorage("userActivity") fileprivate var activityLevel: String = "Moderate"
+    @AppStorage("useCustomGoals") fileprivate var useCustomGoals: Bool = false
+    @AppStorage("customCalories") fileprivate var customCalories: Double = 0.0
+    @AppStorage("customProtein") fileprivate var customProtein: Double = 0.0
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
-    @State var pickingMode: EntryMode = .food
-    @State var selectedDate = Date()
-    @State private var isShowingSourceDialog = false
-    @State private var isShowingCamera = false
-    @State var selectedCameraImage: UIImage?
-    @State private var isShowingPhotoPicker = false
-    @State var selectedPhotoItems: [PhotosPickerItem] = []
-    @State private var isShowingTextEntry = false
-    @State var manualText = ""
-    @State var processingItems: [ProcessingItem] = []
-    @State var fridgeProcessingItems: [ProcessingItem] = []
-    @State private var selectedEntryForEdit: FoodEntry?
-    @State private var selectedTrainingDetail: TrainingEntry?
-    @State private var isShowingCalendar = false
-    @State private var dailySteps: Double = 0
-    @State private var homeWeeklySteps: [String: Double] = [:]
-    @State private var isShowingMyFood = false
-    @State private var isSelectionModeForFridge = false
-    @State private var initialMyFoodTab = 0
-    @State private var isShowingProfile = false
-    @State private var isShowingStats = false
-    @State private var isShowingAchievements = false
-    @State private var livePayload: FitMaksSharePayload?
-    @State private var achievementBanner: StatsAchievement?
-    @State private var pendingAchievementBanners: [StatsAchievement] = []
-    @State private var isShowingAIAssistant = false
-    @State var isShowingGoalBreakdown = false
-    @State var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
-    @State var aiErrorMessage: String?
-    @State var pendingAIReview: AIResultReview?
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
 
+    @State var viewModel = HomeViewModel()
+
     // MARK: - Day Mode
 
-    var currentDayMode: DayMode { dayMode(for: selectedDate) }
+    var currentDayMode: DayMode { viewModel.dayMode(for: viewModel.selectedDate) }
 
     func setDayMode(_ mode: DayMode) {
-        setDayMode(mode, for: selectedDate)
+        viewModel.setDayMode(mode, for: viewModel.selectedDate)
     }
 
     func setDayMode(_ mode: DayMode, for date: Date) {
-        let id = DateFormatter.yyyyMMdd.string(from: date)
-
-        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
-            existing.mode = mode.rawValue
-            snapshotPastGoalsIfNeeded(for: date)
-        } else {
-            modelContext.insert(DailySetup(
-                date: date,
-                mode: mode,
-                baseCalories: shouldSnapshotGoals(for: date) ? baseCaloriesGoal : nil,
-                baseProtein: shouldSnapshotGoals(for: date) ? baseProteinGoal : nil
-            ))
-        }
+        viewModel.setDayMode(mode, for: date)
     }
 
     func dayMode(for date: Date) -> DayMode {
@@ -109,10 +69,10 @@ struct ContentView: View {
     var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
     var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
     var selectedBaseCaloriesGoal: Double {
-        setup(for: selectedDate)?.resolvedBaseCalories(for: selectedDate, fallback: baseCaloriesGoal) ?? baseCaloriesGoal
+        setup(for: viewModel.selectedDate)?.resolvedBaseCalories(for: viewModel.selectedDate, fallback: baseCaloriesGoal) ?? baseCaloriesGoal
     }
     var selectedBaseProteinGoal: Double {
-        setup(for: selectedDate)?.resolvedBaseProtein(for: selectedDate, fallback: baseProteinGoal) ?? baseProteinGoal
+        setup(for: viewModel.selectedDate)?.resolvedBaseProtein(for: viewModel.selectedDate, fallback: baseProteinGoal) ?? baseProteinGoal
     }
     var dailyTargets: DayTargets {
         DayProgressEngine.targets(
@@ -142,8 +102,8 @@ struct ContentView: View {
 
     // MARK: - Daily Data
 
-    var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
-    var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } }
+    var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) } }
+    var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) } }
     var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
     var dailyUploadedTrainingSteps: Double { dailyTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
     var todayFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDateInToday($0.date) } }
@@ -156,10 +116,10 @@ struct ContentView: View {
     }
     var todayStepsForNotifications: Double {
         let dateID = DateFormatter.yyyyMMdd.string(from: Date())
-        if let steps = homeWeeklySteps[dateID] {
+        if let steps = viewModel.homeWeeklySteps[dateID] {
             return steps
         }
-        return Calendar.current.isDateInToday(selectedDate) ? dailySteps : 0
+        return Calendar.current.isDateInToday(viewModel.selectedDate) ? viewModel.dailySteps : 0
     }
     var todayProgressForNotifications: DayProgress {
         DayProgressEngine.progress(
@@ -193,13 +153,13 @@ struct ContentView: View {
             }
         }
     }
-    var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
+    var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
     var dailyProgress: DayProgress {
         DayProgressEngine.progress(
-            date: selectedDate,
+            date: viewModel.selectedDate,
             consumedCalories: dailyCaloriesConsumed,
             consumedProtein: dailyProtein,
             hasFood: !dailyFoodEntries.isEmpty,
@@ -207,7 +167,7 @@ struct ContentView: View {
             trainingCalories: dailyTrainingCalories,
             baseCalories: selectedBaseCaloriesGoal,
             baseProtein: selectedBaseProteinGoal,
-            steps: dailySteps,
+            steps: viewModel.dailySteps,
             uploadedSteps: dailyUploadedTrainingSteps,
             stepTarget: targetSteps
         )
@@ -242,7 +202,7 @@ struct ContentView: View {
                 mode: mode,
                 baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
                 baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
-                steps: homeWeeklySteps[dateID] ?? 0,
+                steps: viewModel.homeWeeklySteps[dateID] ?? 0,
                 uploadedSteps: dayUploadedTrainingSteps,
                 stepTarget: targetSteps
             )
@@ -278,7 +238,7 @@ struct ContentView: View {
                 mode: mode,
                 baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
                 baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
-                steps: homeWeeklySteps[dateID] ?? 0,
+                steps: viewModel.homeWeeklySteps[dateID] ?? 0,
                 uploadedSteps: dayUploadedTrainingSteps,
                 stepTarget: targetSteps
             )
@@ -307,6 +267,19 @@ struct ContentView: View {
 
     // MARK: - Body
 
+    
+    fileprivate func syncViewModel() {
+        viewModel.sync(
+            weight: weight,
+            baseCaloriesGoal: baseCaloriesGoal,
+            baseProteinGoal: baseProteinGoal,
+            allDailySetups: allDailySetups,
+            allFoodEntries: allFoodEntries,
+            allTrainingEntries: allTrainingEntries,
+            modelContext: modelContext
+        )
+    }
+
     var body: some View {
         ZStack {
             homeBackground
@@ -318,11 +291,11 @@ struct ContentView: View {
                 bottomDock
             }
             .padding(.top, 8)
-            .blur(radius: (selectedEntryForEdit != nil || selectedTrainingDetail != nil) ? 15 : 0)
+            .blur(radius: (viewModel.selectedEntryForEdit != nil || viewModel.selectedTrainingDetail != nil) ? 15 : 0)
 
-            if let achievementBanner {
+            if let banner = viewModel.achievementBanner {
                 VStack {
-                    StatsAchievementUnlockBanner(achievement: achievementBanner) {
+                    StatsAchievementUnlockBanner(achievement: banner) {
                         dismissAchievementBanner()
                     }
                     .padding(.top, 8)
@@ -334,138 +307,50 @@ struct ContentView: View {
                 .zIndex(12)
             }
 
-            if let entry = selectedEntryForEdit {
+            if let entry = viewModel.selectedEntryForEdit {
                 Color.black.opacity(0.5)
                     .edgesIgnoringSafeArea(.all)
-                    .onTapGesture { withAnimation { selectedEntryForEdit = nil } }
+                    .onTapGesture { withAnimation { viewModel.selectedEntryForEdit = nil } }
                 AIChatEditView(
                     entry: entry,
                     onShare: {
-                        livePayload = foodSharePayload(for: entry)
+                        viewModel.livePayload = foodSharePayload(for: entry)
                     },
-                    onDelete: { deleteFoodEntry(entry); withAnimation { selectedEntryForEdit = nil } },
-                    onDone: { withAnimation { selectedEntryForEdit = nil } }
+                    onDelete: { viewModel.deleteFoodEntry(entry); withAnimation { viewModel.selectedEntryForEdit = nil } },
+                    onDone: { withAnimation { viewModel.selectedEntryForEdit = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
 
-            if let training = selectedTrainingDetail {
+            if let training = viewModel.selectedTrainingDetail {
                 Color.black.opacity(0.5)
                     .edgesIgnoringSafeArea(.all)
-                    .onTapGesture { withAnimation { selectedTrainingDetail = nil } }
+                    .onTapGesture { withAnimation { viewModel.selectedTrainingDetail = nil } }
                 TrainingDetailOverlay(
                     entry: training,
                     onShare: {
-                        livePayload = workoutSharePayload(for: training)
+                        viewModel.livePayload = workoutSharePayload(for: training)
                     },
-                    onDone: { withAnimation { selectedTrainingDetail = nil } }
+                    onDone: { withAnimation { viewModel.selectedTrainingDetail = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
         }
-        .onAppear {
-            initializeGoalSnapshotTracking()
-            syncWeightFromHealthKit()
-            HealthKitManager.shared.fetchSteps(for: selectedDate) { steps in
-                DispatchQueue.main.async {
-                    self.dailySteps = steps
-                    self.syncDailyReminders()
-                }
-            }
-            HealthKitManager.shared.fetchWeeklySteps { steps in
-                DispatchQueue.main.async {
-                    self.homeWeeklySteps = steps
-                    refreshAchievementBannerQueue()
-                    self.syncDailyReminders()
-                }
-            }
-            syncDailyReminders()
-        }
-        .onChange(of: unlockedAchievementSignature) { _, _ in
-            refreshAchievementBannerQueue()
-        }
-        .onChange(of: selectedDate) { _, newDate in
-            HealthKitManager.shared.fetchSteps(for: newDate) { steps in
-                DispatchQueue.main.async {
-                    self.dailySteps = steps
-                    self.syncDailyReminders()
-                }
-            }
-        }
-        .onChange(of: goalSnapshotSignature) { _, _ in
-            let oldCalories = lastKnownBaseCaloriesGoal
-            let oldProtein = lastKnownBaseProteinGoal
-            preserveMissingPastGoalSnapshots(
-                baseCalories: oldCalories,
-                baseProtein: oldProtein
-            )
-            snapshotTodayGoals(
-                baseCalories: oldCalories,
-                baseProtein: oldProtein
-            )
-            lastKnownBaseCaloriesGoal = baseCaloriesGoal
-            lastKnownBaseProteinGoal = baseProteinGoal
-            ICloudSettingsSync.pushToICloud()
-        }
-        .onChange(of: loggedPastDaysSignature) { _, _ in
-            preserveMissingPastGoalSnapshots(
-                baseCalories: baseCaloriesGoal,
-                baseProtein: baseProteinGoal
-            )
-        }
-        .onChange(of: dailyReminderSignature) { _, _ in
-            syncDailyReminders()
-        }
-        .confirmationDialog("Add Entry", isPresented: $isShowingSourceDialog) {
-            Button("From Fridge ❄️") { self.isSelectionModeForFridge = true; self.initialMyFoodTab = 0; self.isShowingMyFood = true }
-            Button("From Meals 🍲") { self.isSelectionModeForFridge = true; self.initialMyFoodTab = 1; self.isShowingMyFood = true }
-            Button("Camera 📷") { pickingMode = .food; self.isShowingCamera = true }
-            Button("Library 🖼️") { pickingMode = .food; self.isShowingPhotoPicker = true }
-            Button("Type Text ✍️") { self.isShowingTextEntry = true }
-            Button("Training 🏋️‍♂️") { pickingMode = .training; self.isShowingPhotoPicker = true }
-        }
-        .alert("What did you eat?", isPresented: $isShowingTextEntry) {
-            TextField("E.g. 200g chicken and rice", text: $manualText)
-            Button("Analyze") { submitManualFoodText() }
-            Button("Cancel", role: .cancel) { manualText = "" }
-        }
-        .fullScreenCover(isPresented: $isShowingCamera) {
-            ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera)
-        }
-        .onChange(of: selectedCameraImage) { _, newValue in
-            handleCameraImage(newValue)
-        }
-        .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
-        .onChange(of: selectedPhotoItems) { _, newItems in
-            handleSelectedPhotoItems(newItems)
-        }
-        .sheet(isPresented: $isShowingCalendar) {
-            CustomCalendarView(
-                selectedDate: $selectedDate,
-                allEntries: allFoodEntries,
-                allTrainingEntries: allTrainingEntries,
-                baseCalories: baseCaloriesGoal,
-                baseProtein: baseProteinGoal,
-                targetSteps: targetSteps,
-                allSetups: allDailySetups
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $isShowingMyFood) {
+        
+        .sheet(isPresented: $viewModel.isShowingMyFood) {
             MyFoodView(
-                isSelectionMode: isSelectionModeForFridge,
-                initialTab: initialMyFoodTab,
-                selectedDate: selectedDate,
-                processingItems: $fridgeProcessingItems,
-                pendingAIReview: $pendingAIReview,
-                onProcessQueue: processFridgeQueue,
-                onScanReceiptQueue: processReceiptQueue,
-                onConfirmReview: { review, items in confirmAIReview(review, selectedItems: items) },
-                onRecalculateReview: { review in retryReviewIgnoringCache(review) }
+                isSelectionMode: viewModel.isSelectionModeForFridge,
+                initialTab: viewModel.initialMyFoodTab,
+                selectedDate: viewModel.selectedDate,
+                processingItems: $viewModel.fridgeProcessingItems,
+                pendingAIReview: $viewModel.pendingAIReview,
+                onProcessQueue: viewModel.processFridgeQueue,
+                onScanReceiptQueue: viewModel.processReceiptQueue,
+                onConfirmReview: { review, items in viewModel.confirmAIReview(review, selectedItems: items) },
+                onRecalculateReview: { review in viewModel.retryReviewIgnoringCache(review) }
             )
         }
-        .fullScreenCover(isPresented: $isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
+        .fullScreenCover(isPresented: $viewModel.isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
             ProfileView(
                 gender: $gender, age: $age, weight: $weight, height: $height,
                 goal: $goal, activityLevel: $activityLevel,
@@ -475,7 +360,7 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .sheet(isPresented: $isShowingStats) {
+        .sheet(isPresented: $viewModel.isShowingStats) {
             StatsView(
                 allFoodEntries: allFoodEntries,
                 allTrainingEntries: allTrainingEntries,
@@ -485,7 +370,7 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .fullScreenCover(isPresented: $isShowingAchievements) {
+        .fullScreenCover(isPresented: $viewModel.isShowingAchievements) {
             AchievementsView(
                 allFoodEntries: allFoodEntries,
                 allTrainingEntries: allTrainingEntries,
@@ -495,12 +380,12 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .fullScreenCover(item: $livePayload) { payload in
+        .fullScreenCover(item: $viewModel.livePayload) { payload in
             FitMaksLiveView(payload: payload, options: universalPostOptions())
         }
-        .sheet(isPresented: $isShowingAIAssistant) {
+        .sheet(isPresented: $viewModel.isShowingAIAssistant) {
             AIAssistantView(
-                selectedDate: selectedDate,
+                selectedDate: viewModel.selectedDate,
                 consumedCalories: dailyCaloriesConsumed,
                 consumedProtein: dailyProtein,
                 targetCalories: maxCalories,
@@ -510,11 +395,11 @@ struct ContentView: View {
                 favorites: favorites
             ).presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $isShowingGoalBreakdown) {
+        .sheet(isPresented: $viewModel.isShowingGoalBreakdown) {
             DailyCalorieBreakdownSheet(
                 entries: dailyFoodEntries,
-                selectedDate: selectedDate,
-                section: selectedGoalBreakdownSection,
+                selectedDate: viewModel.selectedDate,
+                section: viewModel.selectedGoalBreakdownSection,
                 dayMode: currentDayMode,
                 trainingCalories: dailyTrainingCalories,
                 baseCalories: selectedBaseCaloriesGoal,
@@ -525,7 +410,7 @@ struct ContentView: View {
                 proteinBonus: proteinGoalBonus,
                 targetProtein: targetProtein,
                 consumedProtein: dailyProtein,
-                actualSteps: dailySteps,
+                actualSteps: viewModel.dailySteps,
                 uploadedSteps: dailyUploadedTrainingSteps,
                 stepBonus: dailyProgress.stepBonus,
                 targetSteps: targetSteps
@@ -533,24 +418,24 @@ struct ContentView: View {
             .presentationDetents([.medium, .large])
         }
         .alert("AI Error", isPresented: Binding(
-            get: { aiErrorMessage != nil },
-            set: { if !$0 { aiErrorMessage = nil } }
+            get: { viewModel.aiErrorMessage != nil },
+            set: { if !$0 { viewModel.aiErrorMessage = nil } }
         )) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(aiErrorMessage ?? "The AI request failed.")
+            Text(viewModel.aiErrorMessage ?? "The AI request failed.")
         }
         .sheet(item: Binding<AIResultReview?>(
-            get: { isShowingMyFood ? nil : pendingAIReview },
-            set: { pendingAIReview = $0 }
+            get: { viewModel.isShowingMyFood ? nil : viewModel.pendingAIReview },
+            set: { viewModel.pendingAIReview = $0 }
         )) { review in
             AIResultReviewSheet(
                 review: review,
-                onCancel: { pendingAIReview = nil },
-                onRecalculate: { retryReviewIgnoringCache(review) },
+                onCancel: { viewModel.pendingAIReview = nil },
+                onRecalculate: { viewModel.retryReviewIgnoringCache(review) },
                 onConfirm: { items in
-                    confirmAIReview(review, selectedItems: items)
-                    pendingAIReview = nil
+                    viewModel.confirmAIReview(review, selectedItems: items)
+                    viewModel.pendingAIReview = nil
                 }
             )
             .presentationDetents([.large])
@@ -571,7 +456,7 @@ struct ContentView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button(action: { changeDate(by: -1) }) {
+                Button(action: { viewModel.changeDate(by: -1) }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .black))
                         .foregroundColor(.neonGreen)
@@ -579,8 +464,8 @@ struct ContentView: View {
                         .background(Circle().fill(Color.white.opacity(0.07)))
                 }
 
-                Button(action: { isShowingCalendar = true }) {
-                    Text(formatDate(selectedDate))
+                Button(action: { viewModel.isShowingCalendar = true }) {
+                    Text(viewModel.formatDate(viewModel.selectedDate))
                         .font(.system(size: 14, weight: .black))
                         .foregroundColor(.neonGreen)
                         .lineLimit(1)
@@ -593,22 +478,22 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: { changeDate(by: 1) }) {
+                Button(action: { viewModel.changeDate(by: 1) }) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .black))
                         .foregroundColor(.neonGreen)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.white.opacity(0.07)))
                 }
-                .opacity(Calendar.current.isDateInToday(selectedDate) ? 0 : 1)
-                .disabled(Calendar.current.isDateInToday(selectedDate))
+                .opacity(Calendar.current.isDateInToday(viewModel.selectedDate) ? 0 : 1)
+                .disabled(Calendar.current.isDateInToday(viewModel.selectedDate))
             }
 
             Spacer()
 
             HStack(spacing: 10) {
                 HomeIconButton(systemName: "sparkles", color: .neonCyan) {
-                    isShowingAIAssistant = true
+                    viewModel.isShowingAIAssistant = true
                 }
                 .accessibilityIdentifier("aiAssistantButton")
             }
@@ -618,7 +503,7 @@ struct ContentView: View {
 
     private var statsShortcutButton: some View {
         Button {
-            isShowingStats = true
+            viewModel.isShowingStats = true
         } label: {
             ZStack(alignment: .bottomTrailing) {
                 ZStack {
@@ -685,10 +570,10 @@ struct ContentView: View {
                         : dailyProgress.countedSteps / max(targetSteps, 1),
                     bonusProgress: dailyProgress.stepWin ? 0 : dailyProgress.stepBonus / max(targetSteps, 1),
                     bonusColor: .fitOrange,
-                    color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
+                    color: viewModel.getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                     systemName: "shoeprints.fill"
                 )
-                .onTapGesture { openGoalBreakdown(.steps) }
+                .onTapGesture { viewModel.openGoalBreakdown(.steps) }
 
                 let caloriesAboveTarget = dailyCaloriesConsumed > maxCalories
                 let caloriesOutsideGrace = dailyCaloriesConsumed > dailyProgress.calorieGraceLimit
@@ -700,7 +585,7 @@ struct ContentView: View {
                     color: caloriesOutsideGrace ? .red : .neonGreen,
                     systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"
                 )
-                .onTapGesture { openGoalBreakdown(.calories) }
+                .onTapGesture { viewModel.openGoalBreakdown(.calories) }
 
                 HomeMetricTile(
                     title: "Protein",
@@ -710,7 +595,7 @@ struct ContentView: View {
                     color: .neonCyan,
                     systemName: "drop.fill"
                 )
-                .onTapGesture { openGoalBreakdown(.protein) }
+                .onTapGesture { viewModel.openGoalBreakdown(.protein) }
             }
 
             modeSelectorSection
@@ -736,14 +621,14 @@ struct ContentView: View {
                 ForEach(DayMode.allCases, id: \.self) { mode in
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
-                            setDayMode(currentDayMode.toggled(mode))
+                            viewModel.setDayMode(currentDayMode.toggled(mode), for: viewModel.selectedDate)
                         }
                     } label: {
                         let isSelected = currentDayMode.includes(mode)
                         HStack(spacing: 5) {
                             Text(mode.emoji)
                                 .font(.system(size: 14))
-                            Text(modeLabel(mode))
+                            Text(viewModel.modeLabel(mode))
                                 .font(.system(size: 10, weight: .heavy))
                         }
                         .foregroundColor(isSelected ? .appAccentText : .appMuted)
@@ -765,7 +650,7 @@ struct ContentView: View {
     }
 
     private var shouldShowPlanPrompt: Bool {
-        Calendar.current.isDateInToday(selectedDate) && setup(for: selectedDate) == nil
+        Calendar.current.isDateInToday(viewModel.selectedDate) && setup(for: viewModel.selectedDate) == nil
     }
 
     private var timelinePanel: some View {
@@ -790,18 +675,18 @@ struct ContentView: View {
                 VStack(spacing: 10) {
                     ForEach(visibleProcessingItems) { item in HomeProcessingRow(item: item) }
 
-                    if dailyFeed.isEmpty && processingItems.isEmpty {
+                    if dailyFeed.isEmpty && viewModel.processingItems.isEmpty {
                         emptyDiaryCard
                     } else {
                         ForEach(dailyFeed) { item in
                             switch item {
                             case .food(let entry):
                                 HomeFoodRow(entry: entry)
-                                    .onTapGesture { withAnimation(.spring()) { selectedEntryForEdit = entry } }
-                                    .swipeToDelete { withAnimation(.spring()) { deleteFoodEntry(entry) } }
+                                    .onTapGesture { withAnimation(.spring()) { viewModel.selectedEntryForEdit = entry } }
+                                    .swipeToDelete { withAnimation(.spring()) { viewModel.deleteFoodEntry(entry) } }
                             case .training(let entry):
                                 HomeTrainingRow(entry: entry)
-                                    .onTapGesture { withAnimation(.spring()) { selectedTrainingDetail = entry } }
+                                    .onTapGesture { withAnimation(.spring()) { viewModel.selectedTrainingDetail = entry } }
                                     .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
                             }
                         }
@@ -824,7 +709,7 @@ struct ContentView: View {
     }
 
     private var emptyDiaryCard: some View {
-        Button(action: { isShowingSourceDialog = true }) {
+        Button(action: { viewModel.isShowingSourceDialog = true }) {
             VStack(spacing: 15) {
                 ZStack {
                     Circle()
@@ -870,18 +755,18 @@ struct ContentView: View {
         HStack(spacing: 0) {
             HStack(spacing: 12) {
                 HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
-                    isSelectionModeForFridge = false
-                    initialMyFoodTab = 0
-                    isShowingMyFood = true
+                    viewModel.isSelectionModeForFridge = false
+                    viewModel.initialMyFoodTab = 0
+                    viewModel.isShowingMyFood = true
                 }
 
                 HomeDockButton(title: "Post", systemName: "camera", color: .fitOrange) {
-                    livePayload = todaySharePayload()
+                    viewModel.livePayload = todaySharePayload()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
 
-            Button(action: { isShowingSourceDialog = true }) {
+            Button(action: { viewModel.isShowingSourceDialog = true }) {
                 ZStack {
                     Circle()
                         .fill(Color.neonGreen)
@@ -901,11 +786,11 @@ struct ContentView: View {
 
             HStack(spacing: 12) {
                 HomeDockButton(title: "Badges", systemName: "trophy.fill", color: .yellow) {
-                    isShowingAchievements = true
+                    viewModel.isShowingAchievements = true
                 }
 
                 HomeDockButton(title: "Profile", systemName: "person.crop.circle.badge.checkmark", color: .fitPurple) {
-                    isShowingProfile = true
+                    viewModel.isShowingProfile = true
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -921,7 +806,7 @@ struct ContentView: View {
         )
     }
 
-    private func refreshAchievementBannerQueue() {
+    fileprivate func refreshAchievementBannerQueue() {
         let seenIDs = Set(
             seenAchievementUnlockIDs
                 .split(separator: "|")
@@ -932,7 +817,7 @@ struct ContentView: View {
 
         guard !unseen.isEmpty else { return }
 
-        pendingAchievementBanners = unseen.sorted { lhs, rhs in
+        viewModel.pendingAchievementBanners = unseen.sorted { lhs, rhs in
             if lhs.family != rhs.family {
                 return lhs.family == .core
             }
@@ -944,28 +829,28 @@ struct ContentView: View {
             return lhs.title < rhs.title
         }
 
-        if achievementBanner == nil {
+        if viewModel.achievementBanner == nil {
             showNextAchievementBanner()
         }
     }
 
     private func showNextAchievementBanner() {
-        guard !pendingAchievementBanners.isEmpty else { return }
+        guard !viewModel.pendingAchievementBanners.isEmpty else { return }
 
-        let next = pendingAchievementBanners.removeFirst()
+        let next = viewModel.pendingAchievementBanners.removeFirst()
         withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-            achievementBanner = next
+            viewModel.achievementBanner = next
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
-            if achievementBanner?.id == next.id {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) { [self] in
+            if viewModel.achievementBanner?.id == next.id {
                 dismissAchievementBanner()
             }
         }
     }
 
     private func dismissAchievementBanner() {
-        guard let current = achievementBanner else { return }
+        guard let current = viewModel.achievementBanner else { return }
 
         var seenIDs = Set(
             seenAchievementUnlockIDs
@@ -976,11 +861,254 @@ struct ContentView: View {
         seenAchievementUnlockIDs = seenIDs.sorted().joined(separator: "|")
 
         withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
-            achievementBanner = nil
+            viewModel.achievementBanner = nil
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [self] in
             showNextAchievementBanner()
         }
+    }
+
+
+    fileprivate func handleOnAppear() {
+        syncViewModel()
+        var tempCalories = lastKnownBaseCaloriesGoal
+        var tempProtein = lastKnownBaseProteinGoal
+        viewModel.initializeGoalSnapshotTracking(lastKnownCalories: &tempCalories, lastKnownProtein: &tempProtein)
+        lastKnownBaseCaloriesGoal = tempCalories
+        lastKnownBaseProteinGoal = tempProtein
+        
+        viewModel.syncWeightFromHealthKit(allBodyMetrics: allBodyMetrics) { newWeight in weight = newWeight }
+        
+        HealthKitManager.shared.fetchSteps(for: viewModel.selectedDate) { steps in
+            DispatchQueue.main.async {
+                self.viewModel.dailySteps = steps
+                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
+            }
+        }
+        HealthKitManager.shared.fetchWeeklySteps { steps in
+            DispatchQueue.main.async {
+                self.viewModel.homeWeeklySteps = steps
+                self.refreshAchievementBannerQueue()
+                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
+            }
+        }
+        viewModel.syncDailyReminders(todayProgressForNotifications: todayProgressForNotifications, todayFoodEntries: todayFoodEntries)
+    }
+
+    fileprivate func handleDateChange(_ newDate: Date) {
+        HealthKitManager.shared.fetchSteps(for: newDate) { steps in
+            DispatchQueue.main.async {
+                self.viewModel.dailySteps = steps
+                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
+            }
+        }
+    }
+
+    fileprivate func handleGoalSnapshotChange() {
+        let oldCalories = lastKnownBaseCaloriesGoal
+        let oldProtein = lastKnownBaseProteinGoal
+        viewModel.preserveMissingPastGoalSnapshots(baseCalories: oldCalories, baseProtein: oldProtein)
+        viewModel.snapshotTodayGoals(baseCalories: oldCalories, baseProtein: oldProtein)
+        lastKnownBaseCaloriesGoal = baseCaloriesGoal
+        lastKnownBaseProteinGoal = baseProteinGoal
+        ICloudSettingsSync.pushToICloud()
+    }
+
+    fileprivate func handleLoggedPastDaysChange() {
+        viewModel.preserveMissingPastGoalSnapshots(baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal)
+    }
+}
+extension View {
+    func applyStateObservers(_ view: ContentView) -> some View {
+        self
+            .applyDataObservers(view)
+            .applyEventObservers(view)
+    }
+
+    private func applyDataObservers(_ view: ContentView) -> some View {
+        self
+            .onChange(of: view.weight) { _, _ in view.syncViewModel() }
+            .onChange(of: view.baseCaloriesGoal) { _, _ in view.syncViewModel() }
+            .onChange(of: view.baseProteinGoal) { _, _ in view.syncViewModel() }
+            .applyQueryObservers(view)
+    }
+
+    private func applyQueryObservers(_ view: ContentView) -> some View {
+        self
+            .onChange(of: view.allDailySetups) { _, _ in view.syncViewModel() }
+            .onChange(of: view.allFoodEntries) { _, _ in view.syncViewModel() }
+            .onChange(of: view.allTrainingEntries) { _, _ in view.syncViewModel() }
+    }
+
+    private func applyEventObservers(_ view: ContentView) -> some View {
+        self
+            .onAppear { view.handleOnAppear() }
+            .onChange(of: view.unlockedAchievementSignature) { _, _ in view.refreshAchievementBannerQueue() }
+            .onChange(of: view.viewModel.selectedDate) { _, newDate in view.handleDateChange(newDate) }
+            .onChange(of: view.goalSnapshotSignature) { _, _ in view.handleGoalSnapshotChange() }
+            .onChange(of: view.loggedPastDaysSignature) { _, _ in view.handleLoggedPastDaysChange() }
+            .onChange(of: view.dailyReminderSignature) { _, _ in
+                view.viewModel.syncDailyReminders(todayProgressForNotifications: view.todayProgressForNotifications, todayFoodEntries: view.todayFoodEntries)
+            }
+    }
+
+    func applyOverlaysAndSheets(_ view: ContentView) -> some View {
+        self
+            .applyDialogsAndPickers(view)
+            .applySheetsAndCovers(view)
+            .applyAIOverlays(view)
+    }
+
+    private func applyDialogsAndPickers(_ view: ContentView) -> some View {
+        self
+            .confirmationDialog("Add Entry", isPresented: view.$viewModel.isShowingSourceDialog) {
+                Button("From Fridge ❄️") { view.viewModel.isSelectionModeForFridge = true; view.viewModel.initialMyFoodTab = 0; view.viewModel.isShowingMyFood = true }
+                Button("From Meals 🍲") { view.viewModel.isSelectionModeForFridge = true; view.viewModel.initialMyFoodTab = 1; view.viewModel.isShowingMyFood = true }
+                Button("Camera 📷") { view.viewModel.pickingMode = .food; view.viewModel.isShowingCamera = true }
+                Button("Library 🖼️") { view.viewModel.pickingMode = .food; view.viewModel.isShowingPhotoPicker = true }
+                Button("Type Text ✍️") { view.viewModel.isShowingTextEntry = true }
+                Button("Training 🏋️‍♂️") { view.viewModel.pickingMode = .training; view.viewModel.isShowingPhotoPicker = true }
+            }
+            .alert("What did you eat?", isPresented: view.$viewModel.isShowingTextEntry) {
+                TextField("E.g. 200g chicken and rice", text: view.$viewModel.manualText)
+                Button("Analyze") { view.viewModel.submitManualFoodText() }
+                Button("Cancel", role: .cancel) { view.viewModel.manualText = "" }
+            }
+            .fullScreenCover(isPresented: view.$viewModel.isShowingCamera) {
+                ImagePicker(selectedImage: view.$viewModel.selectedCameraImage, sourceType: .camera)
+            }
+            .onChange(of: view.viewModel.selectedCameraImage) { _, newValue in
+                view.viewModel.handleCameraImage(newValue)
+            }
+            .photosPicker(isPresented: view.$viewModel.isShowingPhotoPicker, selection: view.$viewModel.selectedPhotoItems, maxSelectionCount: 5, matching: .images)
+            .onChange(of: view.viewModel.selectedPhotoItems) { _, newItems in
+                view.viewModel.handleSelectedPhotoItems(newItems)
+            }
+    }
+
+    private func applySheetsAndCovers(_ view: ContentView) -> some View {
+        self
+            .sheet(isPresented: view.$viewModel.isShowingCalendar) {
+                CustomCalendarView(
+                    selectedDate: view.$viewModel.selectedDate,
+                    allEntries: view.allFoodEntries,
+                    allTrainingEntries: view.allTrainingEntries,
+                    baseCalories: view.baseCaloriesGoal,
+                    baseProtein: view.baseProteinGoal,
+                    targetSteps: view.targetSteps,
+                    allSetups: view.allDailySetups
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: view.$viewModel.isShowingMyFood) {
+                MyFoodView(
+                    isSelectionMode: view.viewModel.isSelectionModeForFridge,
+                    initialTab: view.viewModel.initialMyFoodTab,
+                    selectedDate: view.viewModel.selectedDate,
+                    processingItems: view.$viewModel.fridgeProcessingItems,
+                    pendingAIReview: view.$viewModel.pendingAIReview,
+                    onProcessQueue: view.viewModel.processFridgeQueue,
+                    onScanReceiptQueue: view.viewModel.processReceiptQueue,
+                    onConfirmReview: { review, items in view.viewModel.confirmAIReview(review, selectedItems: items) },
+                    onRecalculateReview: { review in view.viewModel.retryReviewIgnoringCache(review) }
+                )
+            }
+            .fullScreenCover(isPresented: view.$viewModel.isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
+                ProfileView(
+                    gender: view.$gender, age: view.$age, weight: view.$weight, height: view.$height,
+                    goal: view.$goal, activityLevel: view.$activityLevel,
+                    useCustomGoals: view.$useCustomGoals,
+                    customCalories: view.$customCalories, customProtein: view.$customProtein,
+                    calculatedCalories: view.calculatedCalories, calculatedProtein: view.calculatedProtein,
+                    postOptions: view.universalPostOptions()
+                )
+            }
+            .sheet(isPresented: view.$viewModel.isShowingStats) {
+                StatsView(
+                    allFoodEntries: view.allFoodEntries,
+                    allTrainingEntries: view.allTrainingEntries,
+                    allSetups: view.allDailySetups,
+                    baseCalories: view.useCustomGoals ? view.customCalories : view.calculatedCalories,
+                    baseProtein: view.baseProteinGoal,
+                    postOptions: view.universalPostOptions()
+                )
+            }
+            .fullScreenCover(isPresented: view.$viewModel.isShowingAchievements) {
+                AchievementsView(
+                    allFoodEntries: view.allFoodEntries,
+                    allTrainingEntries: view.allTrainingEntries,
+                    allSetups: view.allDailySetups,
+                    baseCalories: view.useCustomGoals ? view.customCalories : view.calculatedCalories,
+                    baseProtein: view.baseProteinGoal,
+                    postOptions: view.universalPostOptions()
+                )
+            }
+            .fullScreenCover(item: view.$viewModel.livePayload) { payload in
+                FitMaksLiveView(payload: payload, options: view.universalPostOptions())
+            }
+    }
+
+    private func applyAIOverlays(_ view: ContentView) -> some View {
+        self
+            .sheet(isPresented: view.$viewModel.isShowingAIAssistant) {
+                AIAssistantView(
+                    selectedDate: view.viewModel.selectedDate,
+                    consumedCalories: view.dailyCaloriesConsumed,
+                    consumedProtein: view.dailyProtein,
+                    targetCalories: view.maxCalories,
+                    targetProtein: view.targetProtein,
+                    foods: view.dailyFoodEntries,
+                    trainings: view.dailyTrainingEntries,
+                    favorites: view.favorites
+                ).presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: view.$viewModel.isShowingGoalBreakdown) {
+                DailyCalorieBreakdownSheet(
+                    entries: view.dailyFoodEntries,
+                    selectedDate: view.viewModel.selectedDate,
+                    section: view.viewModel.selectedGoalBreakdownSection,
+                    dayMode: view.currentDayMode,
+                    trainingCalories: view.dailyTrainingCalories,
+                    baseCalories: view.selectedBaseCaloriesGoal,
+                    calorieBonus: view.calorieGoalBonus,
+                    targetCalories: view.maxCalories,
+                    consumedCalories: view.dailyCaloriesConsumed,
+                    baseProtein: view.selectedBaseProteinGoal,
+                    proteinBonus: view.proteinGoalBonus,
+                    targetProtein: view.targetProtein,
+                    consumedProtein: view.dailyProtein,
+                    actualSteps: view.viewModel.dailySteps,
+                    uploadedSteps: view.dailyUploadedTrainingSteps,
+                    stepBonus: view.dailyProgress.stepBonus,
+                    targetSteps: view.targetSteps
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .alert("AI Error", isPresented: Binding(
+                get: { view.viewModel.aiErrorMessage != nil },
+                set: { if !$0 { view.viewModel.aiErrorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(view.viewModel.aiErrorMessage ?? "The AI request failed.")
+            }
+            .sheet(item: Binding<AIResultReview?>(
+                get: { view.viewModel.isShowingMyFood ? nil : view.viewModel.pendingAIReview },
+                set: { view.viewModel.pendingAIReview = $0 }
+            )) { review in
+                AIResultReviewSheet(
+                    review: review,
+                    onCancel: { view.viewModel.pendingAIReview = nil },
+                    onRecalculate: { view.viewModel.retryReviewIgnoringCache(review) },
+                    onConfirm: { items in
+                        view.viewModel.confirmAIReview(review, selectedItems: items)
+                        view.viewModel.pendingAIReview = nil
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
     }
 }

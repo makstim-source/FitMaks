@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Utility & Icon Generation
-extension ContentView {
+extension HomeViewModel {
 
     func generatePlaceholderIcon(systemName: String, color: Color) -> UIImage {
         let size = CGSize(width: 150, height: 150)

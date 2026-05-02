@@ -3,7 +3,7 @@ import SwiftData
 import PhotosUI
 
 // MARK: - AI Processing & Queue Management
-extension ContentView {
+extension HomeViewModel {
 
     func submitManualFoodText() {
         guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -90,15 +90,27 @@ extension ContentView {
 
     func processQueue(items: [ProcessingItem]) {
         Task {
-            await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
+            await withTaskGroup(of: (UUID, [FoodResult]?, TrainingResult?, String?).self) { group in
                 for item in items {
                     group.addTask {
                         let (results, error) = await AIProcessingEngine.analyzeFood(for: item)
-                        return (item.id, results, error)
+                        guard item.textPrompt == nil else {
+                            return (item.id, results, nil, error)
+                        }
+
+                        if AIFallbackLogic.shouldRunTrainingFallback(foodResults: results, error: error) {
+                            let (trainingResult, trainingError) = await AIProcessingEngine.analyzeTraining(for: item)
+                            if let trainingResult {
+                                return (item.id, nil, trainingResult, nil)
+                            }
+                            return (item.id, results, nil, error ?? trainingError)
+                        }
+
+                        return (item.id, results, nil, error)
                     }
                 }
 
-                for await (id, results, error) in group {
+                for await (id, results, trainingResult, error) in group {
                     await MainActor.run {
                         guard let item = finishProcessingItem(id: id, from: &processingItems) else {
                             return
@@ -106,6 +118,12 @@ extension ContentView {
 
                         let originalImage = item.images.first ?? UIImage()
                         let entryDate = item.targetDate ?? selectedDate
+
+                        if let trainingResult {
+                            addTrainingResult(trainingResult, image: originalImage, date: entryDate)
+                            showAddingStatus("Workout added to \(shortDayLabel(entryDate))", image: originalImage, usesFridgeQueue: false)
+                            return
+                        }
 
                         guard let results, !results.isEmpty else {
                             aiErrorMessage = AIProcessingEngine.friendlyError(error, fallback: "Food analysis failed. Please try again.")
@@ -162,7 +180,7 @@ extension ContentView {
 
                         withAnimation(.spring()) {
                             snapshotPastGoalsIfNeeded(for: entryDate)
-                            modelContext.insert(entry)
+                            modelContext?.insert(entry)
                             applyTrainingModeSuggestion(from: result, for: entryDate)
                         }
                     }
@@ -235,7 +253,7 @@ extension ContentView {
 
     func deleteFoodEntry(_ entry: FoodEntry) {
         GeminiService.shared.invalidateFoodImageCache(for: entry.uiImage)
-        modelContext.delete(entry)
+        modelContext?.delete(entry)
     }
 
     func resolvedTrainingCalories(from result: TrainingResult) -> Double {
@@ -245,9 +263,60 @@ extension ContentView {
 
         let durationMinutes = durationMinutes(from: result.duration) ?? fallbackTrainingDurationMinutes(for: result)
         let met = estimatedMET(for: result)
-        let estimatedCalories = met * 3.5 * max(weight, 45) / 200 * durationMinutes
+        let estimatedCalories = met * 3.5 * max(currentWeight, 45) / 200 * durationMinutes
         return max(estimatedCalories.rounded(), 120)
     }
+
+    func addTrainingResult(_ result: TrainingResult, image: UIImage, date: Date) {
+        let entry = TrainingEntry(
+            image: image,
+            name: result.activity_name,
+            caloriesBurned: resolvedTrainingCalories(from: result),
+            steps: result.steps,
+            tonnageKg: result.tonnage_kg,
+            duration: result.duration,
+            date: date,
+            aiSummary: result.ai_summary
+        )
+
+        withAnimation(.spring()) {
+            snapshotPastGoalsIfNeeded(for: date)
+            modelContext?.insert(entry)
+            applyTrainingModeSuggestion(from: result, for: date)
+        }
+    }
+
+}
+
+enum AIFallbackLogic {
+    static func shouldRunTrainingFallback(foodResults: [FoodResult]?, error: String?) -> Bool {
+        if let foodResults, !foodResults.isEmpty {
+            return foodResults.count == 1 && looksLikeWorkoutMisclassified(foodResults[0])
+        }
+
+        return error != nil
+    }
+
+    static func looksLikeWorkoutMisclassified(_ result: FoodResult) -> Bool {
+        let text = "\(result.food_name.lowercased()) \(result.ingredients_breakdown.lowercased()) \(result.ai_response_text.lowercased())"
+        let workoutHints = [
+            "workout", "training", "session", "run", "running", "cardio",
+            "gym", "strength", "padel", "tennis", "bpm", "strain", "burned",
+            "kcal burned", "steps", "whoop"
+        ]
+
+        if workoutHints.contains(where: { text.contains($0) }) {
+            return true
+        }
+
+        let noIngredients = result.ingredients_breakdown
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        return noIngredients && result.protein <= 1 && result.calories <= 1
+    }
+}
+
+extension HomeViewModel {
 
     func durationMinutes(from duration: String) -> Double? {
         let lower = duration.lowercased()
@@ -466,7 +535,7 @@ extension ContentView {
                 switch review.destination {
                 case .diary(let targetDate):
                     snapshotPastGoalsIfNeeded(for: targetDate)
-                    modelContext.insert(FoodEntry(
+                    modelContext?.insert(FoodEntry(
                         image: item.image,
                         name: item.name,
                         calories: item.calories,
@@ -475,7 +544,7 @@ extension ContentView {
                         date: targetDate
                     ))
                 case .fridge, .receipt:
-                    modelContext.insert(FavoriteFood(
+                    modelContext?.insert(FavoriteFood(
                         image: item.image,
                         name: item.name,
                         calories: item.calories,
@@ -483,7 +552,7 @@ extension ContentView {
                         ingredients: item.ingredients
                     ))
                 case .meals:
-                    modelContext.insert(SavedRecipe(
+                    modelContext?.insert(SavedRecipe(
                         image: item.image,
                         name: item.name,
                         instructions: "",
@@ -514,7 +583,7 @@ extension ContentView {
                     resultIndex: resultIndex,
                     fallbackImage: originalImage
                 )
-                modelContext.insert(FoodEntry(
+                modelContext?.insert(FoodEntry(
                     image: image,
                     name: result.food_name,
                     calories: result.calories,
@@ -539,7 +608,7 @@ extension ContentView {
                 )
 
                 if originalItem.targetTab == 1 {
-                    modelContext.insert(SavedRecipe(
+                    modelContext?.insert(SavedRecipe(
                         image: image,
                         name: result.food_name,
                         instructions: "",
@@ -548,7 +617,7 @@ extension ContentView {
                         ingredients: result.ingredients_breakdown
                     ))
                 } else {
-                    modelContext.insert(FavoriteFood(
+                    modelContext?.insert(FavoriteFood(
                         image: image,
                         name: result.food_name,
                         calories: result.calories,
@@ -580,7 +649,7 @@ extension ContentView {
 
         withAnimation(.spring()) {
             for result in results {
-                modelContext.insert(FavoriteFood(
+                modelContext?.insert(FavoriteFood(
                     image: generateEmojiIcon(emoji: result.emoji ?? "🛒"),
                     name: result.food_name,
                     calories: result.calories,

@@ -98,6 +98,13 @@ struct ProfileView: View {
         useCustomGoals ? customProtein : recommendedProtein
     }
 
+    private var appVersionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "Version \(version) (\(build))"
+    }
+
     private var latestBodyMetric: BodyMetricEntry? {
         bodyMetrics.first
     }
@@ -219,8 +226,8 @@ struct ProfileView: View {
         .sheet(isPresented: $isShowingBodyImagePicker) {
             ImagePicker(selectedImage: $selectedBodyImage, sourceType: bodyScanSourceType)
         }
-        .sheet(item: $livePayload) { payload in
-            FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? profilePostOptions() : postOptions)
+        .fullScreenCover(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: mergedPostOptions())
         }
         .alert("Weight scan", isPresented: Binding(
             get: { bodyScanError != nil },
@@ -292,6 +299,15 @@ struct ProfileView: View {
                 }
 
                 Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "number")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.appMuted)
+                Text(appVersionLabel)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.appMuted)
             }
 
             if AuthService.shared.isSignedIn {
@@ -1725,7 +1741,7 @@ struct ProfileView: View {
     }
 
     private func weightSharePayload() -> FitMaksSharePayload? {
-        let entries = selectedChartBodyMetrics.compactMap { entry -> FitMaksShareWeightPoint? in
+        let points = selectedChartBodyMetrics.compactMap { entry -> FitMaksShareWeightPoint? in
             guard let value = selectedBodyChartMetric.value(from: entry) else {
                 return nil
             }
@@ -1736,48 +1752,62 @@ struct ProfileView: View {
             )
         }
 
-        guard let first = entries.first, let last = entries.last else {
+        guard let first = points.first, let last = points.last else {
             return nil
         }
 
         return .weight(
             FitMaksShareWeightSnapshot(
-                title: bodyChartMetricShareTitle,
+                title: "My body",
                 subtitle: selectedWeightRange.title,
                 accentColor: selectedBodyChartMetric.color,
                 leadingValue: bodyChartMetricShareValue(first.value),
                 trailingValue: bodyChartMetricShareValue(last.value),
-                points: entries
+                weightValue: nil,
+                fatValue: nil,
+                muscleValue: nil,
+                xAxisLabels: shareXAxisLabels(from: points),
+                points: points
             )
         )
     }
 
     private func profilePostOptions() -> [FitMaksPostOption] {
-        let metrics: [BodyChartMetric] = [.weight, .fat, .muscle]
+        WeightChartRange.allCases.flatMap { range in
+            BodyChartMetric.allCases.compactMap { metric in
+                let periodStart = Calendar.current.date(byAdding: .day, value: -(range.days - 1), to: Date()) ?? Date()
+                let entries = bodyMetrics
+                    .filter { $0.date >= periodStart }
+                    .compactMap { entry -> FitMaksShareWeightPoint? in
+                        guard let value = metric.value(from: entry) else { return nil }
+                        return FitMaksShareWeightPoint(
+                            label: entry.date.formatted(.dateTime.day().month(.abbreviated)),
+                            value: value
+                        )
+                    }
 
-        return metrics.compactMap { metric in
-            let entries = selectedChartEntries(for: metric).compactMap { entry -> FitMaksShareWeightPoint? in
-                guard let value = metric.value(from: entry) else { return nil }
-                return FitMaksShareWeightPoint(
-                    label: entry.date.formatted(.dateTime.day().month(.abbreviated)),
-                    value: value
+                guard let first = entries.first, let last = entries.last else { return nil }
+                let payload = FitMaksSharePayload.weight(
+                    FitMaksShareWeightSnapshot(
+                        title: "My body",
+                        subtitle: "\(metric.title) · \(range.title)",
+                        accentColor: metric.color,
+                        leadingValue: shareValue(first.value, for: metric),
+                        trailingValue: shareValue(last.value, for: metric),
+                        weightValue: nil,
+                        fatValue: nil,
+                        muscleValue: nil,
+                        xAxisLabels: shareXAxisLabels(from: entries),
+                        points: entries
+                    )
+                )
+
+                return FitMaksPostOption(
+                    id: payload.id,
+                    title: "\(metric.title) · \(range.title)",
+                    payload: payload
                 )
             }
-
-            guard let first = entries.first, let last = entries.last else { return nil }
-
-            let payload = FitMaksSharePayload.weight(
-                FitMaksShareWeightSnapshot(
-                    title: shareTitle(for: metric),
-                    subtitle: selectedWeightRange.title,
-                    accentColor: metric.color,
-                    leadingValue: shareValue(first.value, for: metric),
-                    trailingValue: shareValue(last.value, for: metric),
-                    points: entries
-                )
-            )
-
-            return FitMaksPostOption(id: payload.id, title: metric.title, payload: payload)
         }
     }
 
@@ -1788,11 +1818,11 @@ struct ProfileView: View {
     private func shareTitle(for metric: BodyChartMetric) -> String {
         switch metric {
         case .weight:
-            return "Weight trend"
+            return "My body"
         case .fat:
-            return "Body fat trend"
+            return "My body"
         case .muscle:
-            return "Muscle trend"
+            return "My body"
         }
     }
 
@@ -1808,12 +1838,37 @@ struct ProfileView: View {
     private var bodyChartMetricShareTitle: String {
         switch selectedBodyChartMetric {
         case .weight:
-            return "Weight trend"
+            return "My body"
         case .fat:
-            return "Body fat trend"
+            return "My body"
         case .muscle:
-            return "Muscle trend"
+            return "My body"
         }
+    }
+
+    private func mergedPostOptions() -> [FitMaksPostOption] {
+        let local = profilePostOptions()
+        guard !postOptions.isEmpty else { return local }
+
+        let withoutGlobalBody = postOptions.filter { $0.payload.categoryKey != "weight" }
+        return withoutGlobalBody + local
+    }
+
+    private func shareXAxisLabels(from points: [FitMaksShareWeightPoint]) -> [String] {
+        guard !points.isEmpty else { return [] }
+        if points.count == 1 { return [points[0].label] }
+
+        let first = points.first?.label
+        let middle = points[points.count / 2].label
+        let last = points.last?.label
+
+        return [first, middle, last]
+            .compactMap { $0 }
+            .reduce(into: [String]()) { result, label in
+                if result.last != label {
+                    result.append(label)
+                }
+            }
     }
 
     private func bodyChartMetricShareValue(_ value: Double) -> String {

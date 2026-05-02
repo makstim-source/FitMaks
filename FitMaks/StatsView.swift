@@ -186,7 +186,7 @@ struct StatsView: View {
                 refreshAchievementBannerQueue()
             }
         }
-        .sheet(item: $livePayload) { payload in
+        .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
@@ -323,19 +323,23 @@ struct StatsView: View {
         [
             FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
             FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
-        ] + achievementCollection.all.map {
+        ] + achievementCollection.all.filter { $0.isUnlocked || $0.current > 0 }.map {
             FitMaksPostOption(
                 id: UUID(),
                 title: $0.title,
                 payload: .achievement(
                     FitMaksShareAchievementSnapshot(
                         title: $0.title,
+                        familyLabel: $0.family == .core ? "Core trophy" : "Side quest",
                         subtitle: $0.subtitle,
                         detail: $0.detail,
+                        goalText: $0.goalText,
                         progressText: $0.progressText,
                         icon: $0.icon,
                         color: $0.color,
-                        isUnlocked: $0.isUnlocked
+                        isUnlocked: $0.isUnlocked,
+                        progress: $0.progress,
+                        hasStarted: $0.current > 0
                     )
                 )
             )
@@ -433,12 +437,16 @@ struct AchievementsView: View {
                         livePayload = .achievement(
                             FitMaksShareAchievementSnapshot(
                                 title: achievement.title,
+                                familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
                                 subtitle: achievement.subtitle,
                                 detail: achievement.detail,
+                                goalText: achievement.goalText,
                                 progressText: achievement.progressText,
                                 icon: achievement.icon,
                                 color: achievement.color,
-                                isUnlocked: achievement.isUnlocked
+                                isUnlocked: achievement.isUnlocked,
+                                progress: achievement.progress,
+                                hasStarted: achievement.current > 0
                             )
                         )
                     }
@@ -447,7 +455,7 @@ struct AchievementsView: View {
                     .presentationDragIndicator(.visible)
             }
         }
-        .sheet(item: $livePayload) { payload in
+        .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
@@ -519,19 +527,23 @@ struct AchievementsView: View {
         [
             FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
             FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
-        ] + achievementCollection.all.map {
+        ] + achievementCollection.all.filter { $0.isUnlocked || $0.current > 0 }.map {
             FitMaksPostOption(
                 id: UUID(),
                 title: $0.title,
                 payload: .achievement(
                     FitMaksShareAchievementSnapshot(
                         title: $0.title,
+                        familyLabel: $0.family == .core ? "Core trophy" : "Side quest",
                         subtitle: $0.subtitle,
                         detail: $0.detail,
+                        goalText: $0.goalText,
                         progressText: $0.progressText,
                         icon: $0.icon,
                         color: $0.color,
-                        isUnlocked: $0.isUnlocked
+                        isUnlocked: $0.isUnlocked,
+                        progress: $0.progress,
+                        hasStarted: $0.current > 0
                     )
                 )
             )

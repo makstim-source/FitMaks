@@ -81,16 +81,16 @@ extension ContentView {
             ? (caloriesOutsideGrace ? "over" : "grace")
             : "deficit"
 
-        let headline = posterDayline(for: selectedDate)
+        let headline = posterDayline(for: viewModel.selectedDate)
 
-        let subheadline = "\(formatDate(selectedDate)) · \(modeLabel(currentDayMode))"
+        let subheadline = "\(viewModel.formatDate(viewModel.selectedDate)) · \(viewModel.modeLabel(currentDayMode))"
 
         return .today(
             FitMaksShareTodaySnapshot(
-                dateLabel: formatDate(selectedDate),
-                modeLabel: modePostLabel(currentDayMode),
+                dateLabel: viewModel.formatDate(viewModel.selectedDate),
+                modeLabel: viewModel.modePostLabel(currentDayMode),
                 modeEmoji: currentDayMode.emoji,
-                modeSymbolName: modeShareSymbol(currentDayMode),
+                modeSymbolName: viewModel.modeShareSymbol(currentDayMode),
                 headline: headline,
                 subheadline: subheadline,
                 isPerfectDay: dailyProgress.isPerfect,
@@ -118,7 +118,7 @@ extension ContentView {
                         value: "\(Int(dailyProgress.effectiveSteps))",
                         subtitle: "goal 10k",
                         progress: min(max(dailyProgress.effectiveSteps / max(targetSteps, 1), 0), 1),
-                        color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
+                        color: viewModel.getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
                         systemImage: "shoeprints.fill"
                     )
                 ]
@@ -184,7 +184,7 @@ extension ContentView {
         .food(
             FitMaksShareFoodSnapshot(
                 name: cleanShareFoodName(entry.name),
-                subtitle: formatDate(entry.date),
+                subtitle: viewModel.formatDate(entry.date),
                 caloriesText: "\(Int(entry.calories)) kcal",
                 proteinText: "\(Int(entry.protein))g",
                 breakdownLines: shareBreakdownLines(from: entry.ingredients),
@@ -211,7 +211,7 @@ extension ContentView {
         return .workout(
             FitMaksShareWorkoutSnapshot(
                 name: workoutShareTitle(for: entry),
-                subtitle: entry.aiSummary?.isEmpty == false ? entry.aiSummary ?? formatDate(entry.date) : formatDate(entry.date),
+                subtitle: entry.aiSummary?.isEmpty == false ? entry.aiSummary ?? viewModel.formatDate(entry.date) : viewModel.formatDate(entry.date),
                 caloriesText: "\(Int(entry.caloriesBurned)) kcal",
                 stepsText: (entry.steps ?? 0) > 0 ? "\(Int(entry.steps ?? 0))" : nil,
                 durationText: entry.duration.isEmpty ? nil : entry.duration,
@@ -360,7 +360,7 @@ enum ShareFormatters {
     }
 }
 
-extension ContentView {
+extension HomeViewModel {
     func modeShareSymbol(_ mode: DayMode) -> String {
         switch mode {
         case .chill:

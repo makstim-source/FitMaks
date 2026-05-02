@@ -265,6 +265,10 @@ struct HomeTrainingRow: View {
             }
 
             Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(.appMuted)
         }
         .padding(13)
         .background(
@@ -458,8 +462,8 @@ struct HomeStatsPanelBackground: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.neonGreen.opacity(0.24),
-                            Color.neonCyan.opacity(0.18),
+                            Color.yellow.opacity(0.27),
+                            Color.orange.opacity(0.24),
                             Color.appElevated
                         ],
                         startPoint: .topLeading,
@@ -481,7 +485,7 @@ struct HomeStatsPanelCelebrationOverlay: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(
                     isPerfectPastDay
-                    ? LinearGradient(colors: [.neonGreen, .neonCyan, .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ? LinearGradient(colors: [.yellow, .orange, .fitOrange], startPoint: .topLeading, endPoint: .bottomTrailing)
                     : LinearGradient(colors: [Color.clear], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: isPerfectPastDay ? 2 : 0
                 )
@@ -498,8 +502,8 @@ struct HomeStatsPanelCelebrationOverlay: View {
                 .foregroundColor(.appAccentText)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(Color.neonGreen))
-                .shadow(color: .neonGreen.opacity(0.8), radius: 8, x: 0, y: 0)
+                .background(Capsule().fill(Color.yellow))
+                .shadow(color: Color.yellow.opacity(0.38), radius: 6, x: 0, y: 0)
                 .offset(x: -12, y: -10)
             }
         }

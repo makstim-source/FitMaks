@@ -173,23 +173,23 @@ private struct OnboardingView: View {
 
     private let introPages: [OnboardingPage] = [
         OnboardingPage(
-            eyebrow: "WELCOME TO FITMAKS",
-            title: "Your day, finally readable.",
-            subtitle: "Scan meals, track protein, calories, steps and workouts. Collect days you'll want to look back at.",
+            eyebrow: "FitMaks",
+            title: "LOG YOUR DAY",
+            subtitle: "Just snap your food or upload a workout screenshot.",
             systemName: "sparkles",
             color: .neonGreen
         ),
         OnboardingPage(
-            eyebrow: "ADD FOOD FAST",
-            title: "Photo first. Edit if needed.",
-            subtitle: "Tap + to scan a plate, label or receipt. AI estimates it, then you can tap any food card to correct portions.",
+            eyebrow: "FitMaks",
+            title: "AI DOES THE BORING PART.",
+            subtitle: "AI detects items, estimates calories and protein.",
             systemName: "camera.macro",
             color: .neonCyan
         ),
         OnboardingPage(
-            eyebrow: "THE GAME",
-            title: "Chase Perfect Days.",
-            subtitle: "Perfect Day means protein closed, movement done and calories under target. Cardio adds food budget; Gym adds food budget and a 5k step credit.",
+            eyebrow: "FitMaks",
+            title: "CONSISTENCY WINS.",
+            subtitle: "Close your targets, build streaks, and unlock achievements.",
             systemName: "flame.fill",
             color: .yellow
         )
@@ -295,7 +295,9 @@ private struct OnboardingView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Text("Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
+                    Text(page < introPages.count
+                         ? "You can change anything later."
+                         : "Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
@@ -392,53 +394,12 @@ private struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 18)
             }
-
-            quickRuleCard(for: item)
 
             Spacer(minLength: 10)
         }
         .padding(.horizontal, 20)
-    }
-
-    private func quickRuleCard(for item: OnboardingPage) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lightbulb.fill")
-                .font(.system(size: 16, weight: .black))
-                .foregroundColor(item.color)
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(item.color.opacity(0.12)))
-
-            Text(quickRuleText)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.appText.opacity(0.86))
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-        )
-        .padding(.horizontal, 6)
-    }
-
-    private var quickRuleText: String {
-        switch page {
-        case 0:
-            return "Use it as a daily cockpit: log, adjust, move on."
-        case 1:
-            return "Same photo should stay consistent, but portions are still editable."
-        case 2:
-            return "Perfect Days are about consistency, not punishment."
-        case bodySetupPageIndex:
-            return "These numbers set your first calorie and protein targets. You can edit them later."
-        default:
-            return "Recomp is the option for building muscle while getting leaner."
-        }
     }
 
     private func primaryAction() {

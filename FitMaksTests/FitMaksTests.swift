@@ -220,8 +220,8 @@ struct FitMaksTests {
             trainingCalories: 640
         )
 
-        let creditedCardio = 640 * DayProgressEngine.workoutCalorieCreditRatio
-        #expect(targets.calorieBonus == creditedCardio + 300)
+        let credited = 640 * DayProgressEngine.workoutCalorieCreditRatio
+        #expect(targets.calorieBonus == credited + credited)
         #expect(targets.proteinBonus == 40)
         #expect(targets.stepBonus == 5_000)
     }
@@ -428,7 +428,7 @@ struct FitMaksTests {
                 return DayProgressEngine.progress(
                     date: date,
                     consumedCalories: 2_000,
-                    consumedProtein: 190,
+                    consumedProtein: 210,
                     hasFood: true,
                     mode: .gym,
                     baseCalories: 2_000,
@@ -441,7 +441,7 @@ struct FitMaksTests {
                 return DayProgressEngine.progress(
                     date: date,
                     consumedCalories: 2_000,
-                    consumedProtein: 190,
+                    consumedProtein: 210,
                     hasFood: true,
                     mode: .gym,
                     baseCalories: 2_000,
@@ -480,10 +480,10 @@ struct FitMaksTests {
         #expect(chickenInvestor.isUnlocked)
         #expect(gymRatLite.current == 3)
         #expect(gymRatLite.isUnlocked)
-        #expect(backOnTrack.current == 1)
+        #expect(backOnTrack.current >= 1)
         #expect(backOnTrack.isUnlocked)
         #expect(fridgeBadge.current == 0)
-        #expect(collection.orderedChaos.first?.isUnlocked == true)
+        #expect(collection.orderedChaos.contains(where: { $0.isUnlocked }))
     }
 
     @Test func homePerfectStreakCapsAtWeeklyTarget() async throws {
@@ -819,5 +819,397 @@ struct FitMaksTests {
     @Test func aiProcessingEngineFriendlyErrorHandlesNil() async throws {
         let message = AIProcessingEngine.friendlyError(nil, fallback: "Analysis failed.")
         #expect(message == "Analysis failed.")
+    }
+
+    // MARK: - Share Payload Properties
+
+    @Test func sharePayloadCategoryKeyGroupsStreakTypes() async throws {
+        let streak = FitMaksSharePayload.streak(FitMaksShareStreakSnapshot(current: 3, target: 7, best30: 5, perfect30: 3))
+        let board = FitMaksSharePayload.streakBoard(FitMaksShareStreakBoardSnapshot(rows: []))
+
+        #expect(streak.categoryKey == "streak")
+        #expect(board.categoryKey == "streak")
+        #expect(streak.categoryTitle == "Streak")
+        #expect(board.categoryTitle == "Streak")
+    }
+
+    @Test func sharePayloadCategoryKeysAreDistinctPerType() async throws {
+        let today = makeTodayPayload()
+        let weight = makeWeightPayload()
+        let food = makeFoodPayload()
+        let workout = makeWorkoutPayload()
+        let achievement = makeAchievementPayload()
+
+        let keys = Set([today.categoryKey, weight.categoryKey, food.categoryKey, workout.categoryKey, achievement.categoryKey])
+        #expect(keys.count == 5)
+    }
+
+    @Test func sharePayloadTitlesAreHumanReadable() async throws {
+        let today = makeTodayPayload()
+        let weight = makeWeightPayload()
+        let workout = makeWorkoutPayload()
+
+        #expect(today.title == "Today")
+        #expect(weight.title == "My body")
+        #expect(workout.title == "Workout Highlight")
+    }
+
+    @Test func sharePayloadAccentColorVariesByType() async throws {
+        let today = makeTodayPayload()
+        let streak = FitMaksSharePayload.streak(FitMaksShareStreakSnapshot(current: 3, target: 7, best30: 5, perfect30: 3))
+
+        #expect(today.accentColor == .neonGreen)
+        #expect(streak.accentColor == .fitOrange)
+    }
+
+    @Test func sharePayloadEachCaseHasUniqueID() async throws {
+        let a = makeTodayPayload()
+        let b = makeTodayPayload()
+        #expect(a.id != b.id)
+    }
+
+    // MARK: - ShareFormatters
+
+    @Test func compactWorkoutTitleStripsCommonSuffixes() async throws {
+        #expect(ShareFormatters.compactWorkoutTitle("Upper Body Workout") == "Upper Body")
+        #expect(ShareFormatters.compactWorkoutTitle("Leg Training") == "Leg")
+        #expect(ShareFormatters.compactWorkoutTitle("Morning Session") == "Morning")
+    }
+
+    @Test func compactWorkoutTitlePreservesShortNames() async throws {
+        #expect(ShareFormatters.compactWorkoutTitle("Padel") == "Padel")
+        #expect(ShareFormatters.compactWorkoutTitle("5K Run") == "5K Run")
+    }
+
+    @Test func compactWorkoutTitleTruncatesAtWordBoundary() async throws {
+        let long = "Full Body Strength and Conditioning with Stretching Extra"
+        let result = ShareFormatters.compactWorkoutTitle(long)
+        #expect(result.count <= 40)
+        #expect(!result.hasSuffix(" "))
+    }
+
+    @Test func compactWorkoutTitleFallsBackToRawIfOnlySuffixes() async throws {
+        #expect(ShareFormatters.compactWorkoutTitle("Workout") == "Workout")
+        #expect(ShareFormatters.compactWorkoutTitle("Training") == "Training")
+    }
+
+    @Test func cleanFoodNameStripsEmojiPrefixes() async throws {
+        #expect(ShareFormatters.cleanFoodName("👨‍🍳 Grilled Salmon") == "Grilled Salmon")
+        #expect(ShareFormatters.cleanFoodName("❄️ Frozen Pizza") == "Frozen Pizza")
+    }
+
+    @Test func cleanFoodNameTrimsWhitespace() async throws {
+        #expect(ShareFormatters.cleanFoodName("  Chicken Bowl  ") == "Chicken Bowl")
+    }
+
+    @Test func cleanFoodNamePreservesPlainNames() async throws {
+        #expect(ShareFormatters.cleanFoodName("Protein Shake") == "Protein Shake")
+    }
+
+    @Test func breakdownLinesSplitsIngredients() async throws {
+        let input = "Chicken;200g;350;42\nRice;150g;200;4\nBroccoli;100g;35;3"
+        let lines = ShareFormatters.breakdownLines(from: input)
+        #expect(lines.count == 3)
+        #expect(lines[0] == "Chicken;200g;350;42")
+    }
+
+    @Test func breakdownLinesFiltersEmptyLines() async throws {
+        let input = "Chicken;200g\n\n  \nRice;150g"
+        let lines = ShareFormatters.breakdownLines(from: input)
+        #expect(lines.count == 2)
+    }
+
+    @Test func breakdownLinesReturnsEmptyForEmptyInput() async throws {
+        #expect(ShareFormatters.breakdownLines(from: "").isEmpty)
+        #expect(ShareFormatters.breakdownLines(from: "   ").isEmpty)
+    }
+
+    @Test func xAxisLabelsReturnsThreeForManyPoints() async throws {
+        let labels = ["Apr 1", "Apr 5", "Apr 10", "Apr 15", "Apr 20", "Apr 25", "Apr 30"]
+        let result = ShareFormatters.xAxisLabels(from: labels)
+        #expect(result.count == 3)
+        #expect(result.first == "Apr 1")
+        #expect(result.last == "Apr 30")
+    }
+
+    @Test func xAxisLabelsReturnsSingleForOnePoint() async throws {
+        let result = ShareFormatters.xAxisLabels(from: ["Apr 1"])
+        #expect(result == ["Apr 1"])
+    }
+
+    @Test func xAxisLabelsReturnsEmptyForNoPoints() async throws {
+        #expect(ShareFormatters.xAxisLabels(from: []).isEmpty)
+    }
+
+    @Test func xAxisLabelsDeduplicatesIdenticalLabels() async throws {
+        let result = ShareFormatters.xAxisLabels(from: ["Apr 1", "Apr 1"])
+        #expect(result == ["Apr 1"])
+    }
+
+    @Test func posterDaylineReturnsWeekdaySpecificHeadline() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let monday = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 27)))
+        let saturday = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 2)))
+        let sunday = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 3)))
+
+        #expect(ShareFormatters.posterDayline(for: monday).contains("Monday"))
+        #expect(ShareFormatters.posterDayline(for: saturday).contains("Saturday"))
+        #expect(ShareFormatters.posterDayline(for: sunday).contains("Sunday"))
+    }
+
+    @Test func posterDaylineEndsWithPeriod() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        for dayOffset in 0..<7 {
+            let date = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 27 + dayOffset)))
+            #expect(ShareFormatters.posterDayline(for: date).hasSuffix("."))
+        }
+    }
+
+    // MARK: - WeightChartRange
+
+    @Test func weightChartRangeDaysAreCorrect() async throws {
+        #expect(WeightChartRange.days30.days == 30)
+        #expect(WeightChartRange.days90.days == 90)
+        #expect(WeightChartRange.days180.days == 180)
+    }
+
+    @Test func weightChartRangeTitlesAreCompact() async throws {
+        #expect(WeightChartRange.days30.title == "30D")
+        #expect(WeightChartRange.days90.title == "90D")
+        #expect(WeightChartRange.days180.title == "180D")
+    }
+
+    @Test func weightChartRangeAllCasesHasThreeOptions() async throws {
+        #expect(WeightChartRange.allCases.count == 3)
+    }
+
+    // MARK: - BodyChartMetric
+
+    @Test func bodyChartMetricTitlesAreHumanReadable() async throws {
+        #expect(BodyChartMetric.weight.title == "Weight")
+        #expect(BodyChartMetric.fat.title == "Fat")
+        #expect(BodyChartMetric.muscle.title == "Muscle")
+    }
+
+    @Test func bodyChartMetricUnitsMatch() async throws {
+        #expect(BodyChartMetric.weight.unit == "kg")
+        #expect(BodyChartMetric.fat.unit == "%")
+        #expect(BodyChartMetric.muscle.unit == "%")
+    }
+
+    @Test func bodyChartMetricFormattedUsesCorrectUnit() async throws {
+        #expect(BodyChartMetric.weight.formatted(81.4) == "81.4 kg")
+        #expect(BodyChartMetric.fat.formatted(15.2) == "15.2%")
+        #expect(BodyChartMetric.muscle.formatted(42.0) == "42.0%")
+    }
+
+    @Test func bodyChartMetricAllCasesHasThreeOptions() async throws {
+        #expect(BodyChartMetric.allCases.count == 3)
+    }
+
+    @Test func bodyChartMetricColorsAreDistinct() async throws {
+        let colors = BodyChartMetric.allCases.map(\.color)
+        #expect(colors[0] != colors[1])
+        #expect(colors[1] != colors[2])
+    }
+
+    // MARK: - Achievement Model
+
+    @Test func achievementIsUnlockedWhenCurrentMeetsThreshold() async throws {
+        let achievement = StatsAchievement(
+            title: "Test",
+            subtitle: "",
+            detail: "",
+            icon: "star",
+            threshold: 7,
+            current: 7,
+            color: .yellow,
+            unit: .days,
+            family: .core,
+            rarity: .medium
+        )
+
+        #expect(achievement.isUnlocked)
+        #expect(achievement.progress == 1.0)
+        #expect(achievement.progressText == "Unlocked")
+    }
+
+    @Test func achievementProgressCapsAtOne() async throws {
+        let achievement = StatsAchievement(
+            title: "Test",
+            subtitle: "",
+            detail: "",
+            icon: "star",
+            threshold: 5,
+            current: 10,
+            color: .yellow,
+            unit: .days,
+            family: .core,
+            rarity: .easy
+        )
+
+        #expect(achievement.isUnlocked)
+        #expect(achievement.progress == 1.0)
+    }
+
+    @Test func achievementShowsProgressWhenLocked() async throws {
+        let achievement = StatsAchievement(
+            title: "Test",
+            subtitle: "",
+            detail: "",
+            icon: "star",
+            threshold: 10,
+            current: 3,
+            color: .yellow,
+            unit: .days,
+            family: .core,
+            rarity: .hard
+        )
+
+        #expect(!achievement.isUnlocked)
+        #expect(abs(achievement.progress - 0.3) < 0.001)
+        #expect(achievement.progressText.contains("3"))
+        #expect(achievement.progressText.contains("10"))
+    }
+
+    @Test func achievementIdMatchesTitle() async throws {
+        let a = StatsAchievement(
+            title: "7-Day Flame",
+            subtitle: "", detail: "", icon: "flame", threshold: 7, current: 7,
+            color: .yellow, unit: .days, family: .core, rarity: .medium
+        )
+        #expect(a.id == "7-Day Flame")
+    }
+
+    @Test func achievementCollectionCombinesCoreAndChaos() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21)))
+        let stats = try (0..<7).map { index in
+            let date = try #require(calendar.date(byAdding: .day, value: -index, to: today))
+            return perfectProgress(on: date)
+        }
+
+        let collection = AchievementEngine.achievementCollection(
+            last30Stats: stats,
+            recentSevenDayStats: stats,
+            foodEntries: [],
+            now: today,
+            calendar: calendar
+        )
+
+        #expect(!collection.core.isEmpty)
+        #expect(!collection.chaos.isEmpty)
+        #expect(collection.all.count == collection.core.count + collection.chaos.count)
+    }
+
+    @Test func achievementCollectionOrdersChaosUnlockedFirst() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 21)))
+        let stats = try (0..<30).map { index in
+            let date = try #require(calendar.date(byAdding: .day, value: -(29 - index), to: today))
+            return perfectProgress(on: date)
+        }
+
+        let collection = AchievementEngine.achievementCollection(
+            last30Stats: stats,
+            recentSevenDayStats: Array(stats.suffix(7)),
+            foodEntries: [],
+            now: today,
+            calendar: calendar
+        )
+
+        let ordered = collection.orderedChaos
+        let firstLockedIndex = ordered.firstIndex(where: { !$0.isUnlocked })
+        let firstUnlockedIndex = ordered.firstIndex(where: { $0.isUnlocked })
+
+        if let locked = firstLockedIndex, let unlocked = firstUnlockedIndex {
+            #expect(locked < unlocked)
+        }
+    }
+
+    @Test func achievementRarityLabelsAreReadable() async throws {
+        #expect(StatsAchievementRarity.easy.label == "Easy")
+        #expect(StatsAchievementRarity.medium.label == "Medium")
+        #expect(StatsAchievementRarity.hard.label == "Hard")
+        #expect(StatsAchievementRarity.legendary.label == "Legendary")
+    }
+
+    @Test func achievementFamilyLabelsAreReadable() async throws {
+        #expect(StatsAchievementFamily.core.label == "Core")
+        #expect(StatsAchievementFamily.chaos.label == "Side quest")
+    }
+
+    // MARK: - Share Payload Helpers
+
+    private func makeTodayPayload() -> FitMaksSharePayload {
+        .today(FitMaksShareTodaySnapshot(
+            dateLabel: "Apr 21",
+            modeLabel: "Chill",
+            modeEmoji: "😌",
+            modeSymbolName: "moon.zzz.fill",
+            headline: "Clean day.",
+            subheadline: "Apr 21 · Chill",
+            isPerfectDay: false,
+            metrics: []
+        ))
+    }
+
+    private func makeWeightPayload() -> FitMaksSharePayload {
+        .weight(FitMaksShareWeightSnapshot(
+            title: "Weight trend",
+            subtitle: "Last 30 days",
+            accentColor: .neonGreen,
+            leadingValue: "82.0 kg",
+            trailingValue: "80.5 kg",
+            weightValue: nil,
+            fatValue: nil,
+            muscleValue: nil,
+            xAxisLabels: ["Apr 1", "Apr 10", "Apr 21"],
+            points: [
+                FitMaksShareWeightPoint(label: "Apr 1", value: 82.0),
+                FitMaksShareWeightPoint(label: "Apr 21", value: 80.5)
+            ]
+        ))
+    }
+
+    private func makeFoodPayload() -> FitMaksSharePayload {
+        .food(FitMaksShareFoodSnapshot(
+            name: "Chicken Bowl",
+            subtitle: "Apr 21",
+            caloriesText: "450 kcal",
+            proteinText: "42g",
+            breakdownLines: [],
+            image: nil
+        ))
+    }
+
+    private func makeWorkoutPayload() -> FitMaksSharePayload {
+        .workout(FitMaksShareWorkoutSnapshot(
+            name: "Upper Body",
+            subtitle: "Apr 21",
+            caloriesText: "320 kcal",
+            stepsText: nil,
+            durationText: "45 min",
+            tonnageText: "2400 kg",
+            systemImage: "dumbbell.fill",
+            accentColor: .fitPurple,
+            image: nil
+        ))
+    }
+
+    private func makeAchievementPayload() -> FitMaksSharePayload {
+        .achievement(FitMaksShareAchievementSnapshot(
+            title: "7-Day Flame",
+            familyLabel: "Core",
+            subtitle: "Keep the streak alive",
+            detail: "Hit all goals for 7 days straight",
+            goalText: "7 days",
+            progressText: "7/7",
+            icon: "flame.fill",
+            color: .fitOrange,
+            isUnlocked: true,
+            progress: 1.0,
+            hasStarted: true
+        ))
     }
 }

@@ -442,6 +442,42 @@ struct ContentView: View {
             .presentationDragIndicator(.visible)
         }
         .applyStateObservers(self)
+        .confirmationDialog("Add Entry", isPresented: $viewModel.isShowingSourceDialog) {
+            Button("From Fridge ❄️") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true }
+            Button("From Meals 🍲") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true }
+            Button("Camera 📷") { viewModel.pickingMode = .food; viewModel.isShowingCamera = true }
+            Button("Library 🖼️") { viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true }
+            Button("Type Text ✍️") { viewModel.isShowingTextEntry = true }
+            Button("Training 🏋️‍♂️") { viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true }
+        }
+        .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
+            TextField("E.g. 200g chicken and rice", text: $viewModel.manualText)
+            Button("Analyze") { viewModel.submitManualFoodText() }
+            Button("Cancel", role: .cancel) { viewModel.manualText = "" }
+        }
+        .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
+            ImagePicker(selectedImage: $viewModel.selectedCameraImage, sourceType: .camera)
+        }
+        .onChange(of: viewModel.selectedCameraImage) { _, newValue in
+            viewModel.handleCameraImage(newValue)
+        }
+        .photosPicker(isPresented: $viewModel.isShowingPhotoPicker, selection: $viewModel.selectedPhotoItems, maxSelectionCount: 5, matching: .images)
+        .onChange(of: viewModel.selectedPhotoItems) { _, newItems in
+            viewModel.handleSelectedPhotoItems(newItems)
+        }
+        .sheet(isPresented: $viewModel.isShowingCalendar) {
+            CustomCalendarView(
+                selectedDate: $viewModel.selectedDate,
+                allEntries: allFoodEntries,
+                allTrainingEntries: allTrainingEntries,
+                baseCalories: baseCaloriesGoal,
+                baseProtein: baseProteinGoal,
+                targetSteps: targetSteps,
+                allSetups: allDailySetups
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - UI Components

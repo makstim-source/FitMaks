@@ -441,6 +441,7 @@ struct ContentView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .applyStateObservers(self)
     }
 
     // MARK: - UI Components

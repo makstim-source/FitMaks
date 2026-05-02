@@ -1,7 +1,9 @@
 import SwiftUI
 
 enum WeightChartRange: CaseIterable, Identifiable {
+    case days14
     case days30
+    case days60
     case days90
     case days180
 
@@ -9,8 +11,12 @@ enum WeightChartRange: CaseIterable, Identifiable {
 
     var days: Int {
         switch self {
+        case .days14:
+            return 14
         case .days30:
             return 30
+        case .days60:
+            return 60
         case .days90:
             return 90
         case .days180:
@@ -20,8 +26,12 @@ enum WeightChartRange: CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .days14:
+            return "14D"
         case .days30:
             return "30D"
+        case .days60:
+            return "60D"
         case .days90:
             return "90D"
         case .days180:

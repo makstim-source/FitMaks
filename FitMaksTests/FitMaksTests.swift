@@ -968,19 +968,23 @@ struct FitMaksTests {
     // MARK: - WeightChartRange
 
     @Test func weightChartRangeDaysAreCorrect() async throws {
+        #expect(WeightChartRange.days14.days == 14)
         #expect(WeightChartRange.days30.days == 30)
+        #expect(WeightChartRange.days60.days == 60)
         #expect(WeightChartRange.days90.days == 90)
         #expect(WeightChartRange.days180.days == 180)
     }
 
     @Test func weightChartRangeTitlesAreCompact() async throws {
+        #expect(WeightChartRange.days14.title == "14D")
         #expect(WeightChartRange.days30.title == "30D")
+        #expect(WeightChartRange.days60.title == "60D")
         #expect(WeightChartRange.days90.title == "90D")
         #expect(WeightChartRange.days180.title == "180D")
     }
 
-    @Test func weightChartRangeAllCasesHasThreeOptions() async throws {
-        #expect(WeightChartRange.allCases.count == 3)
+    @Test func weightChartRangeAllCasesHasFiveOptions() async throws {
+        #expect(WeightChartRange.allCases.count == 5)
     }
 
     // MARK: - BodyChartMetric

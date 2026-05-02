@@ -20,6 +20,7 @@ struct FitMaksShareTodaySnapshot: Identifiable {
     let modeSymbolName: String
     let headline: String
     let subheadline: String
+    let isPerfectDay: Bool
     let metrics: [FitMaksShareMetric]
 }
 
@@ -56,12 +57,16 @@ struct FitMaksShareStreakBoardSnapshot: Identifiable {
 struct FitMaksShareAchievementSnapshot: Identifiable {
     let id = UUID()
     let title: String
+    let familyLabel: String
     let subtitle: String
     let detail: String
+    let goalText: String
     let progressText: String
     let icon: String
     let color: Color
     let isUnlocked: Bool
+    let progress: Double
+    let hasStarted: Bool
 }
 
 struct FitMaksShareWeightPoint: Identifiable {
@@ -77,6 +82,10 @@ struct FitMaksShareWeightSnapshot: Identifiable {
     let accentColor: Color
     let leadingValue: String
     let trailingValue: String
+    let weightValue: String?
+    let fatValue: String?
+    let muscleValue: String?
+    let xAxisLabels: [String]
     let points: [FitMaksShareWeightPoint]
 }
 
@@ -141,7 +150,7 @@ enum FitMaksSharePayload: Identifiable {
         case .achievement:
             return "Achievement"
         case .weight:
-            return "Weight Trend"
+            return "My body"
         case .food:
             return "Food Highlight"
         case .workout:
@@ -198,7 +207,7 @@ enum FitMaksSharePayload: Identifiable {
         case .achievement:
             return "Achievements"
         case .weight:
-            return "Weight"
+            return "My body"
         case .food:
             return "Food"
         case .workout:
@@ -233,6 +242,10 @@ struct FitMaksLiveView: View {
     @State private var backgroundImage: UIImage?
     @State private var isShowingCamera = false
     @State private var cameraImage: UIImage?
+    @State private var backgroundOffset = CGSize.zero
+    @State private var backgroundDragOffset = CGSize.zero
+    @State private var backgroundZoom: CGFloat = 1
+    @State private var backgroundZoomDelta: CGFloat = 1
     @State private var contentOffsetY: CGFloat = 0
     @State private var dragOffsetY: CGFloat = 0
     @State private var saveConfirmationText: String?
@@ -285,29 +298,30 @@ struct FitMaksLiveView: View {
 
                     GeometryReader { proxy in
                         let scale = proxy.size.width / 1080
+                        let dragRegionWidth = proxy.size.width * 0.86
+                        let dragRegionHeight = proxy.size.height * contentDragRegionHeightRatio
+                        let dragRegionCenterY = proxy.size.height - ((66 * scale) + (dragRegionHeight / 2)) + ((contentOffsetY + dragOffsetY) * scale)
+                        let dragRegionFrame = CGRect(
+                            x: (proxy.size.width - dragRegionWidth) / 2,
+                            y: dragRegionCenterY - dragRegionHeight / 2,
+                            width: dragRegionWidth,
+                            height: dragRegionHeight
+                        )
                         ZStack {
                             FitMaksLiveCanvas(
                                 payload: payload,
                                 backgroundImage: displayedBackgroundImage,
-                                contentOffsetY: (contentOffsetY + dragOffsetY) / scale
+                                backgroundOffset: CGSize(
+                                    width: (backgroundOffset.width + backgroundDragOffset.width) / scale,
+                                    height: (backgroundOffset.height + backgroundDragOffset.height) / scale
+                                ),
+                                backgroundScale: backgroundZoom * backgroundZoomDelta,
+                                contentOffsetY: contentOffsetY + dragOffsetY
                             )
                             .frame(width: 1080, height: 1920)
                             .scaleEffect(scale, anchor: .topLeading)
                             .frame(width: proxy.size.width, height: proxy.size.width * (16.0 / 9.0), alignment: .topLeading)
                             .contentShape(Rectangle())
-                            .highPriorityGesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        dragOffsetY = value.translation.height
-                                    }
-                                    .onEnded { _ in
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                                            contentOffsetY += dragOffsetY
-                                            contentOffsetY = max(-420, min(10, contentOffsetY))
-                                            dragOffsetY = 0
-                                        }
-                                    }
-                            )
 
                             if displayedBackgroundImage == nil {
                                 PhotosPicker(
@@ -341,6 +355,57 @@ struct FitMaksLiveView: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+                        }
+                        .overlay {
+                            FitMaksPostGestureCaptureView(
+                                contentFrame: dragRegionFrame,
+                                enableBackgroundGestures: displayedBackgroundImage != nil,
+                                onContentDragChanged: { translationY in
+                                    dragOffsetY = translationY / scale
+                                },
+                                onContentDragEnded: { translationY in
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                        contentOffsetY += translationY / scale
+                                        contentOffsetY = max(-1450, min(20, contentOffsetY))
+                                        dragOffsetY = 0
+                                    }
+                                },
+                                onBackgroundPanChanged: { translation in
+                                    backgroundDragOffset = translation
+                                },
+                                onBackgroundPanEnded: { translation in
+                                    let proposed = CGSize(
+                                        width: backgroundOffset.width + translation.width,
+                                        height: backgroundOffset.height + translation.height
+                                    )
+                                    backgroundOffset = clampedBackgroundOffset(
+                                        proposed,
+                                        image: displayedBackgroundImage,
+                                        previewScale: scale,
+                                        zoom: backgroundZoom * backgroundZoomDelta
+                                    )
+                                    backgroundDragOffset = .zero
+                                },
+                                onBackgroundZoomChanged: { value in
+                                    backgroundZoomDelta = value
+                                },
+                                onBackgroundZoomEnded: { value in
+                                    let nextZoom = min(max(backgroundZoom * value, 1), 2.4)
+                                    let proposedOffset = CGSize(
+                                        width: backgroundOffset.width + backgroundDragOffset.width,
+                                        height: backgroundOffset.height + backgroundDragOffset.height
+                                    )
+                                    backgroundZoom = nextZoom
+                                    backgroundZoomDelta = 1
+                                    backgroundOffset = clampedBackgroundOffset(
+                                        proposedOffset,
+                                        image: displayedBackgroundImage,
+                                        previewScale: scale,
+                                        zoom: nextZoom
+                                    )
+                                    backgroundDragOffset = .zero
+                                }
+                            )
                         }
                     }
                     .aspectRatio(9.0 / 16.0, contentMode: .fit)
@@ -379,41 +444,108 @@ struct FitMaksLiveView: View {
                             }
                         }
 
-                        HStack(spacing: 8) {
-                            if let activeCategoryKey,
-                               optionsForCategory(activeCategoryKey).count > 1 {
-                                Menu {
-                                    ForEach(optionsForCategory(activeCategoryKey)) { option in
-                                        Button(option.title) {
-                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                                payload = option.payload
+                        if activeCategoryKey == "weight" {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 6) {
+                                        ForEach(bodyMetricTitles, id: \.self) { metricTitle in
+                                            let isSelected = selectedBodyMetricTitle == metricTitle
+                                            Button {
+                                                selectBodyOption(metricTitle: metricTitle, rangeTitle: selectedBodyRangeTitle)
+                                            } label: {
+                                                Text(metricTitle)
+                                                    .font(.system(size: 13, weight: .heavy))
+                                                    .foregroundColor(isSelected ? .appAccentText : .appText)
+                                                    .padding(.horizontal, 14)
+                                                    .padding(.vertical, 10)
+                                                    .background(Capsule().fill(isSelected ? payload.accentColor : Color.appElevated))
+                                                    .overlay(Capsule().stroke(isSelected ? payload.accentColor.opacity(0.22) : Color.appBorder, lineWidth: 1))
                                             }
+                                            .buttonStyle(.plain)
                                         }
                                     }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                                            .font(.system(size: 13, weight: .black))
-
-                                        Text(activeSelectionTitle)
-                                            .font(.system(size: 13, weight: .heavy))
-                                            .lineLimit(1)
-
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 10, weight: .black))
-                                    }
-                                    .foregroundColor(.appText)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(Capsule().fill(Color.appElevated))
-                                    .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
                                 }
-                                .buttonStyle(.plain)
-                            }
 
-                            Spacer()
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 6) {
+                                        ForEach(bodyRangeTitles, id: \.self) { rangeTitle in
+                                            let isSelected = selectedBodyRangeTitle == rangeTitle
+                                            Button {
+                                                selectBodyOption(metricTitle: selectedBodyMetricTitle, rangeTitle: rangeTitle)
+                                            } label: {
+                                                Text(rangeTitle)
+                                                    .font(.system(size: 13, weight: .heavy))
+                                                    .foregroundColor(isSelected ? .appAccentText : .appText)
+                                                    .padding(.horizontal, 14)
+                                                    .padding(.vertical, 10)
+                                                    .background(Capsule().fill(isSelected ? payload.accentColor : Color.appElevated))
+                                                    .overlay(Capsule().stroke(isSelected ? payload.accentColor.opacity(0.22) : Color.appBorder, lineWidth: 1))
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        } else {
+                            HStack(spacing: 8) {
+                                if let activeCategoryKey,
+                                   optionsForCategory(activeCategoryKey).count > 1 {
+                                    if activeCategoryKey == "streak" {
+                                        HStack(spacing: 6) {
+                                            ForEach(optionsForCategory(activeCategoryKey)) { option in
+                                                let isSelected = option.payload.id == payload.id
+                                                Button {
+                                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                                        payload = option.payload
+                                                    }
+                                                } label: {
+                                                    Text(option.title)
+                                                        .font(.system(size: 13, weight: .heavy))
+                                                        .foregroundColor(isSelected ? .appAccentText : .appText)
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 10)
+                                                        .background(Capsule().fill(isSelected ? payload.accentColor : Color.appElevated))
+                                                        .overlay(Capsule().stroke(isSelected ? payload.accentColor.opacity(0.22) : Color.appBorder, lineWidth: 1))
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                    } else {
+                                        Menu {
+                                            ForEach(optionsForCategory(activeCategoryKey)) { option in
+                                                Button(option.title) {
+                                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                                        payload = option.payload
+                                                    }
+                                                }
+                                            }
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                                                    .font(.system(size: 13, weight: .black))
+
+                                                Text(activeSelectionTitle)
+                                                    .font(.system(size: 13, weight: .heavy))
+                                                    .lineLimit(1)
+
+                                                Image(systemName: "chevron.up.chevron.down")
+                                                    .font(.system(size: 10, weight: .black))
+                                            }
+                                            .foregroundColor(.appText)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 10)
+                                            .background(Capsule().fill(Color.appElevated))
+                                            .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
                         }
-                        .padding(.horizontal, 16)
                     }
 
                     if let saveConfirmationText {
@@ -441,7 +573,7 @@ struct FitMaksLiveView: View {
                     Button {
                         saveImage()
                     } label: {
-                        Label("Save", systemImage: "arrow.down.circle.fill")
+                        Text("Save")
                             .fontWeight(.black)
                     }
                     .foregroundColor(payload.accentColor)
@@ -456,6 +588,10 @@ struct FitMaksLiveView: View {
                    let image = UIImage(data: data) {
                     await MainActor.run {
                         backgroundImage = image
+                        backgroundOffset = .zero
+                        backgroundDragOffset = .zero
+                        backgroundZoom = 1
+                        backgroundZoomDelta = 1
                         backgroundMode = .photo
                     }
                 }
@@ -464,6 +600,10 @@ struct FitMaksLiveView: View {
         .onChange(of: cameraImage) { _, image in
             if let image {
                 backgroundImage = image
+                backgroundOffset = .zero
+                backgroundDragOffset = .zero
+                backgroundZoom = 1
+                backgroundZoomDelta = 1
                 backgroundMode = .photo
             }
         }
@@ -484,10 +624,14 @@ struct FitMaksLiveView: View {
 
     private var pickerOptions: [FitMaksPostOption] {
         var combined = options
-        if !combined.contains(where: { $0.payload.id == payload.id }) {
+        if !combined.contains(where: { optionIdentity($0) == optionIdentity(for: payload, title: $0.title) }) {
             combined.insert(FitMaksPostOption(id: payload.id, title: payload.title, payload: payload), at: 0)
         }
-        return combined
+        var seen = Set<String>()
+        return combined.filter { option in
+            let key = optionIdentity(option)
+            return seen.insert(key).inserted
+        }
     }
 
     private var pickerCategoryKeys: [String] {
@@ -510,6 +654,22 @@ struct FitMaksLiveView: View {
             .first(where: { $0.payload.id == payload.id })?.title ?? payload.title
     }
 
+    private var bodyMetricTitles: [String] {
+        ["Weight", "Fat", "Muscle"]
+    }
+
+    private var bodyRangeTitles: [String] {
+        WeightChartRange.allCases.map(\.title)
+    }
+
+    private var selectedBodyMetricTitle: String {
+        bodyTitleParts(from: activeSelectionTitle).metric
+    }
+
+    private var selectedBodyRangeTitle: String {
+        bodyTitleParts(from: activeSelectionTitle).range
+    }
+
     private func optionsForCategory(_ key: String) -> [FitMaksPostOption] {
         pickerOptions.filter { $0.payload.categoryKey == key }
     }
@@ -520,6 +680,36 @@ struct FitMaksLiveView: View {
 
     private func pickerAccentColor(for key: String) -> Color {
         pickerOptions.first(where: { $0.payload.categoryKey == key })?.payload.accentColor ?? .neonGreen
+    }
+
+    private func optionIdentity(_ option: FitMaksPostOption) -> String {
+        optionIdentity(for: option.payload, title: option.title)
+    }
+
+    private func optionIdentity(for payload: FitMaksSharePayload, title: String) -> String {
+        "\(payload.categoryKey)|\(title)"
+    }
+
+    private func bodyTitleParts(from title: String) -> (metric: String, range: String) {
+        let parts = title
+            .split(separator: "·")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        let metric = parts.first.flatMap { bodyMetricTitles.contains($0) ? $0 : nil } ?? "Weight"
+        let range = parts.dropFirst().first.flatMap { bodyRangeTitles.contains($0) ? $0 : nil } ?? "30D"
+        return (metric, range)
+    }
+
+    private func selectBodyOption(metricTitle: String, rangeTitle: String) {
+        guard let option = optionsForCategory("weight").first(where: {
+            let parts = bodyTitleParts(from: $0.title)
+            return parts.metric == metricTitle && parts.range == rangeTitle
+        }) else { return }
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            payload = option.payload
+            selectedCategoryKey = "weight"
+        }
     }
 
     private func liveControlChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -545,10 +735,52 @@ struct FitMaksLiveView: View {
             .overlay(Capsule().stroke(isSelected ? payload.accentColor.opacity(0.2) : Color.appBorder, lineWidth: 1))
     }
 
+    private var contentDragRegionHeightRatio: CGFloat {
+        switch payload {
+        case .today, .weight, .achievement, .food, .workout:
+            return 0.26
+        case .streak:
+            return 0.24
+        case .streakBoard:
+            return 0.38
+        }
+    }
+
+    private func clampedBackgroundOffset(
+        _ offset: CGSize,
+        image: UIImage?,
+        previewScale: CGFloat,
+        zoom: CGFloat
+    ) -> CGSize {
+        guard let image else { return .zero }
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
+
+        let fillScale = max(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
+        let baseWidth = imageSize.width * fillScale
+        let baseHeight = imageSize.height * fillScale
+        let scaledWidth = baseWidth * zoom
+        let scaledHeight = baseHeight * zoom
+
+        let maxXCanvas = max(0, (scaledWidth - canvasSize.width) / 2)
+        let maxYCanvas = max(0, (scaledHeight - canvasSize.height) / 2)
+        let maxXPreview = maxXCanvas * previewScale
+        let maxYPreview = maxYCanvas * previewScale
+
+        return CGSize(
+            width: min(max(offset.width, -maxXPreview), maxXPreview),
+            height: min(max(offset.height, -maxYPreview), maxYPreview)
+        )
+    }
+
     @MainActor
     private func saveImage() {
         let screenScale = (UIScreen.main.bounds.width - 32) / canvasSize.width
-        let canvasOffset = contentOffsetY / screenScale
+        let canvasOffset = contentOffsetY
+        let canvasBackgroundOffset = CGSize(
+            width: backgroundOffset.width / screenScale,
+            height: backgroundOffset.height / screenScale
+        )
 
         let renderer: ImageRenderer<AnyView>
         if displayedBackgroundImage == nil {
@@ -565,6 +797,8 @@ struct FitMaksLiveView: View {
                 FitMaksLiveCanvas(
                     payload: payload,
                     backgroundImage: displayedBackgroundImage,
+                    backgroundOffset: canvasBackgroundOffset,
+                    backgroundScale: backgroundZoom,
                     contentOffsetY: canvasOffset
                 )
                 .frame(width: canvasSize.width, height: canvasSize.height)
@@ -592,6 +826,8 @@ struct FitMaksLiveView: View {
 private struct FitMaksLiveCanvas: View {
     let payload: FitMaksSharePayload
     var backgroundImage: UIImage?
+    var backgroundOffset: CGSize = .zero
+    var backgroundScale: CGFloat = 1
     var contentOffsetY: CGFloat = 0
     var body: some View {
         ZStack {
@@ -617,6 +853,8 @@ private struct FitMaksLiveCanvas: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: 1080, height: 1920)
+                .scaleEffect(backgroundScale)
+                .offset(backgroundOffset)
                 .clipped()
                 .overlay(
                     LinearGradient(
@@ -678,12 +916,12 @@ private struct FitMaksLiveCanvas: View {
         }
         .overlay(alignment: .bottomTrailing) {
             Text("FitMaks App")
-                .font(.system(size: 20, weight: .black))
-                .foregroundColor(.white.opacity(0.55))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(.white.opacity(0.42))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .background(Capsule().fill(Color.black.opacity(0.18)))
-                .padding(22)
+                .padding(16)
         }
     }
 }
@@ -712,12 +950,12 @@ private struct FitMaksLiveExportCard: View {
         }
         .overlay(alignment: .bottomTrailing) {
             Text("FitMaks App")
-                .font(.system(size: 20, weight: .black))
-                .foregroundColor(.white.opacity(0.55))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(.white.opacity(0.42))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .background(Capsule().fill(Color.black.opacity(0.18)))
-                .padding(22)
+                .padding(16)
         }
         .padding(24)
         .background(Color.clear)
@@ -731,40 +969,42 @@ private struct FitMaksLiveTodayCard: View {
         VStack(alignment: .leading, spacing: 26) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
-                    livePosterTag(snapshot.dateLabel.uppercased(), color: .neonGreen)
+                    HStack(spacing: 8) {
+                        livePosterTag(snapshot.dateLabel.uppercased(), color: .neonGreen)
+                        if snapshot.isPerfectDay {
+                            livePosterTag("PERFECT DAY", color: .yellow)
+                                .shadow(color: Color.yellow.opacity(0.28), radius: 6, x: 0, y: 0)
+                        }
+                    }
 
                     Text(snapshot.headline)
                         .font(.system(size: 68, weight: .black))
                         .foregroundColor(.white)
                         .lineLimit(2)
-
                 }
 
                 Spacer(minLength: 20)
 
-                VStack(spacing: 10) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 28)
-                            .fill(Color.white.opacity(0.08))
-                            .frame(width: 138, height: 138)
-
-                        Circle()
-                            .fill(.white.opacity(0.06))
-                            .frame(width: 96, height: 96)
-
-                        Image(systemName: snapshot.modeSymbolName)
-                            .font(.system(size: 46, weight: .black))
-                            .foregroundColor(.white)
-                            .shadow(color: .white.opacity(0.18), radius: 10)
-                    }
+                VStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(width: 88, height: 88)
+                        .overlay(
+                            Image(systemName: snapshot.modeSymbolName)
+                                .font(.system(size: 36, weight: .black))
+                                .foregroundColor(.white)
+                        )
 
                     Text(snapshot.modeLabel)
-                        .font(.system(size: 24, weight: .heavy))
+                        .font(.system(size: 22, weight: .heavy))
                         .foregroundColor(.white.opacity(0.82))
+                        .multilineTextAlignment(.center)
                 }
+                .frame(width: 128)
             }
 
-            HStack(spacing: 18) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
                 ForEach(snapshot.metrics) { metric in
                     VStack(spacing: 12) {
                         ZStack {
@@ -782,21 +1022,24 @@ private struct FitMaksLiveTodayCard: View {
                                 .frame(width: 168, height: 168)
                                 .shadow(color: metric.color.opacity(metric.progress >= 1 ? 0.56 : 0.34), radius: metric.progress >= 1 ? 16 : 8)
 
-                            VStack(spacing: 6) {
+                            VStack(spacing: 2) {
                                 Image(systemName: metric.systemImage)
                                     .font(.system(size: 26, weight: .black))
                                     .foregroundColor(metric.color)
 
                                 Text(metric.value)
                                     .font(.system(size: 44, weight: .black))
+                                    .monospacedDigit()
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
+                                    .frame(height: 48)
 
-                                Text(metric.subtitle)
+                                Text(metric.subtitle.isEmpty ? " " : metric.subtitle)
                                     .font(.system(size: 24, weight: .heavy))
-                                    .foregroundColor(.white.opacity(0.68))
+                                    .foregroundColor(.white.opacity(metric.subtitle.isEmpty ? 0 : 0.68))
                                     .multilineTextAlignment(.center)
+                                    .frame(height: 22)
                             }
                         }
 
@@ -805,19 +1048,33 @@ private struct FitMaksLiveTodayCard: View {
                             .foregroundColor(metric.color)
                             .tracking(1)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(width: 228)
                 }
+                Spacer(minLength: 0)
             }
 
-            HStack(spacing: 10) {
-                livePosterTag("FitMaks Daily Card", color: .white.opacity(0.72))
-                Text("Track it. Close it. Post it.")
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundColor(.white.opacity(0.58))
-            }
         }
         .padding(34)
         .background(liveCardBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 34)
+                .stroke(
+                    snapshot.isPerfectDay
+                        ? LinearGradient(
+                            colors: [Color.yellow.opacity(0.7), Color.orange.opacity(0.58)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(colors: [Color.clear], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: snapshot.isPerfectDay ? 1.2 : 0
+                )
+        )
+        .shadow(
+            color: snapshot.isPerfectDay ? Color.yellow.opacity(0.2) : .clear,
+            radius: snapshot.isPerfectDay ? 12 : 0,
+            x: 0,
+            y: 6
+        )
     }
 }
 
@@ -886,12 +1143,22 @@ private struct FitMaksLiveStreakCard: View {
 
 private struct FitMaksLiveAchievementCard: View {
     let snapshot: FitMaksShareAchievementSnapshot
+    private var isInProgress: Bool { snapshot.hasStarted && !snapshot.isUnlocked }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    livePosterTag(snapshot.isUnlocked ? "Achievement unlocked!" : "Side quest", color: snapshot.color)
+                    if snapshot.isUnlocked {
+                        livePosterTag("Achievement unlocked!", color: snapshot.color)
+                    } else {
+                        HStack(spacing: 8) {
+                            livePosterTag(snapshot.familyLabel, color: snapshot.color)
+                            if isInProgress {
+                                livePosterTag("In progress", color: .fitOrange)
+                            }
+                        }
+                    }
 
                     Text(snapshot.title)
                         .font(.system(size: 62, weight: .black))
@@ -932,33 +1199,60 @@ private struct FitMaksLiveAchievementCard: View {
                 .frame(width: 146, height: 146)
             }
 
-            Text(snapshot.subtitle)
-                .font(.system(size: 30, weight: .heavy))
-                .foregroundColor(.white.opacity(0.76))
+            HStack(alignment: .center, spacing: 10) {
+                Text(snapshot.subtitle)
+                    .font(.system(size: 30, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.76))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
 
-            if !snapshot.isUnlocked || !snapshot.progressText.lowercased().contains("unlock") {
-                Text(snapshot.progressText)
-                    .font(.system(size: 24, weight: .black))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(snapshot.color.opacity(0.22)))
+                Spacer(minLength: 8)
+
+                if isInProgress {
+                    Text(snapshot.progressText)
+                        .font(.system(size: 24, weight: .black))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(snapshot.color.opacity(0.22)))
+                }
             }
 
-            Text(snapshot.detail)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.white.opacity(0.70))
-                .lineSpacing(4)
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.white.opacity(0.05))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(snapshot.color.opacity(0.16), lineWidth: 1)
-                        )
-                )
+            if isInProgress {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.12))
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [snapshot.color.opacity(0.82), snapshot.color],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: proxy.size.width * CGFloat(max(0.02, snapshot.progress)))
+                    }
+                }
+                .frame(height: 14)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Goal: \(snapshot.detail)")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.70))
+                    .lineSpacing(4)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(snapshot.color.opacity(0.16), lineWidth: 1)
+                    )
+            )
         }
         .padding(34)
         .background(liveCardBackground)
@@ -970,17 +1264,15 @@ private struct FitMaksLiveStreakBoardCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                livePosterTag("Streak mode", color: .fitOrange)
-                Spacer()
-                Text("C / P / S")
-                    .font(.system(size: 20, weight: .heavy))
-                    .foregroundColor(.white.opacity(0.56))
-            }
+            livePosterTag("Streak mode", color: .fitOrange)
 
             Text("7-Day Streak Board")
                 .font(.system(size: 42, weight: .black))
                 .foregroundColor(.white)
+
+            Text("Deficit, protein, and steps across your latest seven days.")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.white.opacity(0.62))
 
             VStack(spacing: 12) {
                 ForEach(snapshot.rows) { row in
@@ -999,7 +1291,8 @@ private struct FitMaksLiveStreakBoardCard: View {
 
                             Text(row.modeEmoji)
                                 .font(.title3)
-                                .frame(width: 30)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(Color.white.opacity(0.05)))
 
                             HStack(spacing: 6) {
                                 liveBoardChip("C", isOn: row.calorieWin, color: .neonGreen)
@@ -1027,17 +1320,18 @@ private struct FitMaksLiveStreakBoardCard: View {
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(row.isPerfect ? Color.neonGreen.opacity(0.13) : Color.white.opacity(0.045))
+                            .fill(row.isPerfect ? Color.neonGreen.opacity(0.14) : Color.white.opacity(0.05))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(row.isPerfect ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
+                            .stroke(row.isPerfect ? Color.yellow.opacity(0.34) : Color.white.opacity(0.08), lineWidth: 1)
                     )
                 }
             }
         }
         .padding(28)
         .background(liveCardBackground)
+        .frame(maxWidth: 640, alignment: .leading)
     }
 }
 
@@ -1072,6 +1366,19 @@ private struct FitMaksLiveWeightCard: View {
                     valueFormatter: axisValue
                 )
                     .frame(height: 240)
+
+                if !snapshot.xAxisLabels.isEmpty {
+                    HStack {
+                        ForEach(snapshot.xAxisLabels, id: \.self) { label in
+                            Text(label)
+                                .font(.system(size: 18, weight: .heavy))
+                                .foregroundColor(.white.opacity(0.54))
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.leading, 74)
+                    .padding(.trailing, 18)
+                }
             }
 
             HStack(spacing: 14) {
@@ -1085,7 +1392,7 @@ private struct FitMaksLiveWeightCard: View {
 
     private var axisValue: (Double) -> String {
         { value in
-            if snapshot.title.lowercased().contains("weight") {
+            if snapshot.leadingValue.lowercased().contains("kg") {
                 return "\(String(format: "%.0f", value))"
             } else {
                 return "\(String(format: "%.0f", value))%"
@@ -1144,13 +1451,13 @@ private struct FitMaksLiveWorkoutCard: View {
             Text(snapshot.name)
                 .font(.system(size: 62, weight: .black))
                 .foregroundColor(.white)
-                .lineLimit(3)
+                .lineLimit(2)
                 .minimumScaleFactor(0.6)
 
-            Text(snapshot.subtitle)
+            Text(shortenedWorkoutSubtitle)
                 .font(.system(size: 30, weight: .heavy))
                 .foregroundColor(.white.opacity(0.72))
-                .lineLimit(3)
+                .lineLimit(2)
                 .minimumScaleFactor(0.7)
 
             HStack(spacing: 12) {
@@ -1161,6 +1468,29 @@ private struct FitMaksLiveWorkoutCard: View {
         }
         .padding(34)
         .background(liveCardBackground)
+    }
+
+    private var shortenedWorkoutSubtitle: String {
+        let cleaned = snapshot.subtitle
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if cleaned.count <= 110 {
+            return cleaned
+        }
+
+        if let sentenceEnd = cleaned.firstIndex(where: { ".!?".contains($0) }) {
+            let sentence = String(cleaned[...sentenceEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if sentence.count <= 110 {
+                return sentence
+            }
+        }
+
+        let prefix = String(cleaned.prefix(110))
+        if let lastSpace = prefix.lastIndex(of: " ") {
+            return String(prefix[..<lastSpace])
+        }
+        return prefix
     }
 
     private var workoutMetrics: [(title: String, value: String, accent: Color)] {
@@ -1181,7 +1511,11 @@ private struct FitMaksLiveWorkoutCard: View {
             metrics.append(("Tonnage", tonnageText, .fitPurple))
         }
 
-        return metrics
+        if isStrengthCard {
+            return Array(metrics.filter { $0.0 != "Steps" }.prefix(3))
+        }
+
+        return Array(metrics.filter { $0.0 != "Tonnage" }.prefix(3))
     }
 }
 
@@ -1369,6 +1703,175 @@ private func liveBoardMetricPill(title: String, value: String, color: Color, isO
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(RoundedRectangle(cornerRadius: 14).fill(color.opacity(isOn ? 0.16 : 0.08)))
     .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(isOn ? 0.26 : 0.08), lineWidth: 1))
+}
+
+private struct FitMaksPostGestureCaptureView: UIViewRepresentable {
+    var contentFrame: CGRect
+    var enableBackgroundGestures: Bool
+    var onContentDragChanged: (CGFloat) -> Void
+    var onContentDragEnded: (CGFloat) -> Void
+    var onBackgroundPanChanged: (CGSize) -> Void
+    var onBackgroundPanEnded: (CGSize) -> Void
+    var onBackgroundZoomChanged: (CGFloat) -> Void
+    var onBackgroundZoomEnded: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            onContentDragChanged: onContentDragChanged,
+            onContentDragEnded: onContentDragEnded,
+            onBackgroundPanChanged: onBackgroundPanChanged,
+            onBackgroundPanEnded: onBackgroundPanEnded,
+            onBackgroundZoomChanged: onBackgroundZoomChanged,
+            onBackgroundZoomEnded: onBackgroundZoomEnded
+        )
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = GestureCaptureHostView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+        view.contentFrame = contentFrame
+        view.enableBackgroundGestures = enableBackgroundGestures
+
+        let contentPan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleContentPan(_:)))
+        contentPan.minimumNumberOfTouches = 1
+        contentPan.maximumNumberOfTouches = 1
+        contentPan.cancelsTouchesInView = false
+        contentPan.delaysTouchesBegan = false
+        contentPan.delaysTouchesEnded = false
+        contentPan.delegate = context.coordinator
+
+        let backgroundPan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleBackgroundPan(_:)))
+        backgroundPan.minimumNumberOfTouches = 2
+        backgroundPan.maximumNumberOfTouches = 2
+        backgroundPan.cancelsTouchesInView = false
+        backgroundPan.delaysTouchesBegan = false
+        backgroundPan.delaysTouchesEnded = false
+        backgroundPan.delegate = context.coordinator
+
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinch.cancelsTouchesInView = false
+        pinch.delegate = context.coordinator
+
+        view.contentPanRecognizer = contentPan
+        view.backgroundPanRecognizer = backgroundPan
+        view.pinchRecognizer = pinch
+        view.addGestureRecognizer(contentPan)
+        view.addGestureRecognizer(backgroundPan)
+        view.addGestureRecognizer(pinch)
+        context.coordinator.hostView = view
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let view = uiView as? GestureCaptureHostView else { return }
+        view.contentFrame = contentFrame
+        view.enableBackgroundGestures = enableBackgroundGestures
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        weak var hostView: GestureCaptureHostView?
+        let onContentDragChanged: (CGFloat) -> Void
+        let onContentDragEnded: (CGFloat) -> Void
+        let onBackgroundPanChanged: (CGSize) -> Void
+        let onBackgroundPanEnded: (CGSize) -> Void
+        let onBackgroundZoomChanged: (CGFloat) -> Void
+        let onBackgroundZoomEnded: (CGFloat) -> Void
+
+        init(
+            onContentDragChanged: @escaping (CGFloat) -> Void,
+            onContentDragEnded: @escaping (CGFloat) -> Void,
+            onBackgroundPanChanged: @escaping (CGSize) -> Void,
+            onBackgroundPanEnded: @escaping (CGSize) -> Void,
+            onBackgroundZoomChanged: @escaping (CGFloat) -> Void,
+            onBackgroundZoomEnded: @escaping (CGFloat) -> Void
+        ) {
+            self.onContentDragChanged = onContentDragChanged
+            self.onContentDragEnded = onContentDragEnded
+            self.onBackgroundPanChanged = onBackgroundPanChanged
+            self.onBackgroundPanEnded = onBackgroundPanEnded
+            self.onBackgroundZoomChanged = onBackgroundZoomChanged
+            self.onBackgroundZoomEnded = onBackgroundZoomEnded
+        }
+
+        @objc
+        func handleContentPan(_ recognizer: UIPanGestureRecognizer) {
+            let point = recognizer.translation(in: recognizer.view)
+            switch recognizer.state {
+            case .changed:
+                guard abs(point.y) > abs(point.x) else { return }
+                onContentDragChanged(point.y)
+            case .ended, .cancelled, .failed:
+                guard abs(point.y) > abs(point.x) else { return }
+                onContentDragEnded(point.y)
+            default:
+                break
+            }
+        }
+
+        @objc
+        func handleBackgroundPan(_ recognizer: UIPanGestureRecognizer) {
+            let point = recognizer.translation(in: recognizer.view)
+            let offset = CGSize(width: point.x, height: point.y)
+            switch recognizer.state {
+            case .changed:
+                onBackgroundPanChanged(offset)
+            case .ended, .cancelled, .failed:
+                onBackgroundPanEnded(offset)
+            default:
+                break
+            }
+        }
+
+        @objc
+        func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
+            switch recognizer.state {
+            case .changed:
+                onBackgroundZoomChanged(recognizer.scale)
+            case .ended, .cancelled, .failed:
+                onBackgroundZoomEnded(recognizer.scale)
+            default:
+                break
+            }
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let view = hostView else { return false }
+            let backgroundPan = gestureRecognizer === view.backgroundPanRecognizer || otherGestureRecognizer === view.backgroundPanRecognizer
+            let pinch = gestureRecognizer === view.pinchRecognizer || otherGestureRecognizer === view.pinchRecognizer
+            return backgroundPan && pinch
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard let view = hostView else { return false }
+            let location = touch.location(in: view)
+
+            if gestureRecognizer === view.contentPanRecognizer {
+                return view.contentFrame.contains(location)
+            }
+
+            if gestureRecognizer === view.backgroundPanRecognizer || gestureRecognizer === view.pinchRecognizer {
+                return view.enableBackgroundGestures
+            }
+
+            return false
+        }
+    }
+
+    final class GestureCaptureHostView: UIView {
+        var contentFrame: CGRect = .zero
+        var enableBackgroundGestures = false
+        weak var contentPanRecognizer: UIPanGestureRecognizer?
+        weak var backgroundPanRecognizer: UIPanGestureRecognizer?
+        weak var pinchRecognizer: UIPinchGestureRecognizer?
+
+        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+            if enableBackgroundGestures {
+                return true
+            }
+            return contentFrame.contains(point)
+        }
+    }
 }
 
 private extension FitMaksSharePayload {

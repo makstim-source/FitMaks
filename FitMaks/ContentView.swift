@@ -182,7 +182,16 @@ struct ContentView: View {
     var dailyFeed: [TimelineItem] {
         let foods = dailyFoodEntries.map { TimelineItem.food($0) }
         let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }
-        return (foods + trainings).sorted { $0.createdAt > $1.createdAt }
+        return (foods + trainings).sorted { lhs, rhs in
+            switch (lhs, rhs) {
+            case (.training, .food):
+                return true
+            case (.food, .training):
+                return false
+            default:
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
     }
     var visibleProcessingItems: [ProcessingItem] { processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
@@ -456,7 +465,7 @@ struct ContentView: View {
                 onRecalculateReview: { review in retryReviewIgnoringCache(review) }
             )
         }
-        .sheet(isPresented: $isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
+        .fullScreenCover(isPresented: $isShowingProfile, onDismiss: { ICloudSettingsSync.pushToICloud() }) {
             ProfileView(
                 gender: $gender, age: $age, weight: $weight, height: $height,
                 goal: $goal, activityLevel: $activityLevel,
@@ -476,7 +485,7 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .sheet(isPresented: $isShowingAchievements) {
+        .fullScreenCover(isPresented: $isShowingAchievements) {
             AchievementsView(
                 allFoodEntries: allFoodEntries,
                 allTrainingEntries: allTrainingEntries,
@@ -486,7 +495,7 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .sheet(item: $livePayload) { payload in
+        .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: universalPostOptions())
         }
         .sheet(isPresented: $isShowingAIAssistant) {
@@ -667,6 +676,20 @@ struct ContentView: View {
     private var dailyCommandCard: some View {
         VStack(spacing: 11) {
             HStack(spacing: 6) {
+                HomeMetricTile(
+                    title: "Steps",
+                    value: "\(Int(dailyProgress.effectiveSteps))",
+                    subtitle: "of 10k",
+                    progress: dailyProgress.stepWin
+                        ? dailyProgress.effectiveSteps / max(targetSteps, 1)
+                        : dailyProgress.countedSteps / max(targetSteps, 1),
+                    bonusProgress: dailyProgress.stepWin ? 0 : dailyProgress.stepBonus / max(targetSteps, 1),
+                    bonusColor: .fitOrange,
+                    color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
+                    systemName: "shoeprints.fill"
+                )
+                .onTapGesture { openGoalBreakdown(.steps) }
+
                 let caloriesAboveTarget = dailyCaloriesConsumed > maxCalories
                 let caloriesOutsideGrace = dailyCaloriesConsumed > dailyProgress.calorieGraceLimit
                 HomeMetricTile(
@@ -688,59 +711,61 @@ struct ContentView: View {
                     systemName: "drop.fill"
                 )
                 .onTapGesture { openGoalBreakdown(.protein) }
-
-                HomeMetricTile(
-                    title: "Steps",
-                    value: "\(Int(dailyProgress.effectiveSteps))",
-                    subtitle: dailyProgress.uploadedSteps > dailySteps ? "screen" : (dailyProgress.stepBonus > 0 ? "+\(Int(dailyProgress.stepBonus / 1000))k strength" : "of 10k"),
-                    progress: dailyProgress.countedSteps / max(targetSteps, 1),
-                    bonusProgress: dailyProgress.stepBonus / max(targetSteps, 1),
-                    bonusColor: .fitOrange,
-                    color: getStepsColor(steps: dailyProgress.effectiveSteps, target: targetSteps),
-                    systemName: "shoeprints.fill"
-                )
-                .onTapGesture { openGoalBreakdown(.steps) }
             }
 
-            modeSelector
+            modeSelectorSection
         }
         .padding(12)
         .background(HomeStatsPanelBackground(isPerfectPastDay: isPerfectPastDay))
         .overlay(HomeStatsPanelCelebrationOverlay(isPerfectPastDay: isPerfectPastDay))
-        .shadow(color: isPerfectPastDay ? Color.neonGreen.opacity(0.36) : Color.black.opacity(0.14), radius: isPerfectPastDay ? 18 : 10, x: 0, y: 8)
+        .shadow(color: isPerfectPastDay ? Color.yellow.opacity(0.05) : Color.black.opacity(0.05), radius: isPerfectPastDay ? 12 : 10, x: 0, y: 8)
         .padding(.horizontal, 15)
     }
 
-    private var modeSelector: some View {
-        HStack(spacing: 7) {
-            ForEach(DayMode.allCases, id: \.self) { mode in
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
-                        setDayMode(currentDayMode.toggled(mode))
+    private var modeSelectorSection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if shouldShowPlanPrompt {
+                Text("What's your plan for today?")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .padding(.horizontal, 2)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            HStack(spacing: 7) {
+                ForEach(DayMode.allCases, id: \.self) { mode in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                            setDayMode(currentDayMode.toggled(mode))
+                        }
+                    } label: {
+                        let isSelected = currentDayMode.includes(mode)
+                        HStack(spacing: 5) {
+                            Text(mode.emoji)
+                                .font(.system(size: 14))
+                            Text(modeLabel(mode))
+                                .font(.system(size: 10, weight: .heavy))
+                        }
+                        .foregroundColor(isSelected ? .appAccentText : .appMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 13)
+                                .fill(isSelected ? Color.neonCyan : Color.appSurface)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 13)
+                                .stroke(isSelected ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
+                        )
                     }
-                } label: {
-                    let isSelected = currentDayMode.includes(mode)
-                    HStack(spacing: 5) {
-                        Text(mode.emoji)
-                            .font(.system(size: 14))
-                        Text(modeLabel(mode))
-                            .font(.system(size: 10, weight: .heavy))
-                    }
-                    .foregroundColor(isSelected ? .appAccentText : .appMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        RoundedRectangle(cornerRadius: 13)
-                            .fill(isSelected ? Color.neonCyan : Color.appSurface)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 13)
-                            .stroke(isSelected ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
+    }
+
+    private var shouldShowPlanPrompt: Bool {
+        Calendar.current.isDateInToday(selectedDate) && setup(for: selectedDate) == nil
     }
 
     private var timelinePanel: some View {
@@ -843,7 +868,7 @@ struct ContentView: View {
 
     private var bottomDock: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
                     isSelectionModeForFridge = false
                     initialMyFoodTab = 0
@@ -872,10 +897,10 @@ struct ContentView: View {
             .accessibilityLabel("Add Entry")
             .accessibilityIdentifier("addEntryButton")
             .offset(y: -8)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 10)
 
-            HStack(spacing: 16) {
-                HomeDockButton(title: "Badges", systemName: "sparkles.rectangle.stack.fill", color: .yellow) {
+            HStack(spacing: 12) {
+                HomeDockButton(title: "Badges", systemName: "trophy.fill", color: .yellow) {
                     isShowingAchievements = true
                 }
 
@@ -885,7 +910,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 14)
         .padding(.top, 6)
         .padding(.bottom, 14)
         .background(

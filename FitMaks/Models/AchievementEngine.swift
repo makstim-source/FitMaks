@@ -335,6 +335,38 @@ enum AchievementEngine {
             let proteinDelta = max(day.proteinMinimum - day.protein, 0)
             return calorieDelta <= max(day.target * 0.01, 15) && proteinDelta <= 5
         }.count
+        let eggDays = foodSummary30.values.filter { summary in
+            summary.containsAny(["egg", "eggs", "omelette", "omelet", "scrambled"])
+        }.count
+        let italianJobDays = last30Stats.filter { day in
+            let summary = foodSummary30[dayID(for: day.date, calendar: calendar)]
+            return day.calorieWin && (summary?.containsAny(["pasta", "pizza", "spaghetti", "penne", "lasagna", "carbonara", "ravioli"]) ?? false)
+        }.count
+        let fishDays = foodSummary30.values.filter { summary in
+            summary.containsAny(["fish", "salmon", "tuna", "cod", "shrimp", "seafood", "sushi", "trout"])
+        }.count
+        let midnightLogDays: Int = {
+            var dayIDs: Set<String> = []
+            for entry in foodEntries {
+                let hour = calendar.component(.hour, from: entry.date)
+                guard hour >= 22 else { continue }
+                let id = dayID(for: entry.date, calendar: calendar)
+                if last30IDs.contains(id) { dayIDs.insert(id) }
+            }
+            return dayIDs.count
+        }()
+        let fiveMealArchitectDays = last30Stats.filter { day in
+            let summary = foodSummary30[dayID(for: day.date, calendar: calendar)]
+            return day.calorieWin && (summary?.mealCount ?? 0) >= 5
+        }.count
+        let coffeeDays = foodSummary30.values.filter { summary in
+            summary.containsAny(["coffee", "espresso", "latte", "cappuccino", "americano", "flat white", "mocha", "macchiato", "iced coffee"])
+        }.count
+        let sweetToothDays = last30Stats.filter { day in
+            let summary = foodSummary30[dayID(for: day.date, calendar: calendar)]
+            return day.calorieWin && (summary?.containsAny(["chocolate", "ice cream", "cake", "cookie", "brownie", "dessert", "candy", "donut", "pastry", "muffin", "cheesecake", "waffle", "pancake"]) ?? false)
+        }.count
+        let stepDemonDays = last30Stats.filter { $0.effectiveSteps >= 15000 }.count
 
         let core: [StatsAchievement] = [
             StatsAchievement(
@@ -652,6 +684,102 @@ enum AchievementEngine {
                 threshold: 3,
                 current: macroSniperDays,
                 color: .neonGreen,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Egg Economy",
+                subtitle: "Log eggs on 7 different days",
+                detail: "Cheap protein. Maximum ROI. Your portfolio is boring, reliable, and extremely well-cooked.",
+                icon: "dollarsign.circle.fill",
+                threshold: 7,
+                current: eggDays,
+                color: .yellow,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "The Italian Job",
+                subtitle: "Pasta or pizza + calories closed",
+                detail: "Log pasta or pizza and still finish inside your calorie target on 2 different days. Carbs were consumed. Damage was contained. The auditors are confused.",
+                icon: "fork.knife.circle.fill",
+                threshold: 2,
+                current: italianJobDays,
+                color: .fitOrange,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Fish Intelligence",
+                subtitle: "Log fish on 5 different days",
+                detail: "Salmon, tuna, cod, shrimp, sushi — anything that swam. Omega-3 personality trait detected. You are now insufferable at restaurants.",
+                icon: "brain.fill",
+                threshold: 5,
+                current: fishDays,
+                color: .neonCyan,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Midnight Logger",
+                subtitle: "Log food after 10 PM on 3 days",
+                detail: "Late-night honesty. Most people pretend the kitchen closes at 9. You logged it anyway. Respect.",
+                icon: "moon.fill",
+                threshold: 3,
+                current: midnightLogDays,
+                color: .fitOrange,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "5-Meal Architect",
+                subtitle: "5+ entries and calories closed",
+                detail: "Log at least 5 food entries and still land inside your calorie target on 2 different days. This is not snacking. This is aggressive meal distribution.",
+                icon: "building.columns.fill",
+                threshold: 2,
+                current: fiveMealArchitectDays,
+                color: .neonGreen,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Coffee Doesn't Count",
+                subtitle: "Log coffee on 5 different days",
+                detail: "Espresso, latte, cappuccino, flat white — it has calories, it has milk, it technically counts. You logged it anyway because you are a professional.",
+                icon: "cup.and.saucer.fill",
+                threshold: 5,
+                current: coffeeDays,
+                color: .fitOrange,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Sweet Tooth Tax",
+                subtitle: "Sweets + calories still closed",
+                detail: "Chocolate, cake, ice cream, cookies — sugar happened. But the budget survived. Close your calorie target on 2 days that included dessert.",
+                icon: "birthday.cake.fill",
+                threshold: 2,
+                current: sweetToothDays,
+                color: .yellow,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Step Demon",
+                subtitle: "15k steps in a day, 3 times",
+                detail: "Hit 15,000 effective steps on 3 different days. Your shoes filed a formal complaint. Your legs sent a cease and desist.",
+                icon: "figure.walk.circle.fill",
+                threshold: 3,
+                current: stepDemonDays,
+                color: .fitOrange,
                 unit: .days,
                 family: .chaos,
                 rarity: .medium

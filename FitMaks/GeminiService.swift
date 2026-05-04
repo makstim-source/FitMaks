@@ -342,6 +342,32 @@ class GeminiService {
         sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
     }
 
+    func analyzeTrainingText(text: String, completion: @escaping (TrainingResult?, String?) -> Void) {
+        let prompt = """
+        You are a fitness coach AI. The user described their workout in text: "\(text)"
+
+        Parse the workout and return stats. The user may write in ANY language (Russian, English, Spanish, etc.).
+        Common examples:
+        - "Падел 2 часа" → Padel, 2h
+        - "Бег 5км 30 мин" → Running, 5km, 30 min
+        - "Legs and glutes: Hinge 12kg x4x10, Romanian deadlift 11.5kg x3x10, Hyperextension 8kg x3x10" → Leg Day, estimate tonnage
+        - "Swimming 45 min" → Swimming, 45 min
+
+        RULES:
+        - "activity_name": the exact sport or session type. Use the user's language. Recognize: padel/падел, бег/run, плавание/swimming, велосипед/cycling, зал/gym, ходьба/walk, теннис/tennis, йога/yoga, бокс/boxing, футбол/football, баскетбол/basketball, etc.
+        - "calories_burned": estimate realistic calories based on the activity, duration, and moderate intensity. Use 0 only if you truly cannot estimate.
+        - "steps": estimate steps if it's a walking/running activity, otherwise null.
+        - "tonnage_kg": for strength workouts, calculate total tonnage from sets × reps × weight. Otherwise null.
+        - "duration": as described by user (e.g. "2h", "45 min"). Use "" if not mentioned.
+        - "day_mode": "cardio" (running, cycling, sports, swimming, walking), "gym" (strength, weights), "mixed" (both), or null.
+        - "ai_summary": 1-2 sentence summary with key metrics. Write in the user's language.
+
+        CRITICAL RULE: Return ONLY a single JSON object:
+        {"activity_name": "...", "calories_burned": 0, "steps": null, "tonnage_kg": null, "day_mode": null, "duration": "...", "ai_summary": "..."}
+        """
+        sendToGemini(images: [], prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, useSearchGrounding: true, completion: completion)
+    }
+
     func analyzeBodyMetrics(images: [UIImage], note: String, completion: @escaping (BodyMetricScanResult?, String?) -> Void) {
         let prompt = """
         Extract body scale metrics from the user's input. The input may be:
@@ -860,6 +886,14 @@ extension GeminiService {
     func analyzeTrainingImagesAsync(images: [UIImage]) async -> (TrainingResult?, String?) {
         await withCheckedContinuation { continuation in
             analyzeTrainingImages(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func analyzeTrainingTextAsync(text: String) async -> (TrainingResult?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeTrainingText(text: text) { result, error in
                 continuation.resume(returning: (result, error))
             }
         }

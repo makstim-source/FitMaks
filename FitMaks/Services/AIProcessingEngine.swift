@@ -19,7 +19,10 @@ enum AIProcessingEngine {
     }
 
     static func analyzeTraining(for item: ProcessingItem) async -> (TrainingResult?, String?) {
-        await GeminiService.shared.analyzeTrainingImagesAsync(images: item.images)
+        if let text = item.textPrompt {
+            return await GeminiService.shared.analyzeTrainingTextAsync(text: text)
+        }
+        return await GeminiService.shared.analyzeTrainingImagesAsync(images: item.images)
     }
 
     static func scanReceipt(for item: ProcessingItem) async -> ([FoodResult]?, String?) {

@@ -372,7 +372,7 @@ struct MyFoodView: View {
         } else if !isSelectionMode {
             HStack(spacing: 8) {
                 foodActionButton(title: "Add Meal", systemName: "plus", color: .orange) { isShowingSourceDialog = true }
-                foodActionButton(title: "Build Meal", systemName: "square.stack.3d.up", color: .orange) {
+                foodActionButton(title: "Build from Fridge", systemName: "square.stack.3d.up", color: .orange) {
                     withAnimation(.spring()) { isBuildingMeal = true }
                 }
             }

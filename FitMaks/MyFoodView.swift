@@ -94,10 +94,21 @@ struct MyFoodView: View {
                 
                 editOverlay
             }
-            .navigationTitle(isSelectionMode ? (initialTab == 0 ? "Pick from Fridge" : "Pick from Meals") : "My Food 🍱")
+            .navigationTitle(isBuildingMeal ? "Build Meal" : isSelectionMode ? (initialTab == 0 ? "Pick from Fridge" : "Pick from Meals") : "My Food 🍱")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.neonCyan) }
+                if !isSelectionMode && !isBuildingMeal {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            withAnimation(.spring()) { isBuildingMeal = true }
+                        } label: {
+                            Label("Build Meal", systemImage: "square.stack.3d.up")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
             }
             .confirmationDialog("Add to \(currentTab == 0 ? "Fridge" : "Meals")", isPresented: $isShowingSourceDialog) {
                 Button("Camera") { self.isScanningReceipt = false; self.isShowingCamera = true }
@@ -172,9 +183,7 @@ struct MyFoodView: View {
             }
             .sheet(isPresented: $isShowingMealBuilder) {
                 MealBuilderSheet(
-                    components: selectedFridgeItems.map { fav in
-                        MealBuilderComponent(id: fav.id, name: fav.name, calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients, image: fav.uiImage)
-                    },
+                    components: selectedBuildComponents,
                     onSave: saveBuildMeal
                 )
             }
@@ -325,9 +334,6 @@ struct MyFoodView: View {
                     .disabled(isGeneratingRecipe)
                 foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
                 foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
-                foodActionButton(title: "Build", systemName: "square.stack.3d.up", color: .orange) {
-                    withAnimation(.spring()) { isBuildingMeal = true }
-                }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)
@@ -349,21 +355,28 @@ struct MyFoodView: View {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
                     ForEach(newestSavedRecipes) { r in
-                        mealRow(r)
-                        .contextMenu {
-                            Button { addMealToDiary(r); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
-                            Button { moveMealToFav(r) } label: { Label("Move to Fridge", systemImage: "snowflake") }
-                            if !r.instructions.isEmpty { Button { selectedRecipeToShow = r.asResult } label: { Label("View Recipe", systemImage: "doc.text") } }
-                            Button { withAnimation(.spring()) { selectedMealForEdit = r } } label: { Label("Edit in Chat", systemImage: "pencil") }
-                            Button(role: .destructive) { deleteMeal(r) } label: { Label("Delete", systemImage: "trash") }
+                        if isBuildingMeal {
+                            buildMealSelectableMealRow(r)
+                        } else {
+                            mealRow(r)
+                            .contextMenu {
+                                Button { addMealToDiary(r); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
+                                Button { moveMealToFav(r) } label: { Label("Move to Fridge", systemImage: "snowflake") }
+                                if !r.instructions.isEmpty { Button { selectedRecipeToShow = r.asResult } label: { Label("View Recipe", systemImage: "doc.text") } }
+                                Button { withAnimation(.spring()) { selectedMealForEdit = r } } label: { Label("Edit in Chat", systemImage: "pencil") }
+                                Button(role: .destructive) { deleteMeal(r) } label: { Label("Delete", systemImage: "trash") }
+                            }
+                            .swipeToDelete { withAnimation { deleteMeal(r) } }
                         }
-                        .swipeToDelete { withAnimation { deleteMeal(r) } }
                     }
                 }.padding()
+                if isBuildingMeal { Spacer().frame(height: 80) }
             }.blur(radius: selectedMealForEdit != nil ? 15 : 0)
         }
-        
-        if !isSelectionMode {
+
+        if isBuildingMeal {
+            mealBuildBar
+        } else if !isSelectionMode {
             HStack {
                 foodActionButton(title: "Add Meal", systemName: "plus", color: .orange) { isShowingSourceDialog = true }
             }
@@ -676,12 +689,80 @@ struct MyFoodView: View {
         .buttonStyle(.plain)
     }
 
-    private var selectedFridgeItems: [FavoriteFood] {
-        newestFavorites.filter { selectedForMeal.contains($0.id) }
+    private func buildMealSelectableMealRow(_ recipe: SavedRecipe) -> some View {
+        let isSelected = selectedForMeal.contains(recipe.id)
+        return Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                if isSelected { selectedForMeal.remove(recipe.id) } else { selectedForMeal.insert(recipe.id) }
+            }
+        } label: {
+            HStack(spacing: 13) {
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.orange : Color.appMuted.opacity(0.4), lineWidth: 2)
+                        .frame(width: 26, height: 26)
+                    if isSelected {
+                        Circle().fill(Color.orange).frame(width: 26, height: 26)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .black))
+                            .foregroundColor(.black)
+                    }
+                }
+
+                if let image = recipe.uiImage {
+                    Image(uiImage: image)
+                        .resizable().scaledToFill()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14).fill(Color.orange.opacity(0.13))
+                        Image(systemName: "fork.knife").font(.caption.bold()).foregroundColor(.orange)
+                    }.frame(width: 48, height: 48)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.name)
+                        .font(.subheadline).fontWeight(.heavy)
+                        .foregroundColor(.white).lineLimit(1)
+                    HStack(spacing: 8) {
+                        Label("\(Int(recipe.calories)) kcal", systemImage: "flame.fill")
+                        Label("\(Int(recipe.protein))g", systemImage: "drop.fill")
+                    }.font(.caption.bold()).foregroundColor(.orange)
+                }
+                Spacer()
+            }
+            .padding(11)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.white.opacity(0.055))
+                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange.opacity(0.3) : Color.orange.opacity(0.14), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedBuildComponents: [MealBuilderComponent] {
+        var result: [MealBuilderComponent] = []
+        for fav in newestFavorites where selectedForMeal.contains(fav.id) {
+            result.append(MealBuilderComponent(
+                id: fav.id, name: fav.name, calories: fav.calories, protein: fav.protein,
+                ingredients: fav.ingredients, image: fav.uiImage,
+                totalWeightGrams: MealBuilderComponent.parseWeight(from: fav.ingredients)
+            ))
+        }
+        for recipe in newestSavedRecipes where selectedForMeal.contains(recipe.id) {
+            result.append(MealBuilderComponent(
+                id: recipe.id, name: recipe.name, calories: recipe.calories, protein: recipe.protein,
+                ingredients: recipe.ingredients, image: recipe.uiImage,
+                totalWeightGrams: MealBuilderComponent.parseWeight(from: recipe.ingredients)
+            ))
+        }
+        return result
     }
 
     private var mealBuildBar: some View {
-        let items = selectedFridgeItems
+        let items = selectedBuildComponents
         let totalCal = items.reduce(0.0) { $0 + $1.calories }
         let totalProt = items.reduce(0.0) { $0 + $1.protein }
 
@@ -709,7 +790,7 @@ struct MyFoodView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.orange)
                 } else {
-                    Text("Select fridge items")
+                    Text("Select items")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.appMuted)
                 }
@@ -736,13 +817,22 @@ struct MyFoodView: View {
     }
 
     private func saveBuildMeal(name: String, components: [MealBuilderComponent]) {
-        let totalCal = components.reduce(0.0) { $0 + $1.calories * $1.multiplier }
-        let totalProt = components.reduce(0.0) { $0 + $1.protein * $1.multiplier }
+        let totalCal = components.reduce(0.0) { $0 + $1.calories * $1.effectiveMultiplier }
+        let totalProt = components.reduce(0.0) { $0 + $1.protein * $1.effectiveMultiplier }
         let combinedIngredients = components.map { comp in
-            let cal = Int((comp.calories * comp.multiplier).rounded())
-            let prot = Int((comp.protein * comp.multiplier).rounded())
-            let label = comp.multiplier == 1.0 ? "1 portion" : "\(formatMultiplier(comp.multiplier)) portion"
-            return "\(comp.name);\(label);\(cal);\(prot)"
+            let mult = comp.effectiveMultiplier
+            let cal = Int((comp.calories * mult).rounded())
+            let prot = Int((comp.protein * mult).rounded())
+            let weightLabel: String
+            if comp.hasGramMode {
+                weightLabel = "\(Int(comp.effectiveGrams))g"
+            } else if comp.useAll {
+                weightLabel = "1 portion"
+            } else {
+                let pc = comp.portionCount
+                weightLabel = pc == pc.rounded() ? "\(Int(pc)) pcs" : String(format: "%.1f pcs", pc)
+            }
+            return "\(comp.name);\(weightLabel);\(cal);\(prot)"
         }.joined(separator: "\n")
 
         let firstImage = components.compactMap(\.image).first
@@ -761,11 +851,6 @@ struct MyFoodView: View {
             isBuildingMeal = false
             currentTab = 1
         }
-    }
-
-    private func formatMultiplier(_ value: Double) -> String {
-        if value == value.rounded() { return String(format: "%.0f", value) }
-        return String(format: "%.1f", value)
     }
 
     func clearShoppingList() {
@@ -1004,7 +1089,43 @@ struct MealBuilderComponent: Identifiable {
     let protein: Double
     let ingredients: String
     let image: UIImage?
-    var multiplier: Double = 1.0
+    var totalWeightGrams: Double?
+    var useAll: Bool = true
+    var customGrams: Double = 100
+    var portionCount: Double = 1
+
+    var hasGramMode: Bool { totalWeightGrams != nil && totalWeightGrams! > 0 }
+
+    var effectiveMultiplier: Double {
+        if useAll { return 1.0 }
+        if let total = totalWeightGrams, total > 0 {
+            return min(customGrams / total, 10)
+        }
+        return portionCount
+    }
+
+    var effectiveGrams: Double {
+        if let total = totalWeightGrams {
+            return useAll ? total : customGrams
+        }
+        return 0
+    }
+
+    static func parseWeight(from ingredients: String) -> Double? {
+        let lines = ingredients.split(separator: "\n")
+        var total: Double = 0
+        var found = false
+        for line in lines {
+            let parts = line.split(separator: ";")
+            guard parts.count >= 2 else { continue }
+            let w = String(parts[1]).trimmingCharacters(in: .whitespaces).lowercased()
+            if let range = w.range(of: #"(\d+(?:\.\d+)?)\s*(?:g\b|gr|ml)"#, options: .regularExpression) {
+                let numStr = String(w[range]).filter { $0.isNumber || $0 == "." }
+                if let val = Double(numStr) { total += val; found = true }
+            }
+        }
+        return found ? total : nil
+    }
 }
 
 struct MealBuilderSheet: View {
@@ -1013,14 +1134,12 @@ struct MealBuilderSheet: View {
     @State private var mealName = ""
     var onSave: (String, [MealBuilderComponent]) -> Void
 
-    private static let multiplierSteps: [Double] = [0.25, 0.5, 0.75, 1, 1.5, 2]
-
     private var totalCalories: Double {
-        components.reduce(0) { $0 + $1.calories * $1.multiplier }
+        components.reduce(0) { $0 + $1.calories * $1.effectiveMultiplier }
     }
 
     private var totalProtein: Double {
-        components.reduce(0) { $0 + $1.protein * $1.multiplier }
+        components.reduce(0) { $0 + $1.protein * $1.effectiveMultiplier }
     }
 
     var body: some View {
@@ -1089,8 +1208,9 @@ struct MealBuilderSheet: View {
 
     private func componentRow(comp: Binding<MealBuilderComponent>) -> some View {
         let item = comp.wrappedValue
-        let cal = Int((item.calories * item.multiplier).rounded())
-        let prot = Int((item.protein * item.multiplier).rounded())
+        let mult = item.effectiveMultiplier
+        let cal = Int((item.calories * mult).rounded())
+        let prot = Int((item.protein * mult).rounded())
 
         return VStack(spacing: 10) {
             HStack(spacing: 12) {
@@ -1118,29 +1238,12 @@ struct MealBuilderSheet: View {
                 }
 
                 Spacer()
-
-                Text("×\(formatMult(item.multiplier))")
-                    .font(.system(size: 14, weight: .black))
-                    .foregroundColor(.orange)
-                    .frame(width: 40)
             }
 
-            HStack(spacing: 6) {
-                ForEach(Self.multiplierSteps, id: \.self) { step in
-                    Button {
-                        withAnimation(.spring(response: 0.2)) { comp.wrappedValue.multiplier = step }
-                    } label: {
-                        Text("×\(formatMult(step))")
-                            .font(.system(size: 10, weight: .heavy))
-                            .foregroundColor(item.multiplier == step ? .black : .appMuted)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule().fill(item.multiplier == step ? Color.orange : Color.white.opacity(0.06))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
+            if item.hasGramMode {
+                gramControls(comp: comp)
+            } else {
+                portionControls(comp: comp)
             }
         }
         .padding(12)
@@ -1149,6 +1252,112 @@ struct MealBuilderSheet: View {
                 .fill(Color.white.opacity(0.05))
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.15), lineWidth: 1))
         )
+    }
+
+    private func gramControls(comp: Binding<MealBuilderComponent>) -> some View {
+        let item = comp.wrappedValue
+        let total = item.totalWeightGrams ?? 0
+        let step: Double = total <= 150 ? 25 : 50
+
+        return HStack(spacing: 6) {
+            stepperButton(systemName: "minus", dimmed: item.useAll) {
+                if comp.wrappedValue.useAll {
+                    comp.wrappedValue.useAll = false
+                    comp.wrappedValue.customGrams = max(step, total - step)
+                } else {
+                    comp.wrappedValue.customGrams = max(step, comp.wrappedValue.customGrams - step)
+                }
+            }
+
+            Text(item.useAll ? "\(Int(total))g" : "\(Int(item.customGrams))g")
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(.white)
+                .frame(width: 56)
+
+            stepperButton(systemName: "plus", dimmed: item.useAll) {
+                if comp.wrappedValue.useAll {
+                    comp.wrappedValue.useAll = false
+                    comp.wrappedValue.customGrams = total + step
+                } else {
+                    let next = comp.wrappedValue.customGrams + step
+                    if next >= total && next <= total + 1 {
+                        comp.wrappedValue.useAll = true
+                    } else {
+                        comp.wrappedValue.customGrams = next
+                    }
+                }
+            }
+
+            Spacer()
+
+            allButton(isActive: item.useAll, label: "All (\(Int(total))g)") {
+                comp.wrappedValue.useAll = true
+            }
+        }
+    }
+
+    private func portionControls(comp: Binding<MealBuilderComponent>) -> some View {
+        let item = comp.wrappedValue
+
+        return HStack(spacing: 6) {
+            stepperButton(systemName: "minus", dimmed: item.useAll) {
+                comp.wrappedValue.useAll = false
+                comp.wrappedValue.portionCount = max(0.5, comp.wrappedValue.portionCount - 0.5)
+            }
+
+            Text(item.useAll ? "1 pcs" : portionLabel(item.portionCount))
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(.white)
+                .frame(width: 56)
+
+            stepperButton(systemName: "plus", dimmed: false) {
+                comp.wrappedValue.useAll = false
+                comp.wrappedValue.portionCount += 0.5
+            }
+
+            Spacer()
+
+            allButton(isActive: item.useAll, label: "All") {
+                comp.wrappedValue.useAll = true
+                comp.wrappedValue.portionCount = 1
+            }
+        }
+    }
+
+    private func stepperButton(systemName: String, dimmed: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.2)) { action() }
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .black))
+                .foregroundColor(.orange)
+                .frame(width: 34, height: 30)
+                .background(Capsule().fill(Color.orange.opacity(0.15)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func allButton(isActive: Bool, label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.2)) { action() }
+        } label: {
+            Text(label)
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundColor(isActive ? .black : .orange)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(isActive ? Color.orange : Color.orange.opacity(0.15)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func portionLabel(_ value: Double) -> String {
+        if value == value.rounded() { return "\(Int(value)) pcs" }
+        if value == 0.5 { return "½ pcs" }
+        let whole = Int(value)
+        let frac = value - Double(whole)
+        if abs(frac - 0.5) < 0.01 { return "\(whole)½ pcs" }
+        return String(format: "%.1f pcs", value)
     }
 
     private var totalBar: some View {
@@ -1195,11 +1404,5 @@ struct MealBuilderSheet: View {
     private var defaultMealName: String {
         let names = components.prefix(3).map(\.name)
         return names.joined(separator: " + ")
-    }
-
-    private func formatMult(_ value: Double) -> String {
-        if value == value.rounded() { return String(format: "%.0f", value) }
-        if value * 4 == (value * 4).rounded() { return String(format: "%.2g", value) }
-        return String(format: "%.1f", value)
     }
 }

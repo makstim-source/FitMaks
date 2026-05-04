@@ -23,6 +23,24 @@ extension HomeViewModel {
         manualText = ""
     }
 
+    func submitManualTrainingText() {
+        guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        let textImage = generatePlaceholderIcon(systemName: "figure.run", color: .orange)
+        let item = ProcessingItem(
+            images: [textImage],
+            textPrompt: manualText,
+            isTraining: true,
+            targetDate: selectedDate
+        )
+
+        enqueueHomeProcessingItem(item)
+        processTrainingQueue(items: [item])
+        manualText = ""
+    }
+
     func handleCameraImage(_ image: UIImage?) {
         guard let image else {
             return

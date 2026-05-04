@@ -14,6 +14,7 @@ final class HomeViewModel {
     var isShowingPhotoPicker = false
     var selectedPhotoItems: [PhotosPickerItem] = []
     var isShowingTextEntry = false
+    var isShowingTrainingTextEntry = false
     var manualText = ""
     var processingItems: [ProcessingItem] = []
     var fridgeProcessingItems: [ProcessingItem] = []

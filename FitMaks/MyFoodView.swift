@@ -98,17 +98,6 @@ struct MyFoodView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.neonCyan) }
-                if !isSelectionMode && !isBuildingMeal {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            withAnimation(.spring()) { isBuildingMeal = true }
-                        } label: {
-                            Label("Build Meal", systemImage: "square.stack.3d.up")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.orange)
-                        }
-                    }
-                }
             }
             .confirmationDialog("Add to \(currentTab == 0 ? "Fridge" : "Meals")", isPresented: $isShowingSourceDialog) {
                 Button("Camera") { self.isScanningReceipt = false; self.isShowingCamera = true }
@@ -329,11 +318,16 @@ struct MyFoodView: View {
         if isBuildingMeal {
             mealBuildBar
         } else if !isSelectionMode {
-            HStack(spacing: 8) {
-                foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
-                    .disabled(isGeneratingRecipe)
-                foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
-                foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
+                        .disabled(isGeneratingRecipe)
+                    foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
+                    foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
+                }
+                foodActionButton(title: "Build Meal", systemName: "square.stack.3d.up", color: .orange) {
+                    withAnimation(.spring()) { isBuildingMeal = true }
+                }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)
@@ -377,8 +371,11 @@ struct MyFoodView: View {
         if isBuildingMeal {
             mealBuildBar
         } else if !isSelectionMode {
-            HStack {
+            HStack(spacing: 8) {
                 foodActionButton(title: "Add Meal", systemName: "plus", color: .orange) { isShowingSourceDialog = true }
+                foodActionButton(title: "Build Meal", systemName: "square.stack.3d.up", color: .orange) {
+                    withAnimation(.spring()) { isBuildingMeal = true }
+                }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)

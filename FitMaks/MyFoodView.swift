@@ -41,6 +41,9 @@ struct MyFoodView: View {
     @State private var selectedRecipeToShow: RecipeResult?
     @State private var isScanningReceipt = false
     @State private var aiErrorMessage: String?
+    @State private var isBuildingMeal = false
+    @State private var selectedForMeal: Set<UUID> = []
+    @State private var isShowingMealBuilder = false
 
     private var newestFavorites: [FavoriteFood] {
         favorites.enumerated()
@@ -167,6 +170,14 @@ struct MyFoodView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $isShowingMealBuilder) {
+                MealBuilderSheet(
+                    components: selectedFridgeItems.map { fav in
+                        MealBuilderComponent(id: fav.id, name: fav.name, calories: fav.calories, protein: fav.protein, ingredients: fav.ingredients, image: fav.uiImage)
+                    },
+                    onSave: saveBuildMeal
+                )
+            }
             .onAppear { if isSelectionMode { currentTab = initialTab } }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
@@ -288,25 +299,35 @@ struct MyFoodView: View {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
                     ForEach(newestFavorites) { fav in
-                        favoriteRow(fav)
-                            .contextMenu {
-                                Button { addFavoriteToDiary(fav); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
-                                Button { withAnimation(.spring()) { selectedFavoriteForEdit = fav } } label: { Label("Edit in Chat", systemImage: "pencil") }
-                                Button { moveFavToMeals(fav) } label: { Label("Move to Meals", systemImage: "fork.knife") }
-                                Button(role: .destructive) { deleteFavorite(fav) } label: { Label("Delete", systemImage: "trash") }
-                            }
-                            .swipeToDelete { withAnimation { deleteFavorite(fav) } }
+                        if isBuildingMeal {
+                            buildMealSelectableRow(fav)
+                        } else {
+                            favoriteRow(fav)
+                                .contextMenu {
+                                    Button { addFavoriteToDiary(fav); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
+                                    Button { withAnimation(.spring()) { selectedFavoriteForEdit = fav } } label: { Label("Edit in Chat", systemImage: "pencil") }
+                                    Button { moveFavToMeals(fav) } label: { Label("Move to Meals", systemImage: "fork.knife") }
+                                    Button(role: .destructive) { deleteFavorite(fav) } label: { Label("Delete", systemImage: "trash") }
+                                }
+                                .swipeToDelete { withAnimation { deleteFavorite(fav) } }
+                        }
                     }
                 }.padding()
+                if isBuildingMeal { Spacer().frame(height: 80) }
             }.blur(radius: selectedFavoriteForEdit != nil ? 15 : 0)
         }
-        
-        if !isSelectionMode {
+
+        if isBuildingMeal {
+            mealBuildBar
+        } else if !isSelectionMode {
             HStack(spacing: 8) {
                 foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
                     .disabled(isGeneratingRecipe)
                 foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
                 foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
+                foodActionButton(title: "Build", systemName: "square.stack.3d.up", color: .orange) {
+                    withAnimation(.spring()) { isBuildingMeal = true }
+                }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)
@@ -600,6 +621,153 @@ struct MyFoodView: View {
         }
     }
 
+    // MARK: - Build Meal
+
+    private func buildMealSelectableRow(_ fav: FavoriteFood) -> some View {
+        let isSelected = selectedForMeal.contains(fav.id)
+        return Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                if isSelected { selectedForMeal.remove(fav.id) } else { selectedForMeal.insert(fav.id) }
+            }
+        } label: {
+            HStack(spacing: 13) {
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.orange : Color.appMuted.opacity(0.4), lineWidth: 2)
+                        .frame(width: 26, height: 26)
+                    if isSelected {
+                        Circle().fill(Color.orange).frame(width: 26, height: 26)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .black))
+                            .foregroundColor(.black)
+                    }
+                }
+
+                if let image = fav.uiImage {
+                    Image(uiImage: image)
+                        .resizable().scaledToFill()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14).fill(Color.neonCyan.opacity(0.13))
+                        Image(systemName: "snowflake").font(.caption.bold()).foregroundColor(.neonCyan)
+                    }.frame(width: 48, height: 48)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fav.name)
+                        .font(.subheadline).fontWeight(.heavy)
+                        .foregroundColor(.white).lineLimit(1)
+                    HStack(spacing: 8) {
+                        Label("\(Int(fav.calories)) kcal", systemImage: "flame.fill")
+                        Label("\(Int(fav.protein))g", systemImage: "drop.fill")
+                    }.font(.caption.bold()).foregroundColor(.neonCyan)
+                }
+                Spacer()
+            }
+            .padding(11)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.white.opacity(0.055))
+                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange.opacity(0.3) : Color.neonCyan.opacity(0.14), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedFridgeItems: [FavoriteFood] {
+        newestFavorites.filter { selectedForMeal.contains($0.id) }
+    }
+
+    private var mealBuildBar: some View {
+        let items = selectedFridgeItems
+        let totalCal = items.reduce(0.0) { $0 + $1.calories }
+        let totalProt = items.reduce(0.0) { $0 + $1.protein }
+
+        return VStack(spacing: 0) {
+            Divider().background(Color.orange.opacity(0.3))
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation(.spring()) { selectedForMeal.removeAll(); isBuildingMeal = false }
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(.appMuted)
+                }
+
+                Spacer()
+
+                if !items.isEmpty {
+                    HStack(spacing: 6) {
+                        Text("\(items.count) item\(items.count == 1 ? "" : "s")")
+                        Text("·").foregroundColor(.appMuted)
+                        Text("\(Int(totalCal)) cal")
+                        Text("·").foregroundColor(.appMuted)
+                        Text("\(Int(totalProt))g")
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.orange)
+                } else {
+                    Text("Select fridge items")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.appMuted)
+                }
+
+                Spacer()
+
+                Button {
+                    isShowingMealBuilder = true
+                } label: {
+                    Text("Next")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.orange))
+                }
+                .disabled(items.isEmpty)
+                .opacity(items.isEmpty ? 0.4 : 1)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(Color.appElevated)
+        }
+    }
+
+    private func saveBuildMeal(name: String, components: [MealBuilderComponent]) {
+        let totalCal = components.reduce(0.0) { $0 + $1.calories * $1.multiplier }
+        let totalProt = components.reduce(0.0) { $0 + $1.protein * $1.multiplier }
+        let combinedIngredients = components.map { comp in
+            let cal = Int((comp.calories * comp.multiplier).rounded())
+            let prot = Int((comp.protein * comp.multiplier).rounded())
+            let label = comp.multiplier == 1.0 ? "1 portion" : "\(formatMultiplier(comp.multiplier)) portion"
+            return "\(comp.name);\(label);\(cal);\(prot)"
+        }.joined(separator: "\n")
+
+        let firstImage = components.compactMap(\.image).first
+        let recipe = SavedRecipe(
+            image: firstImage,
+            name: name,
+            instructions: "",
+            calories: totalCal,
+            protein: totalProt,
+            ingredients: combinedIngredients
+        )
+        modelContext.insert(recipe)
+
+        withAnimation(.spring()) {
+            selectedForMeal.removeAll()
+            isBuildingMeal = false
+            currentTab = 1
+        }
+    }
+
+    private func formatMultiplier(_ value: Double) -> String {
+        if value == value.rounded() { return String(format: "%.0f", value) }
+        return String(format: "%.1f", value)
+    }
+
     func clearShoppingList() {
         for item in shoppingItems {
             modelContext.delete(item)
@@ -824,5 +992,214 @@ struct MyFoodView: View {
     private func deleteMeal(_ recipe: SavedRecipe) {
         GeminiService.shared.invalidateFoodImageCache(for: recipe.uiImage)
         modelContext.delete(recipe)
+    }
+}
+
+// MARK: - Meal Builder
+
+struct MealBuilderComponent: Identifiable {
+    let id: UUID
+    let name: String
+    let calories: Double
+    let protein: Double
+    let ingredients: String
+    let image: UIImage?
+    var multiplier: Double = 1.0
+}
+
+struct MealBuilderSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @State var components: [MealBuilderComponent]
+    @State private var mealName = ""
+    var onSave: (String, [MealBuilderComponent]) -> Void
+
+    private static let multiplierSteps: [Double] = [0.25, 0.5, 0.75, 1, 1.5, 2]
+
+    private var totalCalories: Double {
+        components.reduce(0) { $0 + $1.calories * $1.multiplier }
+    }
+
+    private var totalProtein: Double {
+        components.reduce(0) { $0 + $1.protein * $1.multiplier }
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.appBackgroundStart.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        mealNameField
+                        componentsList
+                        totalBar
+                    }
+                    .padding()
+                    .padding(.bottom, 80)
+                }
+
+                VStack {
+                    Spacer()
+                    saveButton
+                }
+            }
+            .navigationTitle("Build Meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }.foregroundColor(.orange)
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    private var mealNameField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MEAL NAME")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            TextField("e.g. Chicken Rice Bowl", text: $mealName)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.2), lineWidth: 1))
+                )
+        }
+    }
+
+    private var componentsList: some View {
+        VStack(spacing: 10) {
+            Text("INGREDIENTS")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            ForEach($components) { $comp in
+                componentRow(comp: $comp)
+            }
+        }
+    }
+
+    private func componentRow(comp: Binding<MealBuilderComponent>) -> some View {
+        let item = comp.wrappedValue
+        let cal = Int((item.calories * item.multiplier).rounded())
+        let prot = Int((item.protein * item.multiplier).rounded())
+
+        return VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                if let image = item.image {
+                    Image(uiImage: image)
+                        .resizable().scaledToFill()
+                        .frame(width: 42, height: 42)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12).fill(Color.neonCyan.opacity(0.13))
+                        Image(systemName: "snowflake").font(.caption.bold()).foregroundColor(.neonCyan)
+                    }.frame(width: 42, height: 42)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name)
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text("\(cal) kcal").foregroundColor(.neonGreen)
+                        Text("\(prot)g P").foregroundColor(.neonCyan)
+                    }.font(.system(size: 11, weight: .bold))
+                }
+
+                Spacer()
+
+                Text("×\(formatMult(item.multiplier))")
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(.orange)
+                    .frame(width: 40)
+            }
+
+            HStack(spacing: 6) {
+                ForEach(Self.multiplierSteps, id: \.self) { step in
+                    Button {
+                        withAnimation(.spring(response: 0.2)) { comp.wrappedValue.multiplier = step }
+                    } label: {
+                        Text("×\(formatMult(step))")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundColor(item.multiplier == step ? .black : .appMuted)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(item.multiplier == step ? Color.orange : Color.white.opacity(0.06))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.white.opacity(0.05))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.15), lineWidth: 1))
+        )
+    }
+
+    private var totalBar: some View {
+        HStack {
+            Text("TOTAL")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+            Spacer()
+            HStack(spacing: 10) {
+                Label("\(Int(totalCalories)) kcal", systemImage: "flame.fill")
+                    .foregroundColor(.neonGreen)
+                Label("\(Int(totalProtein))g", systemImage: "drop.fill")
+                    .foregroundColor(.neonCyan)
+            }
+            .font(.system(size: 14, weight: .black))
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.orange.opacity(0.08))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.2), lineWidth: 1))
+        )
+    }
+
+    private var saveButton: some View {
+        Button {
+            let name = mealName.trimmingCharacters(in: .whitespaces)
+            let finalName = name.isEmpty ? defaultMealName : name
+            onSave(finalName, components)
+            dismiss()
+        } label: {
+            Text("Save to Meals")
+                .font(.system(size: 15, weight: .black))
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Capsule().fill(Color.orange))
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 16)
+    }
+
+    private var defaultMealName: String {
+        let names = components.prefix(3).map(\.name)
+        return names.joined(separator: " + ")
+    }
+
+    private func formatMult(_ value: Double) -> String {
+        if value == value.rounded() { return String(format: "%.0f", value) }
+        if value * 4 == (value * 4).rounded() { return String(format: "%.2g", value) }
+        return String(format: "%.1f", value)
     }
 }

@@ -43,7 +43,7 @@ final class FitMaksUITests: XCTestCase {
     func testModeButtonsExist() throws {
         XCTAssertTrue(waitForHomeScreen())
         XCTAssertTrue(app.staticTexts["Cardio"].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS 'Cardio'")).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["Gym"].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS 'Gym'")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Strength"].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS 'Strength'")).firstMatch.exists)
     }
 
     // MARK: - Add Entry Dialog
@@ -96,7 +96,7 @@ final class FitMaksUITests: XCTestCase {
         XCTAssertTrue(waitForHomeScreen())
         app.buttons["statsButton"].tap()
 
-        XCTAssertTrue(app.staticTexts["Progress Arena"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Streak Mode"].waitForExistence(timeout: 5))
 
         app.buttons["Close"].tap()
 

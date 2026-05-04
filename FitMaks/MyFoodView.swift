@@ -138,7 +138,13 @@ struct MyFoodView: View {
             .onChange(of: selectedCameraImage) { _, newValue in
                 if let img = newValue {
                     let preparedImage = img.preparedForAIIntake()
-                    if isScanningReceipt { queueReceiptScan(images: [preparedImage]) } else { let item = ProcessingItem(images: [preparedImage], targetTab: currentTab); processingItems.append(item); onProcessQueue([item]) }
+                    if isScanningReceipt {
+                        queueReceiptScan(images: [preparedImage])
+                    } else {
+                        let item = ProcessingItem(images: [preparedImage], targetTab: currentTab)
+                        withAnimation(.spring()) { processingItems.append(item) }
+                        onProcessQueue([item])
+                    }
                     selectedCameraImage = nil; isScanningReceipt = false
                 }
             }
@@ -319,6 +325,8 @@ struct MyFoodView: View {
             }.blur(radius: selectedFavoriteForEdit != nil ? 15 : 0)
         }
 
+        processingBanner(for: 0, color: .neonCyan)
+
         if isBuildingMeal {
             mealBuildBar
         } else if !isSelectionMode {
@@ -366,6 +374,8 @@ struct MyFoodView: View {
                 if isBuildingMeal { Spacer().frame(height: 80) }
             }.blur(radius: selectedMealForEdit != nil ? 15 : 0)
         }
+
+        processingBanner(for: 1, color: .orange)
 
         if isBuildingMeal {
             mealBuildBar
@@ -923,6 +933,31 @@ struct MyFoodView: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func processingBanner(for tab: Int, color: Color) -> some View {
+        let active = processingItems(for: tab)
+        if !active.isEmpty {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .tint(color)
+                Text(active.first?.statusTitle ?? "Analyzing with AI...")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.white)
+                Spacer()
+                Text("\(active.count)")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundColor(color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(color.opacity(0.18)))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(color.opacity(0.10))
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 
     func loadingRow(item: ProcessingItem) -> some View {

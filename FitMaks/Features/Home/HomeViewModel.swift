@@ -24,6 +24,7 @@ final class HomeViewModel {
     var homeWeeklySteps: [String: Double] = [:]
     var isShowingMyFood = false
     var isSelectionModeForFridge = false
+    var isBuildMealMode = false
     var initialMyFoodTab = 0
     var isShowingProfile = false
     var isShowingStats = false

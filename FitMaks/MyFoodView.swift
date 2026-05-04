@@ -11,6 +11,7 @@ struct MyFoodView: View {
     
     var isSelectionMode: Bool
     var initialTab: Int
+    var initialBuildMode: Bool = false
     var selectedDate: Date
     @Binding var processingItems: [ProcessingItem]
     @Binding var pendingAIReview: AIResultReview?
@@ -176,7 +177,10 @@ struct MyFoodView: View {
                     onSave: saveBuildMeal
                 )
             }
-            .onAppear { if isSelectionMode { currentTab = initialTab } }
+            .onAppear {
+                if isSelectionMode { currentTab = initialTab }
+                if initialBuildMode { isBuildingMeal = true; currentTab = 0 }
+            }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
@@ -318,16 +322,11 @@ struct MyFoodView: View {
         if isBuildingMeal {
             mealBuildBar
         } else if !isSelectionMode {
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
-                        .disabled(isGeneratingRecipe)
-                    foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
-                    foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
-                }
-                foodActionButton(title: "Build Meal", systemName: "square.stack.3d.up", color: .orange) {
-                    withAnimation(.spring()) { isBuildingMeal = true }
-                }
+            HStack(spacing: 8) {
+                foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
+                    .disabled(isGeneratingRecipe)
+                foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
+                foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)

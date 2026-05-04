@@ -337,10 +337,11 @@ struct ContentView: View {
             }
         }
         
-        .sheet(isPresented: $viewModel.isShowingMyFood) {
+        .sheet(isPresented: $viewModel.isShowingMyFood, onDismiss: { viewModel.isBuildMealMode = false }) {
             MyFoodView(
                 isSelectionMode: viewModel.isSelectionModeForFridge,
                 initialTab: viewModel.initialMyFoodTab,
+                initialBuildMode: viewModel.isBuildMealMode,
                 selectedDate: viewModel.selectedDate,
                 processingItems: $viewModel.fridgeProcessingItems,
                 pendingAIReview: $viewModel.pendingAIReview,
@@ -445,6 +446,7 @@ struct ContentView: View {
         .confirmationDialog("Add Entry", isPresented: $viewModel.isShowingSourceDialog) {
             Button("From Fridge ❄️") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true }
             Button("From Meals 🍲") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true }
+            Button("Build Meal 🧱") { viewModel.isBuildMealMode = true; viewModel.isShowingMyFood = true }
             Button("Camera 📷") { viewModel.pickingMode = .food; viewModel.isShowingCamera = true }
             Button("Library 🖼️") { viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true }
             Button("Type Text ✍️") { viewModel.isShowingTextEntry = true }

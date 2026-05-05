@@ -204,23 +204,25 @@ struct HomeMacroSummaryPill: View {
             if !systemName.isEmpty {
                 ZStack {
                     Circle()
-                        .stroke(Color.black.opacity(0.34), lineWidth: 3)
+                        .stroke(Color.black.opacity(0.34), lineWidth: 2)
                     Circle()
                         .trim(from: 0, to: clamped)
-                        .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: color.opacity(0.45), radius: clamped >= 1 ? 6 : 2)
+                        .shadow(color: color.opacity(0.45), radius: clamped >= 1 ? 5 : 2)
                     Image(systemName: systemName)
                         .font(.system(size: 7, weight: .black))
                         .foregroundColor(color)
                 }
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 20)
             }
 
             Text(title.uppercased())
-                .font(.system(size: 8, weight: .heavy))
+                .font(.system(size: 7, weight: .heavy))
                 .foregroundColor(color)
-                .tracking(0.5)
+                .tracking(0.4)
+                .lineLimit(1)
+                .fixedSize()
 
             Spacer(minLength: 0)
 

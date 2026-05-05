@@ -634,7 +634,7 @@ struct NewEntrySheet: View {
                 HStack(spacing: 10) {
                     newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, action: onCamera)
                     newEntryButton("Library", icon: "photo.on.rectangle", color: .yellow, action: onLibrary)
-                    newEntryButton("Type Text", icon: "pencil", color: .fitPurple, action: onTypeText)
+                    newEntryButton("Type Food", icon: "pencil", color: .fitPurple, action: onTypeText)
                 }
             }
 

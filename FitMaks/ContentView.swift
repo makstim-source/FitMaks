@@ -463,7 +463,7 @@ struct ContentView: View {
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.clear)
+            .presentationBackground(Color.black.opacity(0.65))
         }
         .sheet(isPresented: $viewModel.isShowingFAQ) {
             FAQSheet()

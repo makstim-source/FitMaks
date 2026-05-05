@@ -638,7 +638,7 @@ struct NewEntrySheet: View {
                 }
             }
 
-            newEntrySection("TRAINING", color: .neonCyan) {
+            newEntrySection("TRAINING & HELP", color: .neonCyan) {
                 HStack(spacing: 10) {
                     newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
                     newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)

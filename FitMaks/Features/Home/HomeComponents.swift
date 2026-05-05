@@ -1,5 +1,17 @@
 import SwiftUI
 
+private let fillerWords: Set<String> = ["and", "with", "in", "on", "the", "a", "of", "for", "from", "с", "и", "в", "на", "из", "для", "по", "к", "от", "до"]
+
+func shortFoodName(_ name: String, maxWords: Int = 3) -> String {
+    let words = name.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+    guard words.count > maxWords else { return name }
+    var result = Array(words.prefix(maxWords))
+    while let last = result.last, fillerWords.contains(last.lowercased()) {
+        result.removeLast()
+    }
+    return result.joined(separator: " ")
+}
+
 struct HomeBackground: View {
     var body: some View {
         LinearGradient(
@@ -259,7 +271,7 @@ struct HomeFoodRow: View {
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(entry.name)
+                Text(shortFoodName(entry.name))
                     .font(.system(size: 14, weight: .heavy))
                     .foregroundColor(.appText)
                     .lineLimit(1)

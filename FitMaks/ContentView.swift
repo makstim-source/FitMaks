@@ -649,8 +649,10 @@ struct ContentView: View {
             }
 
             HStack(spacing: 8) {
-                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", subtitle: "of \(Int(targetCarbs))g", progress: dailyCarbs / max(targetCarbs, 1), color: .fitOrange, systemName: "leaf.fill")
-                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", subtitle: "of \(Int(targetFat))g", progress: dailyFat / max(targetFat, 1), color: .yellow, systemName: "circle.inset.filled")
+                let carbsOver = dailyCarbs > targetCarbs
+                let fatOver = dailyFat > targetFat
+                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", subtitle: "of \(Int(targetCarbs))g", progress: dailyCarbs / max(targetCarbs, 1), color: carbsOver ? .red : .fitOrange, systemName: "leaf.fill")
+                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", subtitle: "of \(Int(targetFat))g", progress: dailyFat / max(targetFat, 1), color: fatOver ? .red : .yellow, systemName: "circle.inset.filled")
             }
 
             modeSelectorSection

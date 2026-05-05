@@ -239,32 +239,32 @@ struct HomeFoodRow: View {
     var entry: FoodEntry
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             if let image = entry.uiImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    .frame(width: 50, height: 50)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 14)
                         .fill(Color.neonGreen.opacity(0.12))
                     Image(systemName: "fork.knife")
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .foregroundColor(.neonGreen)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 50, height: 50)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(entry.name)
-                    .font(.system(size: 13, weight: .heavy))
+                    .font(.system(size: 14, weight: .heavy))
                     .foregroundColor(.appText)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Label("\(Int(entry.calories))", systemImage: "flame.fill")
                         .foregroundColor(.neonGreen)
                     Label("\(Int(entry.protein))g", systemImage: "drop.fill")
@@ -274,20 +274,20 @@ struct HomeFoodRow: View {
                     Label("\(Int(entry.fat))g", systemImage: "circle.inset.filled")
                         .foregroundColor(.yellow)
                 }
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: 10, weight: .heavy))
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.appMuted)
         }
-        .padding(10)
+        .padding(11)
         .background(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
         )
     }
 }

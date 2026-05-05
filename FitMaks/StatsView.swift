@@ -162,14 +162,18 @@ struct StatsView: View {
                     Button {
                         livePayload = streakPayload
                     } label: {
-                        Label("Post", systemImage: "camera.fill")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.fitOrange)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(Color.black))
-                            .shadow(color: .fitOrange.opacity(0.35), radius: 8)
+                        HStack(spacing: 4) {
+                            Image(systemName: "camera.fill")
+                            Text("Post")
+                        }
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundColor(.fitOrange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.black))
+                        .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                     }
+                    .buttonStyle(.plain)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {

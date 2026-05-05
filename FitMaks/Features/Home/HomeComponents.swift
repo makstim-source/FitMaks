@@ -754,8 +754,8 @@ struct FAQSheet: View {
          "After accounting for your protein goal, the remaining calories are split into ~55% carbs and ~45% fat. These targets adjust automatically based on your daily calorie goal."),
         ("trophy.fill", .yellow, "How do achievements work?",
          "You earn badges for streaks, consistency, and milestones — like hitting your goals 7 days in a row. Check the Badges section to see your progress."),
-        ("person.2.fill", .fitPurple, "What is Live Share?",
-         "Live Share lets you share your daily progress with friends in real time using SharePlay. They can see your calories, protein, and steps as you log them.")
+        ("camera.fill", .fitOrange, "How does Post work?",
+         "Tap Post to create a share card of your daily progress, meals, workouts, or achievements. Pick a background, customize the look, and share it to Instagram Stories, friends, or save it.")
     ]
 
     var body: some View {

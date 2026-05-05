@@ -25,6 +25,7 @@ struct ContentView: View {
 
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
+    @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
 
     @State var viewModel = HomeViewModel()
 
@@ -155,6 +156,8 @@ struct ContentView: View {
     }
     var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.sorted { $0.createdAt > $1.createdAt } }
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
+    var dailyCarbs: Double { dailyFoodEntries.reduce(0) { $0 + $1.carbs } }
+    var dailyFat: Double { dailyFoodEntries.reduce(0) { $0 + $1.fat } }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
     var dailyProgress: DayProgress {
@@ -337,7 +340,7 @@ struct ContentView: View {
             }
         }
         
-        .sheet(isPresented: $viewModel.isShowingMyFood, onDismiss: { viewModel.isBuildMealMode = false }) {
+        .fullScreenCover(isPresented: $viewModel.isShowingMyFood, onDismiss: { viewModel.isBuildMealMode = false }) {
             MyFoodView(
                 isSelectionMode: viewModel.isSelectionModeForFridge,
                 initialTab: viewModel.initialMyFoodTab,
@@ -643,6 +646,11 @@ struct ContentView: View {
                 .onTapGesture { viewModel.openGoalBreakdown(.protein) }
             }
 
+            HStack(spacing: 8) {
+                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", color: .fitOrange)
+                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", color: .yellow)
+            }
+
             modeSelectorSection
         }
         .padding(12)
@@ -915,7 +923,41 @@ struct ContentView: View {
     }
 
 
+    fileprivate func migrateCarbsFatIfNeeded() {
+        guard !hasMigratedCarbsFat else { return }
+        hasMigratedCarbsFat = true
+
+        func estimate(_ calories: Double, _ protein: Double) -> (carbs: Double, fat: Double) {
+            let remaining = max(calories - protein * 4, 0)
+            return (remaining * 0.55 / 4, remaining * 0.45 / 9)
+        }
+
+        let foodEntries = (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? []
+        for entry in foodEntries where entry.carbs == 0 && entry.fat == 0 && entry.calories > 0 {
+            let (c, f) = estimate(entry.calories, entry.protein)
+            entry.carbs = c
+            entry.fat = f
+        }
+
+        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
+        for fav in favorites where fav.carbs == 0 && fav.fat == 0 && fav.calories > 0 {
+            let (c, f) = estimate(fav.calories, fav.protein)
+            fav.carbs = c
+            fav.fat = f
+        }
+
+        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
+        for recipe in recipes where recipe.carbs == 0 && recipe.fat == 0 && recipe.calories > 0 {
+            let (c, f) = estimate(recipe.calories, recipe.protein)
+            recipe.carbs = c
+            recipe.fat = f
+        }
+
+        try? modelContext.save()
+    }
+
     fileprivate func handleOnAppear() {
+        migrateCarbsFatIfNeeded()
         syncViewModel()
         var tempCalories = lastKnownBaseCaloriesGoal
         var tempProtein = lastKnownBaseProteinGoal

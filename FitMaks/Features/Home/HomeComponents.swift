@@ -631,15 +631,15 @@ struct NewEntrySheet: View {
 
             newEntrySection("CAPTURE FOOD", color: .fitOrange) {
                 HStack(spacing: 10) {
-                    newEntryButton("Camera", icon: "camera.fill", color: .fitOrange, action: onCamera)
+                    newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, action: onCamera)
                     newEntryButton("Library", icon: "photo.on.rectangle", color: .fitPurple, action: onLibrary)
-                    newEntryButton("Type Text", icon: "pencil", color: .neonCyan, action: onTypeText)
+                    newEntryButton("Type Text", icon: "pencil", color: .fitPurple, action: onTypeText)
                 }
             }
 
             newEntrySection("TRAINING", color: .neonCyan) {
                 HStack(spacing: 10) {
-                    newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .fitOrange, action: onTraining)
+                    newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
                     newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
                     Spacer().frame(maxWidth: .infinity)
                 }

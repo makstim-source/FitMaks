@@ -854,7 +854,7 @@ struct ContentView: View {
             .padding(.horizontal, 10)
 
             HStack(spacing: 12) {
-                HomeDockButton(title: "Badges", systemName: "trophy.fill", color: .yellow) {
+                HomeDockButton(title: "Badges", systemName: "medal.fill", color: .yellow) {
                     viewModel.isShowingAchievements = true
                 }
 

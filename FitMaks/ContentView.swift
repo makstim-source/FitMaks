@@ -829,7 +829,7 @@ struct ContentView: View {
                     viewModel.isShowingMyFood = true
                 }
 
-                HomeDockButton(title: "Post", systemName: "camera", color: .fitOrange) {
+                HomeDockButton(title: "Post", systemName: "camera.fill", color: .fitOrange) {
                     viewModel.livePayload = todaySharePayload()
                 }
             }

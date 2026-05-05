@@ -32,6 +32,7 @@ struct MyFoodView: View {
     
     @State private var selectedFavoriteForEdit: FavoriteFood?
     @State private var selectedMealForEdit: SavedRecipe?
+    @State private var selectedFavoriteForAmount: FavoriteFood?
     
     @State private var currentTab = 0
     @State private var newShopItem = ""
@@ -164,6 +165,19 @@ struct MyFoodView: View {
             }
             .sheet(isPresented: $showRecipeSuggestions) { RecipeSuggestionsView(recipes: suggestedRecipes, selectedDate: selectedDate) }
             .sheet(item: $selectedRecipeToShow) { rec in RecipeSheet(recipe: rec, isPreSaved: true, selectedDate: selectedDate) }
+            .sheet(item: $selectedFavoriteForAmount) { favorite in
+                FavoriteAmountSheet(
+                    favorite: favorite,
+                    selectedDate: selectedDate,
+                    onAdd: { amount in
+                        addFavoriteToDiary(favorite, amount: amount)
+                        selectedFavoriteForAmount = nil
+                        dismiss()
+                    }
+                )
+                .presentationDetents([.height(420)])
+                .presentationDragIndicator(.visible)
+            }
             .sheet(item: $pendingAIReview) { review in
                 AIResultReviewSheet(
                     review: review,
@@ -312,7 +326,7 @@ struct MyFoodView: View {
                         } else {
                             favoriteRow(fav)
                                 .contextMenu {
-                                    Button { addFavoriteToDiary(fav); dismiss() } label: { Label("Add to Diary", systemImage: "plus.circle") }
+                                    Button { presentFavoriteAmountPicker(for: fav) } label: { Label("Add to Diary", systemImage: "plus.circle") }
                                     Button { withAnimation(.spring()) { selectedFavoriteForEdit = fav } } label: { Label("Edit in Chat", systemImage: "pencil") }
                                     Button { moveFavToMeals(fav) } label: { Label("Move to Meals", systemImage: "fork.knife") }
                                     Button(role: .destructive) { deleteFavorite(fav) } label: { Label("Delete", systemImage: "trash") }
@@ -471,44 +485,51 @@ struct MyFoodView: View {
     }
 
     private func mealRow(_ recipe: SavedRecipe) -> some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 11) {
             if let image = recipe.uiImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 58, height: 58)
-                    .clipShape(RoundedRectangle(cornerRadius: 17))
-                    .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.orange.opacity(0.20), lineWidth: 1))
+                    .frame(width: 54, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.orange.opacity(0.20), lineWidth: 1))
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 17)
+                    RoundedRectangle(cornerRadius: 15)
                         .fill(Color.orange.opacity(0.13))
                     Image(systemName: "fork.knife")
                         .font(.title3.bold())
                         .foregroundColor(.orange)
                 }
-                .frame(width: 58, height: 58)
+                .frame(width: 54, height: 54)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(recipe.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .minimumScaleFactor(0.85)
 
-                HStack(spacing: 8) {
-                    Label("\(Int(recipe.calories)) kcal", systemImage: "flame.fill")
+                HStack(spacing: 6) {
+                    Label("\(Int(recipe.calories))", systemImage: "flame.fill")
+                        .foregroundColor(.neonGreen)
                     Label("\(Int(recipe.protein))g", systemImage: "drop.fill")
+                        .foregroundColor(.neonCyan)
+                    Label("\(Int(recipe.carbs))g", systemImage: "leaf.fill")
+                        .foregroundColor(.fitOrange)
+                    Label("\(Int(recipe.fat))g", systemImage: "circle.inset.filled")
+                        .foregroundColor(.yellow)
                 }
-                .font(.caption.bold())
-                .foregroundColor(.orange)
+                .font(.system(size: 10, weight: .heavy))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 rowIconButton(systemName: "pencil", color: .white.opacity(0.82)) {
                     withAnimation(.spring()) { selectedMealForEdit = recipe }
                 }
@@ -519,11 +540,12 @@ struct MyFoodView: View {
                 }
             }
         }
-        .padding(13)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(Color.white.opacity(0.055))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.orange.opacity(0.14), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.orange.opacity(0.14), lineWidth: 1))
         )
     }
 
@@ -731,10 +753,16 @@ struct MyFoodView: View {
                     Text(recipe.name)
                         .font(.subheadline).fontWeight(.heavy)
                         .foregroundColor(.white).lineLimit(1)
-                    HStack(spacing: 8) {
-                        Label("\(Int(recipe.calories)) kcal", systemImage: "flame.fill")
+                    HStack(spacing: 6) {
+                        Label("\(Int(recipe.calories))", systemImage: "flame.fill")
+                            .foregroundColor(.neonGreen)
                         Label("\(Int(recipe.protein))g", systemImage: "drop.fill")
-                    }.font(.caption.bold()).foregroundColor(.orange)
+                            .foregroundColor(.neonCyan)
+                        Label("\(Int(recipe.carbs))g", systemImage: "leaf.fill")
+                            .foregroundColor(.fitOrange)
+                        Label("\(Int(recipe.fat))g", systemImage: "circle.inset.filled")
+                            .foregroundColor(.yellow)
+                    }.font(.system(size: 10, weight: .heavy))
                 }
                 Spacer()
             }
@@ -752,14 +780,14 @@ struct MyFoodView: View {
         var result: [MealBuilderComponent] = []
         for fav in newestFavorites where selectedForMeal.contains(fav.id) {
             result.append(MealBuilderComponent(
-                id: fav.id, name: fav.name, calories: fav.calories, protein: fav.protein,
+                id: fav.id, name: fav.name, calories: fav.calories, protein: fav.protein, carbs: fav.carbs, fat: fav.fat,
                 ingredients: fav.ingredients, image: fav.uiImage,
                 totalWeightGrams: MealBuilderComponent.parseWeight(from: fav.ingredients)
             ))
         }
         for recipe in newestSavedRecipes where selectedForMeal.contains(recipe.id) {
             result.append(MealBuilderComponent(
-                id: recipe.id, name: recipe.name, calories: recipe.calories, protein: recipe.protein,
+                id: recipe.id, name: recipe.name, calories: recipe.calories, protein: recipe.protein, carbs: recipe.carbs, fat: recipe.fat,
                 ingredients: recipe.ingredients, image: recipe.uiImage,
                 totalWeightGrams: MealBuilderComponent.parseWeight(from: recipe.ingredients)
             ))
@@ -771,6 +799,8 @@ struct MyFoodView: View {
         let items = selectedBuildComponents
         let totalCal = items.reduce(0.0) { $0 + $1.calories }
         let totalProt = items.reduce(0.0) { $0 + $1.protein }
+        let totalCarbs = items.reduce(0.0) { $0 + $1.carbs }
+        let totalFat = items.reduce(0.0) { $0 + $1.fat }
 
         return VStack(spacing: 0) {
             Divider().background(Color.orange.opacity(0.3))
@@ -792,6 +822,10 @@ struct MyFoodView: View {
                         Text("\(Int(totalCal)) cal")
                         Text("·").foregroundColor(.appMuted)
                         Text("\(Int(totalProt))g")
+                        Text("·").foregroundColor(.appMuted)
+                        Text("C \(Int(totalCarbs))")
+                        Text("·").foregroundColor(.appMuted)
+                        Text("F \(Int(totalFat))")
                     }
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.orange)
@@ -825,10 +859,14 @@ struct MyFoodView: View {
     private func saveBuildMeal(name: String, components: [MealBuilderComponent]) {
         let totalCal = components.reduce(0.0) { $0 + $1.calories * $1.effectiveMultiplier }
         let totalProt = components.reduce(0.0) { $0 + $1.protein * $1.effectiveMultiplier }
+        let totalCarbs = components.reduce(0.0) { $0 + $1.carbs * $1.effectiveMultiplier }
+        let totalFat = components.reduce(0.0) { $0 + $1.fat * $1.effectiveMultiplier }
         let combinedIngredients = components.map { comp in
             let mult = comp.effectiveMultiplier
             let cal = Int((comp.calories * mult).rounded())
             let prot = Int((comp.protein * mult).rounded())
+            let carbs = Int((comp.carbs * mult).rounded())
+            let fat = Int((comp.fat * mult).rounded())
             let weightLabel: String
             if comp.hasGramMode {
                 weightLabel = "\(Int(comp.effectiveGrams))g"
@@ -838,7 +876,7 @@ struct MyFoodView: View {
                 let pc = comp.portionCount
                 weightLabel = pc == pc.rounded() ? "\(Int(pc)) pcs" : String(format: "%.1f pcs", pc)
             }
-            return "\(comp.name);\(weightLabel);\(cal);\(prot)"
+            return "\(comp.name);\(weightLabel);\(cal);\(prot);\(carbs);\(fat)"
         }.joined(separator: "\n")
 
         let firstImage = components.compactMap(\.image).first
@@ -848,6 +886,8 @@ struct MyFoodView: View {
             instructions: "",
             calories: totalCal,
             protein: totalProt,
+            carbs: totalCarbs,
+            fat: totalFat,
             ingredients: combinedIngredients
         )
         modelContext.insert(recipe)
@@ -865,67 +905,87 @@ struct MyFoodView: View {
         }
     }
     func favoriteRow(_ fav: FavoriteFood) -> some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 11) {
             if let image = fav.uiImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 58, height: 58)
-                    .clipShape(RoundedRectangle(cornerRadius: 17))
-                    .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.neonCyan.opacity(0.20), lineWidth: 1))
+                    .frame(width: 54, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.neonCyan.opacity(0.20), lineWidth: 1))
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 17)
+                    RoundedRectangle(cornerRadius: 15)
                         .fill(Color.neonCyan.opacity(0.13))
                     Image(systemName: "snowflake")
                         .font(.title3.bold())
                         .foregroundColor(.neonCyan)
                 }
-                .frame(width: 58, height: 58)
+                .frame(width: 54, height: 54)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(fav.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.white)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.85)
 
-                HStack(spacing: 8) {
-                    Label("\(Int(fav.calories)) kcal", systemImage: "flame.fill")
+                HStack(spacing: 6) {
+                    Label("\(Int(fav.calories))", systemImage: "flame.fill")
+                        .foregroundColor(.neonGreen)
                     Label("\(Int(fav.protein))g", systemImage: "drop.fill")
+                        .foregroundColor(.neonCyan)
+                    Label("\(Int(fav.carbs))g", systemImage: "leaf.fill")
+                        .foregroundColor(.fitOrange)
+                    Label("\(Int(fav.fat))g", systemImage: "circle.inset.filled")
+                        .foregroundColor(.yellow)
                 }
-                .font(.caption.bold())
-                .foregroundColor(.neonCyan)
+                .font(.system(size: 10, weight: .heavy))
+
+                Text(fav.basisDisplayText)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .layoutPriority(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 rowIconButton(systemName: "pencil", color: .white.opacity(0.82)) {
                     withAnimation(.spring()) { selectedFavoriteForEdit = fav }
                 }
 
                 rowIconButton(systemName: "plus", color: .neonCyan) {
-                    addFavoriteToDiary(fav)
-                    dismiss()
+                    presentFavoriteAmountPicker(for: fav)
                 }
             }
         }
-        .padding(13)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(Color.white.opacity(0.055))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring()) {
+                selectedFavoriteForEdit = fav
+            }
+        }
     }
 
     private func rowIconButton(systemName: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .black))
+                .font(.system(size: 12, weight: .black))
                 .foregroundColor(color)
-                .frame(width: 34, height: 34)
+                .frame(width: 30, height: 30)
                 .background(
                     Circle()
                         .fill(Color.white.opacity(0.08))
@@ -1014,6 +1074,8 @@ struct MyFoodView: View {
             instructions: "",
             calories: fav.calories,
             protein: fav.protein,
+            carbs: fav.carbs,
+            fat: fav.fat,
             ingredients: fav.ingredients
         )
 
@@ -1023,13 +1085,15 @@ struct MyFoodView: View {
 
     func moveMealToFav(_ recipe: SavedRecipe) {
         let ingredients = recipe.ingredients.isEmpty
-            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein)"
+            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein);\(recipe.carbs);\(recipe.fat)"
             : recipe.ingredients
         let newFavorite = FavoriteFood(
             image: recipe.uiImage,
             name: recipe.name,
             calories: recipe.calories,
             protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
             ingredients: ingredients
         )
 
@@ -1037,17 +1101,32 @@ struct MyFoodView: View {
         modelContext.delete(recipe)
     }
 
-    func addFavoriteToDiary(_ fav: FavoriteFood) {
+    func presentFavoriteAmountPicker(for favorite: FavoriteFood) {
+        selectedFavoriteForAmount = favorite
+    }
+
+    func addFavoriteToDiary(_ fav: FavoriteFood, amount: Double = 1) {
         let safeName = fav.name.hasPrefix("❄️") ? fav.name : "❄️ " + fav.name
+        let multiplier: Double
+
+        switch fav.portionBasis {
+        case .per100g:
+            multiplier = amount / 100
+        case .perServing, .perPack, .perPiece:
+            multiplier = amount
+        }
+
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         withAnimation(.spring()) {
             modelContext.insert(FoodEntry(
                 image: fav.uiImage ?? UIImage(),
                 name: safeName,
-                calories: fav.calories,
-                protein: fav.protein,
-                ingredients: fav.ingredients,
+                calories: fav.calories * multiplier,
+                protein: fav.protein * multiplier,
+                carbs: fav.carbs * multiplier,
+                fat: fav.fat * multiplier,
+                ingredients: scaleIngredientBreakdown(fav.ingredients, by: multiplier),
                 date: selectedDate
             ))
         }
@@ -1056,7 +1135,7 @@ struct MyFoodView: View {
     func addMealToDiary(_ recipe: SavedRecipe) {
         let safeName = recipe.name.hasPrefix("👨‍🍳") ? recipe.name : "👨‍🍳 " + recipe.name
         let ingredients = recipe.ingredients.isEmpty
-            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein)"
+            ? "Meal;1 portion;\(recipe.calories);\(recipe.protein);\(recipe.carbs);\(recipe.fat)"
             : recipe.ingredients
 
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -1067,6 +1146,8 @@ struct MyFoodView: View {
                 name: safeName,
                 calories: recipe.calories,
                 protein: recipe.protein,
+                carbs: recipe.carbs,
+                fat: recipe.fat,
                 ingredients: ingredients,
                 date: selectedDate
             ))
@@ -1111,6 +1192,275 @@ struct MyFoodView: View {
     }
 }
 
+struct FavoriteAmountSheet: View {
+    let favorite: FavoriteFood
+    let selectedDate: Date
+    let onAdd: (Double) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var customAmount: Double
+
+    init(favorite: FavoriteFood, selectedDate: Date, onAdd: @escaping (Double) -> Void) {
+        self.favorite = favorite
+        self.selectedDate = selectedDate
+        self.onAdd = onAdd
+
+        switch favorite.portionBasis {
+        case .per100g:
+            _customAmount = State(initialValue: 100)
+        default:
+            _customAmount = State(initialValue: 1)
+        }
+    }
+
+    private var previewMultiplier: Double {
+        switch favorite.portionBasis {
+        case .per100g:
+            return customAmount / 100
+        case .perServing, .perPack, .perPiece:
+            return customAmount
+        }
+    }
+
+    private var manualStep: Double {
+        favorite.portionBasis == .perPiece ? 1 : (favorite.portionBasis == .per100g ? 10 : 0.5)
+    }
+
+    private var manualRange: ClosedRange<Double> {
+        switch favorite.portionBasis {
+        case .per100g:
+            return 10...1000
+        case .perPiece:
+            return 1...12
+        case .perServing, .perPack:
+            return 0.5...6
+        }
+    }
+
+    private var amountTitle: String {
+        switch favorite.portionBasis {
+        case .per100g:
+            return "How many grams did you have?"
+        case .perServing:
+            return "How many servings did you have?"
+        case .perPack:
+            return "How much of the pack did you have?"
+        case .perPiece:
+            return "How many pieces did you have?"
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(favorite.name)
+                        .font(.title3)
+                        .fontWeight(.black)
+                        .foregroundColor(.white)
+                    Text(amountTitle)
+                        .font(.subheadline)
+                        .foregroundColor(.appMuted)
+                    Text(favorite.basisDisplayText)
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(.neonCyan)
+                }
+
+                HStack(spacing: 10) {
+                    ForEach(favorite.quickAddPresets) { preset in
+                        Button {
+                            onAdd(preset.amount)
+                        } label: {
+                            Text(preset.label)
+                                .font(.system(size: 13, weight: .black))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.06))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Custom")
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text(FavoritePortionRules.amountLabel(for: favorite, amount: customAmount))
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.neonGreen)
+                    }
+
+                    Slider(value: $customAmount, in: manualRange, step: manualStep)
+                        .tint(.neonCyan)
+
+                    HStack {
+                        Text("\(Int((favorite.calories * previewMultiplier).rounded())) kcal")
+                        Spacer()
+                        Text("\(Int((favorite.protein * previewMultiplier).rounded()))g protein")
+                    }
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.appMuted)
+
+                    HStack {
+                        Text("C \(Int((favorite.carbs * previewMultiplier).rounded()))g")
+                        Spacer()
+                        Text("F \(Int((favorite.fat * previewMultiplier).rounded()))g")
+                    }
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 22)
+                        .fill(Color.white.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                )
+
+                Spacer()
+
+                Button {
+                    onAdd(customAmount)
+                } label: {
+                    Text("Add to \(DateFormatter.shortDate.string(from: selectedDate))")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+            .background(
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            )
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .foregroundColor(.neonCyan)
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+}
+
+struct FavoritePortionSettingsSheet: View {
+    @Bindable var favorite: FavoriteFood
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedBasis: FavoritePortionBasis
+
+    init(favorite: FavoriteFood) {
+        self.favorite = favorite
+        _selectedBasis = State(initialValue: favorite.portionBasis)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(favorite.name)
+                    .font(.title3)
+                    .fontWeight(.black)
+                    .foregroundColor(.white)
+
+                Text("Choose how FitMaks should count this product in Fridge.")
+                    .font(.subheadline)
+                    .foregroundColor(.appMuted)
+
+                VStack(spacing: 10) {
+                    ForEach(FavoritePortionBasis.allCases, id: \.rawValue) { basis in
+                        Button {
+                            selectedBasis = basis
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(basis.title)
+                                        .font(.system(size: 15, weight: .black))
+                                        .foregroundColor(.white)
+                                    Text(basisDescription(for: basis))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.appMuted)
+                                }
+                                Spacer()
+                                Image(systemName: selectedBasis == basis ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3.bold())
+                                    .foregroundColor(selectedBasis == basis ? .neonGreen : .white.opacity(0.4))
+                            }
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(Color.white.opacity(0.05))
+                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(selectedBasis == basis ? Color.neonGreen.opacity(0.22) : Color.white.opacity(0.08), lineWidth: 1))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    favorite.updatePortionBasis(selectedBasis)
+                    dismiss()
+                } label: {
+                    Text("Save Basis")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+            .background(
+                LinearGradient(
+                    colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            )
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .foregroundColor(.neonCyan)
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    private func basisDescription(for basis: FavoritePortionBasis) -> String {
+        switch basis {
+        case .per100g:
+            return "Best for mince, bread, rice, oats, pasta, raw staples."
+        case .perServing:
+            return "Best for cooked dishes or foods you eat by portion."
+        case .perPack:
+            return "Best for yogurt cups, bars, drinks, and packaged products."
+        case .perPiece:
+            return "Best for eggs, bananas, slices, or single units."
+        }
+    }
+}
+
 // MARK: - Meal Builder
 
 struct MealBuilderComponent: Identifiable {
@@ -1118,6 +1468,8 @@ struct MealBuilderComponent: Identifiable {
     let name: String
     let calories: Double
     let protein: Double
+    let carbs: Double
+    let fat: Double
     let ingredients: String
     let image: UIImage?
     var totalWeightGrams: Double?
@@ -1171,6 +1523,14 @@ struct MealBuilderSheet: View {
 
     private var totalProtein: Double {
         components.reduce(0) { $0 + $1.protein * $1.effectiveMultiplier }
+    }
+
+    private var totalCarbs: Double {
+        components.reduce(0) { $0 + $1.carbs * $1.effectiveMultiplier }
+    }
+
+    private var totalFat: Double {
+        components.reduce(0) { $0 + $1.fat * $1.effectiveMultiplier }
     }
 
     var body: some View {
@@ -1242,6 +1602,8 @@ struct MealBuilderSheet: View {
         let mult = item.effectiveMultiplier
         let cal = Int((item.calories * mult).rounded())
         let prot = Int((item.protein * mult).rounded())
+        let carbs = Int((item.carbs * mult).rounded())
+        let fat = Int((item.fat * mult).rounded())
 
         return VStack(spacing: 10) {
             HStack(spacing: 12) {
@@ -1266,6 +1628,10 @@ struct MealBuilderSheet: View {
                         Text("\(cal) kcal").foregroundColor(.neonGreen)
                         Text("\(prot)g P").foregroundColor(.neonCyan)
                     }.font(.system(size: 11, weight: .bold))
+                    HStack(spacing: 6) {
+                        Text("C \(carbs)g").foregroundColor(.fitOrange)
+                        Text("F \(fat)g").foregroundColor(.yellow)
+                    }.font(.system(size: 10, weight: .heavy))
                 }
 
                 Spacer()
@@ -1403,6 +1769,10 @@ struct MealBuilderSheet: View {
                     .foregroundColor(.neonGreen)
                 Label("\(Int(totalProtein))g", systemImage: "drop.fill")
                     .foregroundColor(.neonCyan)
+                Text("C \(Int(totalCarbs))g")
+                    .foregroundColor(.fitOrange)
+                Text("F \(Int(totalFat))g")
+                    .foregroundColor(.yellow)
             }
             .font(.system(size: 14, weight: .black))
         }

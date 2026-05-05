@@ -177,6 +177,37 @@ struct HomeDockButton: View {
     }
 }
 
+struct HomeMacroSummaryPill: View {
+    var title: String
+    var value: String
+    var color: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(color)
+                .tracking(0.8)
+
+            Spacer(minLength: 0)
+
+            Text(value)
+                .font(.system(size: 12, weight: .black))
+                .foregroundColor(.appText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.appSurface.opacity(0.92))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(0.16), lineWidth: 1))
+        )
+    }
+}
+
 struct HomeFoodRow: View {
     var entry: FoodEntry
 
@@ -206,13 +237,17 @@ struct HomeFoodRow: View {
                     .foregroundColor(.appText)
                     .lineLimit(2)
 
-                HStack(spacing: 8) {
-                    Label("\(Int(entry.calories)) kcal", systemImage: "flame.fill")
+                HStack(spacing: 6) {
+                    Label("\(Int(entry.calories))", systemImage: "flame.fill")
                         .foregroundColor(.neonGreen)
                     Label("\(Int(entry.protein))g", systemImage: "drop.fill")
                         .foregroundColor(.neonCyan)
+                    Label("\(Int(entry.carbs))g", systemImage: "leaf.fill")
+                        .foregroundColor(.fitOrange)
+                    Label("\(Int(entry.fat))g", systemImage: "circle.inset.filled")
+                        .foregroundColor(.yellow)
                 }
-                .font(.caption.bold())
+                .font(.system(size: 10, weight: .heavy))
             }
 
             Spacer()

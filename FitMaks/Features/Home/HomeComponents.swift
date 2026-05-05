@@ -180,22 +180,49 @@ struct HomeDockButton: View {
 struct HomeMacroSummaryPill: View {
     var title: String
     var value: String
+    var subtitle: String = ""
+    var progress: Double = 0
     var color: Color
+    var systemName: String = ""
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .heavy))
-                .foregroundColor(color)
-                .tracking(0.8)
+        let clamped = CGFloat(min(max(progress, 0), 1))
+
+        HStack(spacing: 10) {
+            if !systemName.isEmpty {
+                ZStack {
+                    Circle()
+                        .stroke(Color.black.opacity(0.34), lineWidth: 4)
+                    Circle()
+                        .trim(from: 0, to: clamped)
+                        .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: color.opacity(0.45), radius: clamped >= 1 ? 8 : 3)
+                    Image(systemName: systemName)
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(color)
+                }
+                .frame(width: 30, height: 30)
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title.uppercased())
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(color)
+                    .tracking(0.6)
+                Text(value)
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.appMuted)
+                }
+            }
 
             Spacer(minLength: 0)
-
-            Text(value)
-                .font(.system(size: 12, weight: .black))
-                .foregroundColor(.appText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

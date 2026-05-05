@@ -158,6 +158,8 @@ struct ContentView: View {
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCarbs: Double { dailyFoodEntries.reduce(0) { $0 + $1.carbs } }
     var dailyFat: Double { dailyFoodEntries.reduce(0) { $0 + $1.fat } }
+    var targetCarbs: Double { max(maxCalories - targetProtein * 4, 0) * 0.55 / 4 }
+    var targetFat: Double { max(maxCalories - targetProtein * 4, 0) * 0.45 / 9 }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
     var dailyProgress: DayProgress {
@@ -647,8 +649,8 @@ struct ContentView: View {
             }
 
             HStack(spacing: 8) {
-                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", color: .fitOrange)
-                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", color: .yellow)
+                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", subtitle: "of \(Int(targetCarbs))g", progress: dailyCarbs / max(targetCarbs, 1), color: .fitOrange, systemName: "leaf.fill")
+                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", subtitle: "of \(Int(targetFat))g", progress: dailyFat / max(targetFat, 1), color: .yellow, systemName: "circle.inset.filled")
             }
 
             modeSelectorSection

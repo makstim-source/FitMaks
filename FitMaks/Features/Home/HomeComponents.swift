@@ -236,6 +236,8 @@ struct HomeMacroSummaryPill: View {
                 Text(subtitle)
                     .font(.system(size: 8, weight: .bold))
                     .foregroundColor(.appMuted)
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
         .padding(.horizontal, 10)

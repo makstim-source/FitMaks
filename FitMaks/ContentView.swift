@@ -458,11 +458,17 @@ struct ContentView: View {
                 onTypeText: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTextEntry = true },
                 onTraining: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true },
                 onTypeTraining: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTrainingTextEntry = true },
+                onFAQ: { viewModel.isShowingSourceDialog = false; viewModel.isShowingFAQ = true },
                 onCancel: { viewModel.isShowingSourceDialog = false }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .presentationBackground(.clear)
+        }
+        .sheet(isPresented: $viewModel.isShowingFAQ) {
+            FAQSheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
             TextField("E.g. 200g chicken and rice", text: $viewModel.manualText)

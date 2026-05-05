@@ -596,6 +596,7 @@ struct NewEntrySheet: View {
     var onTypeText: () -> Void
     var onTraining: () -> Void
     var onTypeTraining: () -> Void
+    var onFAQ: () -> Void
     var onCancel: () -> Void
 
     var body: some View {
@@ -632,7 +633,7 @@ struct NewEntrySheet: View {
             newEntrySection("CAPTURE FOOD", color: .fitOrange) {
                 HStack(spacing: 10) {
                     newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, action: onCamera)
-                    newEntryButton("Library", icon: "photo.on.rectangle", color: .fitPurple, action: onLibrary)
+                    newEntryButton("Library", icon: "photo.on.rectangle", color: .yellow, action: onLibrary)
                     newEntryButton("Type Text", icon: "pencil", color: .fitPurple, action: onTypeText)
                 }
             }
@@ -641,7 +642,7 @@ struct NewEntrySheet: View {
                 HStack(spacing: 10) {
                     newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
                     newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
-                    Spacer().frame(maxWidth: .infinity)
+                    newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .yellow, action: onFAQ)
                 }
             }
 
@@ -723,5 +724,107 @@ struct NewEntrySheet: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - FAQ Sheet
+
+struct FAQSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let items: [(icon: String, color: Color, q: String, a: String)] = [
+        ("camera.fill", .neonGreen, "How do I log food?",
+         "Tap the + button and choose Camera or Library. Take a photo of your meal — AI will recognize the food, estimate weight, and calculate calories, protein, carbs, and fat automatically."),
+        ("pencil", .fitPurple, "Can I log food without a photo?",
+         "Yes! Use Type Text and describe what you ate, e.g. \"200g chicken breast and rice\". AI will analyze it the same way."),
+        ("refrigerator.fill", .neonCyan, "What is the Fridge?",
+         "The Fridge stores your favorite foods. When you save a food to the Fridge, you can quickly add it again later without taking a new photo."),
+        ("fork.knife", .fitOrange, "What are Meals?",
+         "Meals are saved recipes — full dishes you eat regularly. Save any analyzed food as a Meal to reuse it with one tap."),
+        ("link", .yellow, "How does Build Meal work?",
+         "Build Meal lets you combine items from your Fridge into a custom meal. Select ingredients and adjust portions by grams to create a precise nutritional breakdown."),
+        ("dumbbell.fill", .neonCyan, "How do I log training?",
+         "You can upload a screenshot from your fitness app (Apple Watch, Strava, etc.) or type a description like \"Padel 2 hours\" or \"Gym: bench press 4x10 80kg\"."),
+        ("flame.fill", .neonGreen, "How are calories calculated?",
+         "AI analyzes your food photos using visual recognition. It identifies each ingredient, estimates portions, and calculates macros. You can chat with AI to correct any mistakes."),
+        ("leaf.fill", .fitOrange, "What are Carbs and Fat targets?",
+         "After accounting for your protein goal, the remaining calories are split into ~55% carbs and ~45% fat. These targets adjust automatically based on your daily calorie goal."),
+        ("trophy.fill", .yellow, "How do achievements work?",
+         "You earn badges for streaks, consistency, and milestones — like hitting your goals 7 days in a row. Check the Badges section to see your progress."),
+        ("person.2.fill", .fitPurple, "What is Live Share?",
+         "Live Share lets you share your daily progress with friends in real time using SharePlay. They can see your calories, protein, and steps as you log them.")
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("F.A.Q.")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(.yellow)
+                        .tracking(1)
+                    Text("How to use FitMaks")
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundColor(.appText)
+                }
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.appMuted)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.appElevated))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            ScrollView {
+                VStack(spacing: 12) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        faqRow(icon: item.icon, color: item.color, question: item.q, answer: item.a)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
+            }
+        }
+        .background(
+            LinearGradient(
+                colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        )
+    }
+
+    private func faqRow(icon: String, color: Color, question: String, answer: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(color)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(color.opacity(0.12))
+                    )
+                Text(question)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundColor(.appText)
+            }
+            Text(answer)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.appMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.appSurface.opacity(0.7))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+        )
     }
 }

@@ -188,44 +188,44 @@ struct HomeMacroSummaryPill: View {
     var body: some View {
         let clamped = CGFloat(min(max(progress, 0), 1))
 
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             if !systemName.isEmpty {
                 ZStack {
                     Circle()
-                        .stroke(Color.black.opacity(0.34), lineWidth: 4)
+                        .stroke(Color.black.opacity(0.34), lineWidth: 3)
                     Circle()
                         .trim(from: 0, to: clamped)
-                        .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: color.opacity(0.45), radius: clamped >= 1 ? 8 : 3)
+                        .shadow(color: color.opacity(0.45), radius: clamped >= 1 ? 6 : 2)
                     Image(systemName: systemName)
-                        .font(.system(size: 9, weight: .black))
+                        .font(.system(size: 7, weight: .black))
                         .foregroundColor(color)
                 }
-                .frame(width: 30, height: 30)
+                .frame(width: 22, height: 22)
             }
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title.uppercased())
-                    .font(.system(size: 8, weight: .heavy))
-                    .foregroundColor(color)
-                    .tracking(0.6)
-                Text(value)
-                    .font(.system(size: 13, weight: .black))
-                    .foregroundColor(.appText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.appMuted)
-                }
-            }
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .heavy))
+                .foregroundColor(color)
+                .tracking(0.5)
 
             Spacer(minLength: 0)
+
+            Text(value)
+                .font(.system(size: 11, weight: .black))
+                .foregroundColor(.appText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.appMuted)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14)
@@ -239,32 +239,32 @@ struct HomeFoodRow: View {
     var entry: FoodEntry
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 10) {
             if let image = entry.uiImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 12)
                         .fill(Color.neonGreen.opacity(0.12))
                     Image(systemName: "fork.knife")
+                        .font(.system(size: 14))
                         .foregroundColor(.neonGreen)
                 }
-                .frame(width: 56, height: 56)
+                .frame(width: 44, height: 44)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.name)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
+                    .font(.system(size: 13, weight: .heavy))
                     .foregroundColor(.appText)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Label("\(Int(entry.calories))", systemImage: "flame.fill")
                         .foregroundColor(.neonGreen)
                     Label("\(Int(entry.protein))g", systemImage: "drop.fill")
@@ -274,20 +274,20 @@ struct HomeFoodRow: View {
                     Label("\(Int(entry.fat))g", systemImage: "circle.inset.filled")
                         .foregroundColor(.yellow)
                 }
-                .font(.system(size: 10, weight: .heavy))
+                .font(.system(size: 9, weight: .heavy))
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.bold())
+                .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.appMuted)
         }
-        .padding(13)
+        .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 18)
                 .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
         )
     }
 }

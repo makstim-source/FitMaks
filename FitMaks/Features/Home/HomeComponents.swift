@@ -584,3 +584,144 @@ struct HomeStatsPanelCelebrationOverlay: View {
         }
     }
 }
+
+// MARK: - New Entry Sheet
+
+struct NewEntrySheet: View {
+    var onFromFridge: () -> Void
+    var onFromMeals: () -> Void
+    var onBuildMeal: () -> Void
+    var onCamera: () -> Void
+    var onLibrary: () -> Void
+    var onTypeText: () -> Void
+    var onTraining: () -> Void
+    var onTypeTraining: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NEW ENTRY")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(.neonGreen)
+                        .tracking(1)
+                    Text("Log something")
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundColor(.appText)
+                }
+                Spacer()
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.appMuted)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.appElevated))
+                }
+                .buttonStyle(.plain)
+            }
+
+            newEntrySection("YOUR STUFF", color: .neonGreen) {
+                HStack(spacing: 10) {
+                    newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, action: onFromFridge)
+                    newEntryButton("From Meals", icon: "fork.knife", color: .neonGreen, action: onFromMeals)
+                    newEntryButton("Build Meal", icon: "link", color: .yellow, action: onBuildMeal)
+                }
+            }
+
+            newEntrySection("CAPTURE", color: .fitOrange) {
+                HStack(spacing: 10) {
+                    newEntryButton("Camera", icon: "camera.fill", color: .fitOrange, action: onCamera)
+                    newEntryButton("Library", icon: "photo.on.rectangle", color: .fitPurple, action: onLibrary)
+                    newEntryButton("Type Text", icon: "pencil", color: .neonCyan, action: onTypeText)
+                }
+            }
+
+            newEntrySection("TRAINING", color: .fitPurple) {
+                HStack(spacing: 10) {
+                    newEntryButton("Training", icon: "dumbbell.fill", color: .fitOrange, action: onTraining)
+                    newEntryButton("Type Train", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
+                    Spacer().frame(maxWidth: .infinity)
+                }
+            }
+
+            Button(action: onCancel) {
+                Text("Cancel")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.appElevated)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+    }
+
+    private func newEntrySection<Content: View>(_ title: String, color: Color, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+                .overlay(
+                    Rectangle()
+                        .fill(color)
+                        .frame(height: 2)
+                        .offset(y: 8),
+                    alignment: .bottom
+                )
+                .padding(.bottom, 4)
+            content()
+        }
+    }
+
+    private func newEntryButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(color.opacity(0.12))
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(color)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(color.opacity(0.25), lineWidth: 1)
+                    )
+
+                Text(title)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.appSurface.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(color.opacity(0.12), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}

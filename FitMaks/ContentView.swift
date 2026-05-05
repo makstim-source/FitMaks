@@ -448,15 +448,21 @@ struct ContentView: View {
             .presentationDragIndicator(.visible)
         }
         .applyStateObservers(self)
-        .confirmationDialog("Add Entry", isPresented: $viewModel.isShowingSourceDialog) {
-            Button("From Fridge ❄️") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true }
-            Button("From Meals 🍲") { viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true }
-            Button("Build Meal 🧱") { viewModel.isBuildMealMode = true; viewModel.isShowingMyFood = true }
-            Button("Camera 📷") { viewModel.pickingMode = .food; viewModel.isShowingCamera = true }
-            Button("Library 🖼️") { viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true }
-            Button("Type Text ✍️") { viewModel.isShowingTextEntry = true }
-            Button("Training 🏋️‍♂️") { viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true }
-            Button("Type Training ✍️🏋️") { viewModel.isShowingTrainingTextEntry = true }
+        .sheet(isPresented: $viewModel.isShowingSourceDialog) {
+            NewEntrySheet(
+                onFromFridge: { viewModel.isShowingSourceDialog = false; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true },
+                onFromMeals: { viewModel.isShowingSourceDialog = false; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true },
+                onBuildMeal: { viewModel.isShowingSourceDialog = false; viewModel.isBuildMealMode = true; viewModel.isShowingMyFood = true },
+                onCamera: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .food; viewModel.isShowingCamera = true },
+                onLibrary: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true },
+                onTypeText: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTextEntry = true },
+                onTraining: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true },
+                onTypeTraining: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTrainingTextEntry = true },
+                onCancel: { viewModel.isShowingSourceDialog = false }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.clear)
         }
         .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
             TextField("E.g. 200g chicken and rice", text: $viewModel.manualText)

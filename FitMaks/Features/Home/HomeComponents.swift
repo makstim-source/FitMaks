@@ -638,13 +638,10 @@ struct NewEntrySheet: View {
                 }
             }
 
-            HStack(spacing: 0) {
+            HStack {
                 newEntrySection("TRAINING", color: .neonCyan) { EmptyView() }
-                Text("  &  ")
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(.appMuted)
-                newEntrySection("HELP", color: .yellow) { EmptyView() }
                 Spacer()
+                newEntrySection("HELP", color: .yellow) { EmptyView() }
             }
             HStack(spacing: 10) {
                 newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)

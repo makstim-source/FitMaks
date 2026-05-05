@@ -642,7 +642,15 @@ struct NewEntrySheet: View {
                 HStack(spacing: 10) {
                     newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
                     newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
+                    Spacer().frame(maxWidth: .infinity)
+                }
+            }
+
+            newEntrySection("HELP", color: .yellow) {
+                HStack(spacing: 10) {
                     newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .yellow, action: onFAQ)
+                    Spacer().frame(maxWidth: .infinity)
+                    Spacer().frame(maxWidth: .infinity)
                 }
             }
 

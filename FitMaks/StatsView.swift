@@ -162,10 +162,14 @@ struct StatsView: View {
                     Button {
                         livePayload = streakPayload
                     } label: {
-                        Image(systemName: "camera")
-                            .font(.system(size: 16, weight: .black))
+                        Label("Post", systemImage: "camera.fill")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.fitOrange)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Color.black))
+                            .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                     }
-                    .foregroundColor(.fitOrange)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -1016,10 +1020,11 @@ private struct StatsAchievementDetailSheet: View {
                                 Button(action: onShare) {
                                     Label("Post", systemImage: "camera.fill")
                                         .font(.system(size: 11, weight: .black))
-                                        .foregroundColor(.appAccentText)
+                                        .foregroundColor(.fitOrange)
                                         .padding(.horizontal, 9)
                                         .padding(.vertical, 6)
-                                        .background(Capsule().fill(achievement.color))
+                                        .background(Capsule().fill(Color.black))
+                                        .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1127,18 +1132,6 @@ private struct StatsHeroScoreCard: View {
                 }
 
                 Spacer()
-
-                if let onShare {
-                    Button(action: onShare) {
-                        Label("Post", systemImage: "camera.fill")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.appAccentText)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(Color.fitOrange))
-                    }
-                    .buttonStyle(.plain)
-                }
 
                 VStack(alignment: .trailing, spacing: 0) {
                     ZStack {

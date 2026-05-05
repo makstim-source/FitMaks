@@ -638,12 +638,18 @@ struct NewEntrySheet: View {
                 }
             }
 
-            newEntrySection("TRAINING & HELP", color: .neonCyan) {
-                HStack(spacing: 10) {
-                    newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
-                    newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
-                    newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .yellow, action: onFAQ)
-                }
+            HStack(spacing: 0) {
+                newEntrySection("TRAINING", color: .neonCyan) { EmptyView() }
+                Text("  &  ")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                newEntrySection("HELP", color: .yellow) { EmptyView() }
+                Spacer()
+            }
+            HStack(spacing: 10) {
+                newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
+                newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
+                newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .yellow, action: onFAQ)
             }
 
             Button(action: onCancel) {

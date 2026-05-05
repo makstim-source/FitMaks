@@ -218,7 +218,7 @@ struct HomeMacroSummaryPill: View {
             }
 
             Text(title.uppercased())
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: 8, weight: .heavy))
                 .foregroundColor(color)
                 .tracking(0.5)
                 .lineLimit(1)

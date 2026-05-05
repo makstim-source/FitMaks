@@ -624,12 +624,12 @@ struct NewEntrySheet: View {
             newEntrySection("YOUR STUFF", color: .neonGreen) {
                 HStack(spacing: 10) {
                     newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, action: onFromFridge)
-                    newEntryButton("From Meals", icon: "fork.knife", color: .neonGreen, action: onFromMeals)
+                    newEntryButton("From Meals", icon: "fork.knife", color: .fitOrange, action: onFromMeals)
                     newEntryButton("Build Meal", icon: "link", color: .yellow, action: onBuildMeal)
                 }
             }
 
-            newEntrySection("CAPTURE", color: .fitOrange) {
+            newEntrySection("CAPTURE FOOD", color: .fitOrange) {
                 HStack(spacing: 10) {
                     newEntryButton("Camera", icon: "camera.fill", color: .fitOrange, action: onCamera)
                     newEntryButton("Library", icon: "photo.on.rectangle", color: .fitPurple, action: onLibrary)
@@ -637,10 +637,10 @@ struct NewEntrySheet: View {
                 }
             }
 
-            newEntrySection("TRAINING", color: .fitPurple) {
+            newEntrySection("TRAINING", color: .neonCyan) {
                 HStack(spacing: 10) {
-                    newEntryButton("Training", icon: "dumbbell.fill", color: .fitOrange, action: onTraining)
-                    newEntryButton("Type Train", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
+                    newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .fitOrange, action: onTraining)
+                    newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
                     Spacer().frame(maxWidth: .infinity)
                 }
             }

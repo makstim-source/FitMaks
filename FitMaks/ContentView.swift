@@ -450,9 +450,9 @@ struct ContentView: View {
         .applyStateObservers(self)
         .overlay {
             if viewModel.isShowingSourceDialog {
-                Color.black.opacity(0.7)
+                Color.black.opacity(0.8)
                     .ignoresSafeArea()
-                    .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { viewModel.isShowingSourceDialog = false } }
+                    .onTapGesture { withAnimation(.easeOut(duration: 0.8)) { viewModel.isShowingSourceDialog = false } }
                     .transition(.opacity)
 
                 VStack {
@@ -657,7 +657,7 @@ struct ContentView: View {
                     subtitle: caloriesAboveTarget ? (caloriesOutsideGrace ? "over" : "grace") : "deficit",
                     progress: dailyCaloriesConsumed / max(maxCalories, 1),
                     color: caloriesOutsideGrace ? .red : .neonGreen,
-                    systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "leaf.fill"
+                    systemName: caloriesOutsideGrace ? "exclamationmark.triangle.fill" : "flame.fill"
                 )
                 .onTapGesture { viewModel.openGoalBreakdown(.calories) }
 

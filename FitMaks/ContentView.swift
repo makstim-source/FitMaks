@@ -448,23 +448,35 @@ struct ContentView: View {
             .presentationDragIndicator(.visible)
         }
         .applyStateObservers(self)
-        .sheet(isPresented: $viewModel.isShowingSourceDialog) {
-            NewEntrySheet(
-                onFromFridge: { viewModel.isShowingSourceDialog = false; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true },
-                onFromMeals: { viewModel.isShowingSourceDialog = false; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true },
-                onBuildMeal: { viewModel.isShowingSourceDialog = false; viewModel.isBuildMealMode = true; viewModel.isShowingMyFood = true },
-                onCamera: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .food; viewModel.isShowingCamera = true },
-                onLibrary: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true },
-                onTypeText: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTextEntry = true },
-                onTraining: { viewModel.isShowingSourceDialog = false; viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true },
-                onTypeTraining: { viewModel.isShowingSourceDialog = false; viewModel.isShowingTrainingTextEntry = true },
-                onFAQ: { viewModel.isShowingSourceDialog = false; viewModel.isShowingFAQ = true },
-                onCancel: { viewModel.isShowingSourceDialog = false }
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-            .presentationBackground(Color.black.opacity(0.65))
+        .overlay {
+            if viewModel.isShowingSourceDialog {
+                Color.black.opacity(0.7)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { viewModel.isShowingSourceDialog = false } }
+                    .transition(.opacity)
+
+                VStack {
+                    Spacer()
+                    NewEntrySheet(
+                        onFromFridge: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 0; viewModel.isShowingMyFood = true },
+                        onFromMeals: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isSelectionModeForFridge = true; viewModel.initialMyFoodTab = 1; viewModel.isShowingMyFood = true },
+                        onBuildMeal: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isBuildMealMode = true; viewModel.isShowingMyFood = true },
+                        onCamera: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.pickingMode = .food; viewModel.isShowingCamera = true },
+                        onLibrary: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.pickingMode = .food; viewModel.isShowingPhotoPicker = true },
+                        onTypeText: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isShowingTextEntry = true },
+                        onTraining: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.pickingMode = .training; viewModel.isShowingPhotoPicker = true },
+                        onTypeTraining: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isShowingTrainingTextEntry = true },
+                        onFAQ: { withAnimation { viewModel.isShowingSourceDialog = false }; viewModel.isShowingFAQ = true },
+                        onCancel: { withAnimation(.easeOut(duration: 0.2)) { viewModel.isShowingSourceDialog = false } }
+                    )
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .ignoresSafeArea(.container, edges: .bottom)
+            }
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: viewModel.isShowingSourceDialog)
         .sheet(isPresented: $viewModel.isShowingFAQ) {
             FAQSheet()
                 .presentationDetents([.large])

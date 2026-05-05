@@ -299,7 +299,7 @@ struct TrainingDetailOverlay: View {
                 Spacer()
                 if let onShare {
                     Button(action: onShare) {
-                        Label("Share", systemImage: "camera.aperture")
+                        Label("Post", systemImage: "camera.fill")
                             .font(.system(size: 12, weight: .black))
                             .foregroundColor(.appAccentText)
                             .padding(.horizontal, 10)

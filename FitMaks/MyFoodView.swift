@@ -383,7 +383,7 @@ struct MyFoodView: View {
             HStack(spacing: 8) {
                 foodActionButton(title: "Add Meal", systemName: "plus", color: .orange) { isShowingSourceDialog = true }
                 foodActionButton(title: "Build from Fridge", systemName: "square.stack.3d.up", color: .orange) {
-                    withAnimation(.spring()) { isBuildingMeal = true }
+                    withAnimation(.spring()) { isBuildingMeal = true; currentTab = 0 }
                 }
             }
             .padding(.horizontal, 18)

@@ -1014,9 +1014,12 @@ private struct StatsAchievementDetailSheet: View {
 
                             if let onShare {
                                 Button(action: onShare) {
-                                    Image(systemName: "square.and.arrow.up")
-                                        .font(.system(size: 17, weight: .black))
-                                        .foregroundColor(achievement.color)
+                                    Label("Post", systemImage: "camera.fill")
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundColor(.appAccentText)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 6)
+                                        .background(Capsule().fill(achievement.color))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1127,11 +1130,12 @@ private struct StatsHeroScoreCard: View {
 
                 if let onShare {
                     Button(action: onShare) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundColor(.black.opacity(0.78))
-                            .frame(width: 38, height: 38)
-                            .background(Circle().fill(Color.white.opacity(0.22)))
+                        Label("Post", systemImage: "camera.fill")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Color.fitOrange))
                     }
                     .buttonStyle(.plain)
                 }

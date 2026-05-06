@@ -251,6 +251,267 @@ struct HomeMacroSummaryPill: View {
     }
 }
 
+struct HomeCarbControlCard: View {
+    var consumed: Double
+    var baseTarget: Double
+    var activeTarget: Double
+
+    private var burnThreshold: Double {
+        max(min(baseTarget * 0.7, activeTarget), 0)
+    }
+
+    private var fuelBonus: Double {
+        max(activeTarget - baseTarget, 0)
+    }
+
+    private var accentColor: Color {
+        if consumed > activeTarget {
+            return .red
+        }
+        if consumed <= burnThreshold {
+            return .neonGreen
+        }
+        if consumed <= baseTarget {
+            return .yellow
+        }
+        return fuelBonus > 0 ? .neonCyan : .yellow
+    }
+
+    private var statusLabel: String {
+        if consumed > activeTarget {
+            return "Over"
+        }
+        if consumed <= burnThreshold {
+            return "Low"
+        }
+        if consumed <= baseTarget {
+            return "Base"
+        }
+        return fuelBonus > 0 ? "Fuel" : "Near"
+    }
+
+    private var helperText: String {
+        if fuelBonus > 0 {
+            return "base \(Int(baseTarget.rounded()))g · cap \(Int(activeTarget.rounded()))g"
+        }
+        return "cap \(Int(activeTarget.rounded()))g"
+    }
+
+    private var markerProgress: CGFloat {
+        guard activeTarget > 0 else { return 0 }
+        return CGFloat(min(max(baseTarget / activeTarget, 0), 1))
+    }
+
+    private var fillProgress: CGFloat {
+        guard activeTarget > 0 else { return 0 }
+        return CGFloat(min(max(consumed / activeTarget, 0), 1))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label("CARBS", systemImage: "leaf.fill")
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(.fitOrange)
+                    .tracking(0.65)
+
+                Spacer(minLength: 8)
+
+                Text(statusLabel)
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(.appAccentText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(accentColor))
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("\(Int(consumed.rounded()))g")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Text(helperText)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            GeometryReader { proxy in
+                let width = max(proxy.size.width, 1)
+                let greenWidth = width * min(max(CGFloat(burnThreshold / max(activeTarget, 1)), 0), 1)
+                let yellowStart = greenWidth
+                let yellowWidth = width * min(max(CGFloat(max(baseTarget - burnThreshold, 0) / max(activeTarget, 1)), 0), 1)
+                let cyanStart = width * markerProgress
+                let cyanWidth = width * min(max(CGFloat(fuelBonus / max(activeTarget, 1)), 0), 1)
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+
+                    Capsule()
+                        .fill(Color.neonGreen.opacity(0.20))
+                        .frame(width: greenWidth)
+
+                    Capsule()
+                        .fill(Color.yellow.opacity(0.18))
+                        .frame(width: yellowWidth)
+                        .offset(x: yellowStart)
+
+                    if fuelBonus > 0 {
+                        Capsule()
+                            .fill(Color.neonCyan.opacity(0.18))
+                            .frame(width: cyanWidth)
+                            .offset(x: cyanStart)
+                    }
+
+                    Capsule()
+                        .fill(accentColor)
+                        .frame(width: max(10, width * fillProgress))
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.42))
+                        .frame(width: 2, height: 8)
+                        .offset(x: max(0, min(width - 2, width * markerProgress - 1)))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.appSurface.opacity(0.82))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(accentColor.opacity(0.13), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct HomeFatControlCard: View {
+    var consumed: Double
+    var target: Double
+
+    private var lowerBound: Double {
+        max(target * 0.85, target - 8)
+    }
+
+    private var upperBound: Double {
+        max(target * 1.15, lowerBound + 6)
+    }
+
+    private var scaleMax: Double {
+        max(upperBound * 1.35, 1)
+    }
+
+    private var accentColor: Color {
+        if consumed < lowerBound {
+            return .fitOrange
+        }
+        if consumed > upperBound {
+            return .fitPurple
+        }
+        return .yellow
+    }
+
+    private var statusLabel: String {
+        if consumed < lowerBound {
+            return "Low"
+        }
+        if consumed > upperBound {
+            return "High"
+        }
+        return "In range"
+    }
+
+    private var helperText: String {
+        "zone \(Int(lowerBound.rounded()))-\(Int(upperBound.rounded()))g"
+    }
+
+    private var currentProgress: CGFloat {
+        CGFloat(min(max(consumed / scaleMax, 0), 1))
+    }
+
+    private var zoneStartProgress: CGFloat {
+        CGFloat(min(max(lowerBound / scaleMax, 0), 1))
+    }
+
+    private var zoneWidthProgress: CGFloat {
+        CGFloat(min(max((upperBound - lowerBound) / scaleMax, 0), 1))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label("FAT", systemImage: "circle.inset.filled")
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(.yellow)
+                    .tracking(0.65)
+
+                Spacer(minLength: 8)
+
+                Text(statusLabel)
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(statusLabel == "In range" ? .black : .appAccentText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(accentColor))
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("\(Int(consumed.rounded()))g")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Text(helperText)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            GeometryReader { proxy in
+                let width = max(proxy.size.width, 1)
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+
+                    Capsule()
+                        .fill(Color.yellow.opacity(0.18))
+                        .frame(width: width * zoneWidthProgress)
+                        .offset(x: width * zoneStartProgress)
+
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: accentColor.opacity(0.32), radius: 3)
+                        .offset(x: max(0, min(width - 6, width * currentProgress - 3)))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.appSurface.opacity(0.82))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(accentColor.opacity(0.13), lineWidth: 1)
+                )
+        )
+    }
+}
+
 struct HomeFoodRow: View {
     var entry: FoodEntry
 
@@ -283,12 +544,20 @@ struct HomeFoodRow: View {
                 HStack(spacing: 6) {
                     Label("\(Int(entry.calories))", systemImage: "flame.fill")
                         .foregroundColor(.neonGreen)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     Label("\(Int(entry.protein))g", systemImage: "drop.fill")
                         .foregroundColor(.neonCyan)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     Label("\(Int(entry.carbs))g", systemImage: "leaf.fill")
                         .foregroundColor(.fitOrange)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     Label("\(Int(entry.fat))g", systemImage: "circle.inset.filled")
                         .foregroundColor(.yellow)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 .font(.system(size: 10, weight: .heavy))
             }
@@ -541,14 +810,32 @@ struct HomeStatsPanelBackground: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.yellow.opacity(0.27),
-                            Color.orange.opacity(0.24),
+                            Color.neonGreen.opacity(0.16),
+                            Color.neonGreen.opacity(0.06),
                             Color.appElevated
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.neonGreen.opacity(0.34),
+                                    Color.neonGreen.opacity(0.12),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 4,
+                                endRadius: 72
+                            )
+                        )
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 10)
+                        .offset(x: 26, y: -30)
+                }
         } else {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.appSurface)
@@ -560,32 +847,42 @@ struct HomeStatsPanelCelebrationOverlay: View {
     var isPerfectPastDay: Bool
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
-                    isPerfectPastDay
-                    ? LinearGradient(colors: [.yellow, .orange, .fitOrange], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(colors: [Color.clear], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: isPerfectPastDay ? 2 : 0
-                )
-
+        ZStack(alignment: .top) {
             if isPerfectPastDay {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
 
                     Text("PERFECT DAY")
-                        .font(.system(size: 10, weight: .heavy))
-                        .tracking(0.8)
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.7)
                 }
                 .foregroundColor(.appAccentText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.yellow))
-                .shadow(color: Color.yellow.opacity(0.38), radius: 6, x: 0, y: 0)
-                .offset(x: -12, y: -10)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.neonGreen.opacity(0.99),
+                                    Color.yellow.opacity(0.90)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.neonGreen.opacity(0.22), lineWidth: 0.8)
+                        )
+                )
+                .shadow(color: Color.neonGreen.opacity(0.46), radius: 12, x: 0, y: 0)
+                .shadow(color: Color.neonGreen.opacity(0.24), radius: 24, x: 0, y: 0)
+                .offset(y: -8)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -628,29 +925,29 @@ struct NewEntrySheet: View {
 
             newEntrySection("YOUR STUFF", color: .neonGreen) {
                 HStack(spacing: 10) {
-                    newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, action: onFromFridge)
-                    newEntryButton("From Meals", icon: "fork.knife", color: .fitOrange, action: onFromMeals)
-                    newEntryButton("Build Meal", icon: "link", color: .yellow, action: onBuildMeal)
+                    newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, surfaceTint: .neonCyan, action: onFromFridge)
+                    newEntryButton("From Meals", icon: "fork.knife", color: .fitOrange, surfaceTint: .neonCyan, action: onFromMeals)
+                    newEntryButton("Build Meal", icon: "link", color: .yellow, surfaceTint: .neonCyan, action: onBuildMeal)
                 }
             }
 
             newEntrySection("CAPTURE FOOD", color: .fitOrange) {
                 HStack(spacing: 10) {
-                    newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, action: onCamera)
-                    newEntryButton("Library", icon: "photo.on.rectangle", color: .yellow, action: onLibrary)
-                    newEntryButton("Type Food", icon: "pencil", color: .fitPurple, action: onTypeText)
+                    newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, surfaceTint: .neonGreen, action: onCamera)
+                    newEntryButton("Library", icon: "photo.on.rectangle", color: .yellow, surfaceTint: .neonGreen, action: onLibrary)
+                    newEntryButton("Type Food", icon: "pencil", color: .fitPurple, surfaceTint: .neonGreen, action: onTypeText)
                 }
             }
 
             HStack {
                 newEntrySection("TRAINING", color: .neonCyan) { EmptyView() }
                 Spacer()
-                newEntrySection("HELP", color: .yellow) { EmptyView() }
+                newEntrySection("HELP", color: .fitPurple) { EmptyView() }
             }
             HStack(spacing: 10) {
-                newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
-                newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, action: onTypeTraining)
-                newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .yellow, action: onFAQ)
+                newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, surfaceTint: .fitOrange, action: onTraining)
+                newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, surfaceTint: .fitOrange, action: onTypeTraining)
+                newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .fitPurple, surfaceTint: .fitPurple, action: onFAQ)
             }
 
             Button(action: onCancel) {
@@ -697,11 +994,17 @@ struct NewEntrySheet: View {
         }
     }
 
-    private func newEntryButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+    private func newEntryButton(_ title: String, icon: String, color: Color, surfaceTint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(color.opacity(0.12))
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.18), color.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 48, height: 48)
                     .overlay(
                         Image(systemName: icon)
@@ -723,12 +1026,22 @@ struct NewEntrySheet: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(Color.appSurface.opacity(0.6))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                surfaceTint.opacity(0.11),
+                                Color.appSurface.opacity(0.72)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(color.opacity(0.12), lineWidth: 1)
+                            .stroke(surfaceTint.opacity(0.18), lineWidth: 1)
                     )
             )
+            .shadow(color: surfaceTint.opacity(0.08), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
     }
@@ -755,7 +1068,7 @@ struct FAQSheet: View {
         ("flame.fill", .neonGreen, "How are calories calculated?",
          "AI analyzes your food photos using visual recognition. It identifies each ingredient, estimates portions, and calculates macros. You can chat with AI to correct any mistakes."),
         ("leaf.fill", .fitOrange, "What are Carbs and Fat targets?",
-         "After accounting for your protein goal, the remaining calories are split into ~55% carbs and ~45% fat. These targets adjust automatically based on your daily calorie goal."),
+         "Carbs behave like fuel: rest days keep the cap tighter, while cardio days expand it. Fat is shown as a comfort zone instead of a race to 100%, so you can stay inside a more useful daily range."),
         ("trophy.fill", .yellow, "How do achievements work?",
          "You earn badges for streaks, consistency, and milestones — like hitting your goals 7 days in a row. Check the Badges section to see your progress."),
         ("camera.fill", .fitOrange, "How does Post work?",
@@ -798,11 +1111,29 @@ struct FAQSheet: View {
         }
         .background(
             LinearGradient(
-                colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
+                colors: [
+                    Color.appBackgroundStart,
+                    Color.appBackgroundMid.opacity(0.96),
+                    Color.appBackgroundEnd
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+            .overlay(alignment: .topTrailing) {
+                Circle()
+                    .fill(Color.yellow.opacity(0.08))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 54)
+                    .offset(x: 72, y: -70)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Circle()
+                    .fill(Color.neonGreen.opacity(0.07))
+                    .frame(width: 260, height: 260)
+                    .blur(radius: 72)
+                    .offset(x: -90, y: 90)
+            }
         )
     }
 
@@ -815,7 +1146,17 @@ struct FAQSheet: View {
                     .frame(width: 32, height: 32)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(color.opacity(0.12))
+                            .fill(
+                                LinearGradient(
+                                    colors: [color.opacity(0.20), color.opacity(0.09)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(color.opacity(0.22), lineWidth: 1)
                     )
                 Text(question)
                     .font(.system(size: 14, weight: .heavy))
@@ -823,15 +1164,29 @@ struct FAQSheet: View {
             }
             Text(answer)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.appMuted)
+                .foregroundColor(.appText.opacity(0.78))
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.appSurface.opacity(0.7))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.06),
+                            Color.appElevated.opacity(0.92)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(color.opacity(0.14), lineWidth: 1)
+                )
         )
+        .shadow(color: Color.black.opacity(0.16), radius: 10, x: 0, y: 6)
     }
 }

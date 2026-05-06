@@ -369,11 +369,11 @@ struct HomeCarbControlCard: View {
 
                     Capsule()
                         .fill(accentColor)
-                        .frame(width: max(10, width * fillProgress))
+                        .frame(width: max(6, width * fillProgress))
 
                     Rectangle()
-                        .fill(Color.white.opacity(0.42))
-                        .frame(width: 2, height: 8)
+                        .fill(Color.white.opacity(0.5))
+                        .frame(width: 1.5, height: 3)
                         .offset(x: max(0, min(width - 2, width * markerProgress - 1)))
                 }
             }

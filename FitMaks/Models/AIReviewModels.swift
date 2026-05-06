@@ -68,6 +68,8 @@ struct AIReviewFoodItem: Identifiable {
     var name: String
     var calories: Double
     var protein: Double
+    var carbs: Double
+    var fat: Double
     var ingredients: String
     var isSelected = true
 }
@@ -100,6 +102,8 @@ struct AIResultReview: Identifiable {
                 name: result.food_name,
                 calories: result.calories,
                 protein: result.protein,
+                carbs: result.carbs,
+                fat: result.fat,
                 ingredients: result.ingredients_breakdown
             )
         }

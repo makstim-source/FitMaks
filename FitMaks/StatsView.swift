@@ -4,6 +4,7 @@ import SwiftData
 struct StatsView: View {
     @Environment(\.dismiss) var dismiss
     @AppStorage("seenAchievementUnlockIDs") private var seenAchievementUnlockIDs = ""
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
 
     var allFoodEntries: [FoodEntry]
     var allTrainingEntries: [TrainingEntry]
@@ -190,9 +191,6 @@ struct StatsView: View {
                 }
                 refreshAchievementBannerQueue()
             }
-            .onChange(of: unlockedAchievementSignature) { _, _ in
-                refreshAchievementBannerQueue()
-            }
         }
         .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
@@ -222,6 +220,7 @@ struct StatsView: View {
             baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
             steps: weeklySteps[dateID] ?? 0,
             uploadedSteps: dayUploadedTrainingSteps,
+            activityLevel: activityLevel,
             stepTarget: stepTarget
         )
     }
@@ -358,6 +357,7 @@ struct StatsView: View {
 
 struct AchievementsView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
 
     var allFoodEntries: [FoodEntry]
     var allTrainingEntries: [TrainingEntry]
@@ -491,6 +491,7 @@ struct AchievementsView: View {
             baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
             steps: weeklySteps[dateID] ?? 0,
             uploadedSteps: dayUploadedTrainingSteps,
+            activityLevel: activityLevel,
             stepTarget: stepTarget
         )
     }
@@ -788,6 +789,127 @@ struct StatsAchievementUnlockBanner: View {
                 )
         )
         .shadow(color: achievement.color.opacity(0.22), radius: 22, x: 0, y: 10)
+    }
+}
+
+struct StatsAchievementUnlockPopup: View {
+    let achievement: StatsAchievement
+    var onPost: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                achievement.color.opacity(0.9),
+                                achievement.color.opacity(0.34),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 68
+                        )
+                    )
+                    .frame(width: 124, height: 124)
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                achievement.color.opacity(0.98),
+                                Color.white.opacity(0.76),
+                                achievement.color.opacity(0.68)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 84, height: 84)
+
+                Image(systemName: achievement.icon)
+                    .font(.system(size: 32, weight: .black))
+                    .foregroundColor(.appAccentText)
+            }
+            .shadow(color: achievement.color.opacity(0.42), radius: 24, y: 8)
+
+            VStack(spacing: 7) {
+                Text("Achievement unlocked")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(achievement.color)
+                    .tracking(1)
+
+                Text(achievement.title)
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundColor(.appText)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+
+                Text(achievement.subtitle)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.appMuted)
+                    .multilineTextAlignment(.center)
+            }
+
+            Text(achievement.detail)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.appMuted)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+
+            HStack(spacing: 10) {
+                Button(action: onDismiss) {
+                    Text("Later")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundColor(.appText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(Color.appBorder, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onPost) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "camera.fill")
+                        Text("Post it")
+                    }
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(.appAccentText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 18).fill(achievement.color))
+                    .shadow(color: achievement.color.opacity(0.3), radius: 12, y: 6)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.10, green: 0.11, blue: 0.13),
+                            Color(red: 0.08, green: 0.09, blue: 0.11)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(achievement.color.opacity(0.34), lineWidth: 1.2)
+                )
+        )
+        .shadow(color: .black.opacity(0.22), radius: 30, y: 14)
     }
 }
 

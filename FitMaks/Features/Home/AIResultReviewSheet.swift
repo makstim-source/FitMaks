@@ -111,6 +111,11 @@ struct AIResultReviewSheet: View {
                     metricField(title: "kcal", value: item.calories, color: .neonGreen)
                     metricField(title: "protein", value: item.protein, color: .neonCyan)
                 }
+
+                HStack(spacing: 10) {
+                    metricField(title: "carbs", value: item.carbs, color: .fitOrange)
+                    metricField(title: "fat", value: item.fat, color: .yellow)
+                }
             }
         }
         .padding(14)

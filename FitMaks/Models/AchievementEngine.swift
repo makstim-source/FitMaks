@@ -117,6 +117,10 @@ enum StatsAchievementUnit {
 private struct AchievementFoodDaySummary {
     let mealCount: Int
     let searchableText: String
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
 
     func contains(_ fragment: String) -> Bool {
         searchableText.contains(fragment)
@@ -272,6 +276,52 @@ enum AchievementEngine {
         }.count
         let saladDays = foodSummary30.values.filter { summary in
             summary.containsAny(["salad", "cucumber", "lettuce"])
+        }.count
+        let firstLogDayCount = min(foodSummary30.count, 1)
+        let carbWhispererDays = last30Stats.filter { day in
+            guard day.mode == .chill, day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.carbs <= 70
+        }.count
+        let riceIsLegalDays = last30Stats.filter { day in
+            guard day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.carbs >= 150
+        }.count
+        let breadBoundaryDays = last30Stats.filter { day in
+            guard day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.containsAny(["bread", "toast", "bagel", "bun", "хлеб", "лаваш"])
+        }.count
+        let fatControllerDays = last30Stats.filter { day in
+            guard day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.fat >= 55 && summary.fat <= 75
+        }.count
+        let lowFatDramaDays = last30Stats.filter { day in
+            guard day.hasFood else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.fat < 35
+        }.count
+        let peanutButterDays = last30Stats.filter { day in
+            guard day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.containsAny(["peanut butter", "almond butter", "cashew butter", "nutella", "арахисовая паста"])
+        }.count
+        let goodFatDays = last30Stats.filter { day in
+            guard day.calorieWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.containsAny(["avocado", "olive oil", "nuts", "almonds", "walnuts", "cashews", "авокадо", "оливков", "орех"])
+        }.count
+        let macroMechanicDays = last30Stats.filter { day in
+            guard day.calorieWin && day.proteinWin else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.carbs >= 100 && summary.carbs <= 180 && summary.fat >= 45 && summary.fat <= 75
+        }.count
+        let oilBaronDays = last30Stats.filter { day in
+            guard day.hasFood else { return false }
+            guard let summary = foodSummary30[dayID(for: day.date, calendar: calendar)] else { return false }
+            return summary.fat >= 90
         }.count
         let riceDisciplineStreak = currentStreak(
             in: last30Stats,
@@ -445,6 +495,18 @@ enum AchievementEngine {
 
         let chaos: [StatsAchievement] = [
             StatsAchievement(
+                title: "Day One of Fixing This Body",
+                subtitle: "Log your first proper day",
+                detail: "The dramatic reboot badge. Log one real day instead of just thinking about becoming the kind of person who tracks things.",
+                icon: "figure.stand",
+                threshold: 1,
+                current: firstLogDayCount,
+                color: .neonGreen,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
                 title: "Chicken Breast Investor",
                 subtitle: "Log chicken on 10 different days",
                 detail: "Your portfolio is dry, high-protein, and extremely serious. Log chicken on 10 separate days inside the last 30 days.",
@@ -477,6 +539,114 @@ enum AchievementEngine {
                 current: riceDisciplineStreak,
                 color: .neonGreen,
                 unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Carb Whisperer",
+                subtitle: "3 chill days under 70g carbs",
+                detail: "Keep chill-mode days tight and quiet: under 70g carbs on 3 different days. No rice opera. No bread plot twists.",
+                icon: "ear.fill",
+                threshold: 3,
+                current: carbWhispererDays,
+                color: .fitOrange,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Rice Is Still Legal",
+                subtitle: "150g+ carbs and still in target",
+                detail: "Hit at least 150g carbs and still close calories on 3 different days. Proof that carbs are not the villain, just poorly supervised.",
+                icon: "takeoutbag.and.cup.and.straw",
+                threshold: 3,
+                current: riceIsLegalDays,
+                color: .yellow,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Bread With Boundaries",
+                subtitle: "Bread day, still in target",
+                detail: "Log bread, toast, bagels, or buns and still close calories on 3 different days. Civilization survives when portions do.",
+                icon: "birthday.cake",
+                threshold: 3,
+                current: breadBoundaryDays,
+                color: .fitOrange,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Fat Controller",
+                subtitle: "Stay in the fat zone 4 times",
+                detail: "Land between 55g and 75g fat while still closing calories on 4 different days. Hormones supported. Chaos denied access.",
+                icon: "dial.medium.fill",
+                threshold: 4,
+                current: fatControllerDays,
+                color: .fitPurple,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Low-Fat, High Drama",
+                subtitle: "Under 35g fat on 3 days",
+                detail: "A badge for the suspiciously lean days where fat dropped under 35g. Impressive? Maybe. Sustainable? That's between you and your fridge.",
+                icon: "theatermasks.fill",
+                threshold: 3,
+                current: lowFatDramaDays,
+                color: .fitPurple,
+                unit: .days,
+                family: .chaos,
+                rarity: .easy
+            ),
+            StatsAchievement(
+                title: "Peanut Butter Liability",
+                subtitle: "Nut butter, no calorie crime",
+                detail: "Log peanut butter or its equally dangerous cousins and still close calories on 2 different days. You stared into the jar and survived.",
+                icon: "exclamationmark.circle.fill",
+                threshold: 2,
+                current: peanutButterDays,
+                color: .yellow,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Good Fat Propaganda",
+                subtitle: "Healthy fats on 4 clean days",
+                detail: "Avocado, olive oil, nuts. Log the nice fats and still close calories on 4 different days. Wellness influencer energy, but with receipts.",
+                icon: "leaf.fill",
+                threshold: 4,
+                current: goodFatDays,
+                color: .neonGreen,
+                unit: .days,
+                family: .chaos,
+                rarity: .medium
+            ),
+            StatsAchievement(
+                title: "Macro Mechanic",
+                subtitle: "Carbs and fat both under control",
+                detail: "Close calories and protein while landing carbs between 100-180g and fat between 45-75g on 3 different days. Clean engine. No weird noises.",
+                icon: "wrench.and.screwdriver.fill",
+                threshold: 3,
+                current: macroMechanicDays,
+                color: .neonCyan,
+                unit: .days,
+                family: .chaos,
+                rarity: .hard
+            ),
+            StatsAchievement(
+                title: "Oil Baron",
+                subtitle: "90g+ fat in a single day",
+                detail: "You did not eat a meal. You lubricated a dynasty. Hit 90g fat in one day and earn the title nobody should chase on purpose.",
+                icon: "drop.triangle.fill",
+                threshold: 1,
+                current: oilBaronDays,
+                color: .fitPurple,
+                unit: .times,
                 family: .chaos,
                 rarity: .easy
             ),
@@ -848,7 +1018,11 @@ enum AchievementEngine {
 
             return AchievementFoodDaySummary(
                 mealCount: entries.count,
-                searchableText: searchableText
+                searchableText: searchableText,
+                calories: entries.reduce(0) { $0 + $1.calories },
+                protein: entries.reduce(0) { $0 + $1.protein },
+                carbs: entries.reduce(0) { $0 + $1.carbs },
+                fat: entries.reduce(0) { $0 + $1.fat }
             )
         }
     }

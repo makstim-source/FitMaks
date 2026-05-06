@@ -28,19 +28,33 @@ struct FoodResult: Codable {
     var source_photo_number: Int? = nil
     let calories: Double
     let protein: Double
+    let carbs: Double
+    let fat: Double
     let ingredients_breakdown: String
     let ai_response_text: String
 
     private enum CodingKeys: String, CodingKey {
-        case food_name, emoji, source_photo_number, calories, protein, ingredients_breakdown, ai_response_text
+        case food_name, emoji, source_photo_number, calories, protein, carbs, fat, ingredients_breakdown, ai_response_text
     }
 
-    init(food_name: String, emoji: String?, source_photo_number: Int? = nil, calories: Double, protein: Double, ingredients_breakdown: String, ai_response_text: String) {
+    init(
+        food_name: String,
+        emoji: String?,
+        source_photo_number: Int? = nil,
+        calories: Double,
+        protein: Double,
+        carbs: Double = 0,
+        fat: Double = 0,
+        ingredients_breakdown: String,
+        ai_response_text: String
+    ) {
         self.food_name = food_name
         self.emoji = emoji
         self.source_photo_number = source_photo_number
         self.calories = calories
         self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
         self.ingredients_breakdown = ingredients_breakdown
         self.ai_response_text = ai_response_text
     }
@@ -52,6 +66,8 @@ struct FoodResult: Codable {
         source_photo_number = try c.decodeIfPresent(Int.self, forKey: .source_photo_number)
         calories = try c.flexibleDouble(forKey: .calories)
         protein = try c.flexibleDouble(forKey: .protein)
+        carbs = (try? c.flexibleDouble(forKey: .carbs)) ?? 0
+        fat = (try? c.flexibleDouble(forKey: .fat)) ?? 0
         ingredients_breakdown = (try c.decodeIfPresent(String.self, forKey: .ingredients_breakdown)) ?? ""
         ai_response_text = (try c.decodeIfPresent(String.self, forKey: .ai_response_text)) ?? ""
     }
@@ -88,16 +104,27 @@ struct RecipeResult: Codable, Identifiable {
     let cooking_instructions: String
     let estimated_calories: Double
     let estimated_protein: Double
+    let estimated_carbs: Double
+    let estimated_fat: Double
 
     private enum CodingKeys: String, CodingKey {
-        case recipe_name, cooking_instructions, estimated_calories, estimated_protein
+        case recipe_name, cooking_instructions, estimated_calories, estimated_protein, estimated_carbs, estimated_fat
     }
 
-    init(recipe_name: String, cooking_instructions: String, estimated_calories: Double, estimated_protein: Double) {
+    init(
+        recipe_name: String,
+        cooking_instructions: String,
+        estimated_calories: Double,
+        estimated_protein: Double,
+        estimated_carbs: Double = 0,
+        estimated_fat: Double = 0
+    ) {
         self.recipe_name = recipe_name
         self.cooking_instructions = cooking_instructions
         self.estimated_calories = estimated_calories
         self.estimated_protein = estimated_protein
+        self.estimated_carbs = estimated_carbs
+        self.estimated_fat = estimated_fat
     }
 
     init(from decoder: Decoder) throws {
@@ -106,6 +133,8 @@ struct RecipeResult: Codable, Identifiable {
         cooking_instructions = (try c.decodeIfPresent(String.self, forKey: .cooking_instructions)) ?? ""
         estimated_calories = try c.flexibleDouble(forKey: .estimated_calories)
         estimated_protein = try c.flexibleDouble(forKey: .estimated_protein)
+        estimated_carbs = (try? c.flexibleDouble(forKey: .estimated_carbs)) ?? 0
+        estimated_fat = (try? c.flexibleDouble(forKey: .estimated_fat)) ?? 0
     }
 }
 
@@ -190,14 +219,14 @@ class GeminiService {
         - Use normal cooked-food nutrition values. Example anchors: cooked salmon is usually about 200-230 kcal and 20-25g protein per 100g; cooked white rice is usually about 130 kcal and 2-3g protein per 100g; creamy/oily sauces are separate small portions unless clearly large.
         - If uncertain, choose the most likely midpoint, not an extreme.
         - Avoid very large restaurant-size assumptions unless the image clearly shows a large portion.
-        - The top-level calories and protein MUST equal the sum of the ingredient rows.
+        - The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
         - If the same image is analyzed again, return the same ingredient weights and totals.
         - If you can identify the product brand/name but cannot read nutrition values from the label, search for its official nutrition data online.
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
+        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Macro calculation is MANDATORY.
         """
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
@@ -222,13 +251,13 @@ class GeminiService {
         Nutrition expert. User ate: '\(text)'.
         Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
         Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
-        The top-level calories and protein MUST equal the sum of the ingredient rows.
+        The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
         If the user names a specific brand or product, search for its real nutrition data online.
         LANGUAGE RULE: Detect the language the user wrote in. Write food_name, ingredient names, and ai_response_text in that same language.
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
+        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
         """
         sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -273,14 +302,14 @@ class GeminiService {
         - Estimate every ingredient weight in grams using the visible plate size.
         - Use normal cooked-food nutrition values.
         - If uncertain, choose the most likely midpoint, not an extreme.
-        - The top-level calories and protein for each item MUST equal the sum of its ingredient rows.
+        - The top-level calories, protein, carbs, and fat for each item MUST equal the sum of its ingredient rows.
         - If the same images are analyzed again, return the same items, ingredient weights, and totals.
         - If a nutrition label is partially unreadable, or the product weight/nutrition info is missing, search the internet for the exact product name to find accurate nutrition data.
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"ingredients_breakdown":"Item1;100g;100;10\\nItem2;50g;50;5","ai_response_text":""}]}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
+        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"carbs":0,"fat":0,"ingredients_breakdown":"Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0","ai_response_text":""}]}
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Macro calculation is MANDATORY.
         """
 
         sendToGemini(images: images, prompt: prompt, responseType: FoodItemsResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -304,14 +333,14 @@ class GeminiService {
 
         let prompt = """
         ACT AS NUTRITIONIST. \(nameInstruction)
-        CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot.
+        CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g protein, \(currentData.carbs)g carbs, \(currentData.fat)g fat.
         BREAKDOWN: \(currentData.ingredients_breakdown).
         USER COMMAND: "\(effectiveCommand)".
         CRITICAL RULE: Re-calculate totals based on user command.
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
         If you need accurate nutrition data for a product, search the internet.
         LANGUAGE RULE: Detect the language of USER COMMAND. Write food_name, ingredients_breakdown names, and ai_response_text in that same language.
-        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
+        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item;Weight;Kcal;Protein;Carbs;Fat", "ai_response_text": "your answer"}
         """
         let imgs = image != nil ? [image!] : []
         sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -405,7 +434,7 @@ class GeminiService {
         Use MARKDOWN formatting for instructions (bolding, bullets, emojis).
         LANGUAGE RULE: Detect the language of the ingredient names. Write recipe_name and cooking_instructions in that same language.
         Return ONLY valid JSON:
-        {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35} ]}
+        {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35, "estimated_carbs": 30, "estimated_fat": 15} ]}
         """
         sendToGemini(images: [], prompt: prompt, responseType: RecipeListResult.self, temperature: 0.7) { result, error in completion(result?.recipes, error) }
     }
@@ -413,9 +442,9 @@ class GeminiService {
     func scanGroceries(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
         let prompt = """
         Extract all individual food items from this grocery receipt or image. 
-        For each item, estimate calories and protein per 100g. 
+        For each item, estimate calories, protein, carbs, and fat per 100g. 
         Return ONLY JSON: 
-        {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;100g;0;0", "ai_response_text": ""}]}
+        {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item;100g;0;0;0;0", "ai_response_text": ""}]}
         """
         sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self, temperature: 0.1, topP: 0.3, topK: 1) { result, err in completion(result?.items, err) }
     }
@@ -432,7 +461,7 @@ class GeminiService {
     }
     
     // MARK: - AI Coach Chat
-    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], userName: String? = nil, completion: @escaping (String?, String?) -> Void) {
+    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, selectedDateDescription: String, selectedDateRelation: String, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, consumedCarbs: Double, consumedFat: Double, targetCalories: Double, targetProtein: Double, targetCarbs: Double, targetFat: Double, meals: [String], workouts: [String], fridgeItems: [String], recentMessages: [String], userName: String? = nil, completion: @escaping (String?, String?) -> Void) {
 
         let dayContext = isPastDay
             ? "Selected date: \(selectedDateDescription). Date relation: \(selectedDateRelation). You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire selected date. DO NOT suggest what to eat or do 'later today'."
@@ -443,34 +472,61 @@ class GeminiService {
             : ""
             
         let nameContext = userName.map { "The user's name is \($0). Address them by first name." } ?? ""
+        let recentContext = recentMessages.isEmpty ? "" : "Recent chat context:\n" + recentMessages.joined(separator: "\n")
+
+        let lowercasedMessage = message.lowercased()
+        let explanationKeywords = [
+            "why", "how come", "what causes", "cause", "reason",
+            "почему", "почему так", "из-за чего", "что происходит", "от чего", "как так",
+            "hungry", "craving", "appetite", "headache", "dizzy", "nausea", "fatigue", "weak",
+            "голод", "жор", "тяга", "хочется есть", "аппетит", "слабость", "усталость", "тошнит", "кружится"
+        ]
+        let isExplanationMode = !isInitial && explanationKeywords.contains { lowercasedMessage.contains($0) }
+
+        let responseModeInstruction: String
+        if isInitial {
+            responseModeInstruction = isPastDay
+                ? "Give a quick summary of their performance for this selected past date."
+                : "The user just opened the app. Give them a quick daily summary based on current time."
+        } else if isExplanationMode {
+            responseModeInstruction = "The user is asking why something is happening, or describing symptoms / cravings / behavior. Explain the most likely reasons in plain language. Use the recent chat context to understand what 'this' refers to. Give 2-4 likely reasons, connect them to timing, training load, calories, protein, carbs, fat, sleep, hydration, and food choices when relevant. End with one practical next step. Do NOT open with praise."
+        } else {
+            responseModeInstruction = "The user says/shows: '\(message)'. Reply directly in the context of the selected date."
+        }
 
         let prompt = """
-        You are a strict, honest, and highly motivating fitness and nutrition coach.
+        You are an honest, sharp, practical fitness and nutrition coach.
         \(nameContext)
         \(dayContext)
         User's daily calorie ceiling: \(Int(targetCalories)) kcal. User's protein minimum: \(Int(targetProtein))g protein.
-        Progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed.
+        Secondary macro context: carbs currently \(Int(consumedCarbs))g / about \(Int(targetCarbs))g cap, fat currently \(Int(consumedFat))g / about \(Int(targetFat))g target.
+        Progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed, \(Int(consumedCarbs))g carbs consumed, \(Int(consumedFat))g fat consumed.
         Meals eaten: \(meals.isEmpty ? "None" : meals.joined(separator: ", ")).
         Workouts done: \(workouts.isEmpty ? "None" : workouts.joined(separator: ", ")).
         \(fridgeContext)
+        \(recentContext)
 
-        \(isInitial ? (isPastDay ? "Give a quick summary of their performance for this selected past date." : "The user just opened the app. Give them a quick daily summary and motivation based on current time.") : "The user says/shows: '\(message)'. Reply to them directly in the context of the selected date.")
+        \(responseModeInstruction)
 
         CRITICAL RULES:
-        1. Evaluate food quality. If they ate junk food, sugar, or excess fat, scold them slightly but constructively. Praise good protein intake.
-        2. If it's a PAST DAY, summarize their success or failure. If it's the CURRENT DAY, motivate them and suggest exact foods from their Fridge to hit remaining goals.
-        3. Be direct, use quick humor, and don't sugar-coat.
-        4. Keep it concise (under 5 sentences). Use emojis.
-        5. Never call the selected date "yesterday" unless Date relation is exactly "yesterday". For older dates, use the exact selected date or say "that day".
-        6. Treat calories as an upper limit / deficit target, not a minimum. Being under the calorie ceiling is GOOD unless calories are extremely low and clearly unhealthy. Do NOT say they failed because they did not eat all calories.
-        7. Protein is a minimum target. Being under protein is bad; being over protein is good.
-        8. Detect the language of the user's message. Reply in that same language. If this is an initial summary with no user message, reply in English.
+        1. First decide the user's intent: summary, explanation, troubleshooting, or planning. Match that intent. Do NOT give motivational praise when the user is clearly asking for an explanation.
+        2. If the user asks "why" or describes a symptom/craving/behavior, explain the likely mechanisms instead of cheering them on.
+        3. Use carbs and fat in your reasoning when relevant. Example: post-workout hunger can relate to late training, depleted carbs, long gap since last meal, low-fat / low-fiber meals, or overall intake.
+        4. If it's a PAST DAY, summarize or explain that finished day only. If it's the CURRENT DAY, you may suggest exact foods from the Fridge if the user wants a next step.
+        5. Be direct, calm, and useful. Light humor is okay, but no cringe hype, no overpraise, no fake intensity.
+        6. Keep it concise (usually 3-5 sentences). Emojis are optional, not required.
+        7. If the user describes symptoms or body reactions, do NOT diagnose. Say "likely reasons" or "common reasons". If something sounds severe or persistent, briefly suggest professional medical advice.
+        8. Never answer a vague follow-up like "Почему так?" as if it were a new topic. Use the recent chat context to infer what "that" means.
+        9. Never call the selected date "yesterday" unless Date relation is exactly "yesterday". For older dates, use the exact selected date or say "that day".
+        10. Treat calories as an upper limit / deficit target, not a minimum. Being under the calorie ceiling is GOOD unless calories are extremely low and clearly unhealthy. Do NOT say they failed because they did not eat all calories.
+        11. Protein is a minimum target. Being under protein is bad; being over protein is usually fine.
+        12. Detect the language of the user's message. Reply in that same language. If this is an initial summary with no user message, reply in English.
 
         Return ONLY a single JSON object:
         {"ai_summary": "your response here"}
         """
         let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self, temperature: 0.6) { result, error in
+        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self, temperature: isExplanationMode ? 0.35 : 0.5) { result, error in
             completion(result?.ai_summary, error)
         }
     }
@@ -687,8 +743,12 @@ class GeminiService {
 
         let calorieDifference = abs(rowTotals.calories - result.calories)
         let proteinDifference = abs(rowTotals.protein - result.protein)
+        let carbsDifference = abs(rowTotals.carbs - result.carbs)
+        let fatDifference = abs(rowTotals.fat - result.fat)
         let calories = calorieDifference > max(50, result.calories * 0.12) ? rowTotals.calories : result.calories
         let protein = proteinDifference > max(5, result.protein * 0.15) ? rowTotals.protein : result.protein
+        let carbs = carbsDifference > max(8, max(result.carbs, 20) * 0.18) ? rowTotals.carbs : result.carbs
+        let fat = fatDifference > max(4, max(result.fat, 10) * 0.18) ? rowTotals.fat : result.fat
 
         return roundedFoodResult(
             FoodResult(
@@ -697,6 +757,8 @@ class GeminiService {
                 source_photo_number: result.source_photo_number,
                 calories: calories,
                 protein: protein,
+                carbs: carbs,
+                fat: fat,
                 ingredients_breakdown: result.ingredients_breakdown,
                 ai_response_text: result.ai_response_text
             )
@@ -710,14 +772,18 @@ class GeminiService {
             source_photo_number: result.source_photo_number,
             calories: max(0, (result.calories / 5).rounded() * 5),
             protein: max(0, result.protein.rounded()),
+            carbs: max(0, result.carbs.rounded()),
+            fat: max(0, result.fat.rounded()),
             ingredients_breakdown: result.ingredients_breakdown,
             ai_response_text: result.ai_response_text
         )
     }
 
-    private func nutritionTotals(from breakdown: String) -> (calories: Double, protein: Double)? {
+    private func nutritionTotals(from breakdown: String) -> (calories: Double, protein: Double, carbs: Double, fat: Double)? {
         var calories = 0.0
         var protein = 0.0
+        var carbs = 0.0
+        var fat = 0.0
         var rowCount = 0
 
         for line in breakdown.components(separatedBy: .newlines) {
@@ -729,10 +795,16 @@ class GeminiService {
 
             calories += numericValue(from: parts[2])
             protein += numericValue(from: parts[3])
+            if parts.count > 4 {
+                carbs += numericValue(from: parts[4])
+            }
+            if parts.count > 5 {
+                fat += numericValue(from: parts[5])
+            }
             rowCount += 1
         }
 
-        return rowCount > 0 ? (calories, protein) : nil
+        return rowCount > 0 ? (calories, protein, carbs, fat) : nil
     }
 
     private func numericValue(from string: String) -> Double {

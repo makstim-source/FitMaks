@@ -57,6 +57,8 @@ struct ChatMessage: Identifiable {
     var ingredients: String? = nil
     var calories: Double? = nil
     var protein: Double? = nil
+    var carbs: Double? = nil
+    var fat: Double? = nil
     var attachedImage: UIImage? = nil
     var shouldTypewrite: Bool = false
 }
@@ -67,6 +69,160 @@ struct ParsedIng: Identifiable {
     let weight: String
     let kcal: String
     let prot: String
+    let carbs: String
+    let fat: String
+}
+
+enum FavoritePortionBasis: String, CaseIterable {
+    case per100g
+    case perServing
+    case perPack
+    case perPiece
+
+    var title: String {
+        switch self {
+        case .per100g:
+            return "100 g"
+        case .perServing:
+            return "1 serving"
+        case .perPack:
+            return "1 pack"
+        case .perPiece:
+            return "1 piece"
+        }
+    }
+
+    var sheetTitle: String {
+        switch self {
+        case .per100g:
+            return "100 g basis"
+        case .perServing:
+            return "Serving basis"
+        case .perPack:
+            return "Pack basis"
+        case .perPiece:
+            return "Piece basis"
+        }
+    }
+}
+
+struct FavoritePortionPreset: Identifiable {
+    let id = UUID()
+    let label: String
+    let amount: Double
+}
+
+enum FavoritePortionRules {
+    private static let packagedKeywords = [
+        "yogurt", "йогурт", "skyr", "bar", "батон", "drink", "shake", "milk", "кефир",
+        "kefir", "pudding", "творог", "cottage cheese", "alpro", "valio", "protein drink",
+        "juice", "cola", "soda", "monster", "red bull"
+    ]
+
+    private static let rawStapleKeywords = [
+        "фарш", "mince", "ground beef", "ground turkey", "bread", "хлеб", "rice", "рис",
+        "pasta", "макарон", "каша", "oat", "овся", "salmon", "лосось", "chicken breast",
+        "курин", "beef", "говя", "turkey", "индей", "raw", "сыр"
+    ]
+
+    private static let pieceKeywords = [
+        "egg", "яйц", "banana", "банан", "apple", "яблок", "slice", "ломтик", "piece", "pcs"
+    ]
+
+    static func totalWeightGrams(from ingredients: String) -> Double? {
+        let lines = ingredients.split(separator: "\n")
+        var total: Double = 0
+        var found = false
+
+        for line in lines {
+            let parts = line.split(separator: ";")
+            guard parts.count >= 2 else { continue }
+            let weight = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let range = weight.range(of: #"(\d+(?:\.\d+)?)\s*(?:g\b|gr\b|gram|grams|ml\b)"#, options: .regularExpression) {
+                let number = String(weight[range]).filter { $0.isNumber || $0 == "." }
+                if let value = Double(number) {
+                    total += value
+                    found = true
+                }
+            }
+        }
+
+        return found ? total : nil
+    }
+
+    static func inferBasis(name: String, ingredients: String) -> (basis: FavoritePortionBasis, weight: Double?) {
+        let lowerName = name.lowercased()
+        let lowerIngredients = ingredients.lowercased()
+        let totalWeight = totalWeightGrams(from: ingredients)
+
+        if lowerIngredients.contains("serving") || lowerIngredients.contains("portion") || lowerIngredients.contains("bowl") {
+            return (.perServing, totalWeight)
+        }
+
+        if lowerIngredients.contains("pack") || lowerIngredients.contains("bottle") || lowerIngredients.contains("can") {
+            return (.perPack, totalWeight)
+        }
+
+        if pieceKeywords.contains(where: { lowerName.contains($0) || lowerIngredients.contains($0) }) {
+            return (.perPiece, totalWeight)
+        }
+
+        if rawStapleKeywords.contains(where: { lowerName.contains($0) }) {
+            if totalWeight != nil {
+                return (.per100g, totalWeight)
+            }
+
+            return (.perPack, totalWeight)
+        }
+
+        if packagedKeywords.contains(where: { lowerName.contains($0) }) {
+            return (.perPack, totalWeight)
+        }
+
+        return (.perServing, totalWeight)
+    }
+
+    static func quickPresets(for favorite: FavoriteFood) -> [FavoritePortionPreset] {
+        switch favorite.portionBasis {
+        case .per100g:
+            return [
+                FavoritePortionPreset(label: "50 g", amount: 50),
+                FavoritePortionPreset(label: "100 g", amount: 100),
+                FavoritePortionPreset(label: "150 g", amount: 150)
+            ]
+        case .perServing:
+            return [
+                FavoritePortionPreset(label: "1/2", amount: 0.5),
+                FavoritePortionPreset(label: "1", amount: 1),
+                FavoritePortionPreset(label: "2", amount: 2)
+            ]
+        case .perPack:
+            return [
+                FavoritePortionPreset(label: "1/2 pack", amount: 0.5),
+                FavoritePortionPreset(label: "1 pack", amount: 1),
+                FavoritePortionPreset(label: "2 packs", amount: 2)
+            ]
+        case .perPiece:
+            return [
+                FavoritePortionPreset(label: "1 piece", amount: 1),
+                FavoritePortionPreset(label: "2 pieces", amount: 2),
+                FavoritePortionPreset(label: "3 pieces", amount: 3)
+            ]
+        }
+    }
+
+    static func amountLabel(for favorite: FavoriteFood, amount: Double) -> String {
+        switch favorite.portionBasis {
+        case .per100g:
+            return "\(Int(amount.rounded())) g"
+        case .perServing:
+            return amount == amount.rounded() ? "\(Int(amount)) serving" : String(format: "%.1f servings", amount)
+        case .perPack:
+            return amount == amount.rounded() ? "\(Int(amount)) pack" : String(format: "%.1f pack", amount)
+        case .perPiece:
+            return amount == amount.rounded() ? "\(Int(amount)) piece" : String(format: "%.1f piece", amount)
+        }
+    }
 }
 
 @Model
@@ -76,9 +232,52 @@ final class FavoriteFood {
     var name: String = ""
     var calories: Double = 0
     var protein: Double = 0
+    var carbs: Double = 0
+    var fat: Double = 0
     var ingredients: String = ""
+    var portionBasisRaw: String = FavoritePortionBasis.perServing.rawValue
+    var portionGramsReference: Double?
 
     @Attribute(.externalStorage) var imageData: Data?
+
+    var portionBasis: FavoritePortionBasis {
+        get { FavoritePortionBasis(rawValue: portionBasisRaw) ?? .perServing }
+        set { portionBasisRaw = newValue.rawValue }
+    }
+
+    var resolvedPortionGramsReference: Double? {
+        if let portionGramsReference, portionGramsReference > 0 {
+            return portionGramsReference
+        }
+
+        return FavoritePortionRules.totalWeightGrams(from: ingredients)
+    }
+
+    var basisDisplayText: String {
+        switch portionBasis {
+        case .per100g:
+            if let resolvedPortionGramsReference, resolvedPortionGramsReference > 0 {
+                return "Stored as 100 g · pack \(Int(resolvedPortionGramsReference.rounded())) g"
+            }
+            return "Stored as 100 g"
+        case .perServing:
+            if let resolvedPortionGramsReference, resolvedPortionGramsReference > 0 {
+                return "Stored as 1 serving · \(Int(resolvedPortionGramsReference.rounded())) g"
+            }
+            return "Stored as 1 serving · grams not set"
+        case .perPack:
+            if let resolvedPortionGramsReference, resolvedPortionGramsReference > 0 {
+                return "Stored as 1 pack · \(Int(resolvedPortionGramsReference.rounded())) g"
+            }
+            return "Stored as 1 pack"
+        case .perPiece:
+            return "Stored as 1 piece"
+        }
+    }
+
+    var quickAddPresets: [FavoritePortionPreset] {
+        FavoritePortionRules.quickPresets(for: self)
+    }
 
     var uiImage: UIImage? {
         guard let imageData else {
@@ -87,13 +286,107 @@ final class FavoriteFood {
         return UIImage(data: imageData)
     }
 
-    init(image: UIImage?, name: String, calories: Double, protein: Double, ingredients: String) {
+    init(
+        image: UIImage?,
+        name: String,
+        calories: Double,
+        protein: Double,
+        carbs: Double = 0,
+        fat: Double = 0,
+        ingredients: String,
+        portionBasis: FavoritePortionBasis? = nil,
+        portionGramsReference: Double? = nil
+    ) {
+        let inferred = FavoritePortionRules.inferBasis(name: name, ingredients: ingredients)
+        let resolvedBasis = portionBasis ?? inferred.basis
+        let resolvedReference = portionGramsReference ?? inferred.weight
+        let normalizedNutrition = FavoriteFood.normalizedNutrition(
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            ingredients: ingredients,
+            basis: resolvedBasis,
+            referenceWeight: resolvedReference
+        )
+
         self.createdAt = Date()
         self.name = name.isEmpty ? "Food" : name
-        self.calories = max(0, calories)
-        self.protein = max(0, protein)
-        self.ingredients = ingredients
+        self.calories = max(0, normalizedNutrition.calories)
+        self.protein = max(0, normalizedNutrition.protein)
+        self.carbs = max(0, normalizedNutrition.carbs)
+        self.fat = max(0, normalizedNutrition.fat)
+        self.ingredients = normalizedNutrition.ingredients
+        self.portionBasisRaw = resolvedBasis.rawValue
+        self.portionGramsReference = resolvedReference
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
+    }
+
+    func updatePortionBasis(_ basis: FavoritePortionBasis) {
+        let previousBasis = portionBasis
+        let originalReference = portionGramsReference ?? FavoritePortionRules.totalWeightGrams(from: ingredients)
+
+        let sourceCalories: Double
+        let sourceProtein: Double
+        let sourceCarbs: Double
+        let sourceFat: Double
+        let sourceIngredients: String
+
+        if previousBasis == .per100g, let reference = originalReference, reference > 0 {
+            let multiplier = reference / 100
+            sourceCalories = calories * multiplier
+            sourceProtein = protein * multiplier
+            sourceCarbs = carbs * multiplier
+            sourceFat = fat * multiplier
+            sourceIngredients = scaleIngredientBreakdown(ingredients, by: multiplier)
+        } else {
+            sourceCalories = calories
+            sourceProtein = protein
+            sourceCarbs = carbs
+            sourceFat = fat
+            sourceIngredients = ingredients
+        }
+
+        let normalized = FavoriteFood.normalizedNutrition(
+            calories: sourceCalories,
+            protein: sourceProtein,
+            carbs: sourceCarbs,
+            fat: sourceFat,
+            ingredients: sourceIngredients,
+            basis: basis,
+            referenceWeight: originalReference
+        )
+
+        calories = normalized.calories
+        protein = normalized.protein
+        carbs = normalized.carbs
+        fat = normalized.fat
+        ingredients = normalized.ingredients
+        portionBasis = basis
+        portionGramsReference = originalReference
+    }
+
+    private static func normalizedNutrition(
+        calories: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double,
+        ingredients: String,
+        basis: FavoritePortionBasis,
+        referenceWeight: Double?
+    ) -> (calories: Double, protein: Double, carbs: Double, fat: Double, ingredients: String) {
+        guard basis == .per100g, let referenceWeight, referenceWeight > 0 else {
+            return (calories, protein, carbs, fat, ingredients)
+        }
+
+        let factor = 100 / referenceWeight
+        return (
+            calories * factor,
+            protein * factor,
+            carbs * factor,
+            fat * factor,
+            scaleIngredientBreakdown(ingredients, by: factor)
+        )
     }
 }
 
@@ -291,6 +584,8 @@ final class SavedRecipe {
     var instructions: String = ""
     var calories: Double = 0
     var protein: Double = 0
+    var carbs: Double = 0
+    var fat: Double = 0
     var dateSaved: Date = Date()
     var ingredients: String = ""
 
@@ -309,12 +604,16 @@ final class SavedRecipe {
         instructions: String,
         calories: Double,
         protein: Double,
+        carbs: Double = 0,
+        fat: Double = 0,
         ingredients: String = ""
     ) {
         self.name = name.isEmpty ? "Meal" : name
         self.instructions = instructions
         self.calories = max(0, calories)
         self.protein = max(0, protein)
+        self.carbs = max(0, carbs)
+        self.fat = max(0, fat)
         self.ingredients = ingredients
         self.dateSaved = Date()
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
@@ -325,7 +624,9 @@ final class SavedRecipe {
             recipe_name: name,
             cooking_instructions: instructions,
             estimated_calories: calories,
-            estimated_protein: protein
+            estimated_protein: protein,
+            estimated_carbs: carbs,
+            estimated_fat: fat
         )
     }
 }

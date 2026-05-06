@@ -10,6 +10,8 @@ struct AIChatEditView: View {
     @State private var originalIngredients = ""
     @State private var originalCalories: Double = 0
     @State private var originalProtein: Double = 0
+    @State private var originalCarbs: Double = 0
+    @State private var originalFat: Double = 0
     @State private var attachedImage: UIImage? = nil
     @State private var isShowingAttachmentDialog = false
     @State private var isShowingAttachmentPicker = false
@@ -78,12 +80,12 @@ struct AIChatEditView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 16) {
-                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, accentColor: .neonGreen.opacity(0.8))
+                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonGreen.opacity(0.8))
                         ForEach(messages) { msg in
                             VStack(spacing: 10) {
                                 CoachMessageBubble(message: msg, accentColor: .neonGreen, assistantName: "FitMaks AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein {
-                                    IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, accentColor: .neonCyan)
+                                    IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan)
                                         .padding(.trailing, 20)
                                 }
                             }
@@ -207,6 +209,8 @@ struct AIChatEditView: View {
             originalIngredients = entry.ingredients
             originalCalories = entry.calories
             originalProtein = entry.protein
+            originalCarbs = entry.carbs
+            originalFat = entry.fat
             if messages.isEmpty {
                 messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true))
             }
@@ -258,9 +262,9 @@ struct AIChatEditView: View {
         let destination = isMeal ? "Meals" : "Fridge"
 
         if isMeal {
-            modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients))
+            modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
         } else {
-            modelContext.insert(FavoriteFood(image: entry.uiImage, name: entry.name, calories: entry.calories, protein: entry.protein, ingredients: entry.ingredients))
+            modelContext.insert(FavoriteFood(image: entry.uiImage, name: entry.name, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
         }
 
         do {
@@ -300,7 +304,7 @@ struct AIChatEditView: View {
         userMessage = ""
         withAnimation { attachedImage = nil }
         isWaiting = true
-        let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, ingredients_breakdown: entry.ingredients, ai_response_text: "")
+        let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients_breakdown: entry.ingredients, ai_response_text: "")
         GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in
             isWaiting = false
             if let res = result {
@@ -309,8 +313,10 @@ struct AIChatEditView: View {
                 entry.name = prefix + cleanName
                 entry.calories = res.calories
                 entry.protein = res.protein
+                entry.carbs = res.carbs
+                entry.fat = res.fat
                 entry.ingredients = res.ingredients_breakdown
-                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, shouldTypewrite: true))
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
             }
@@ -333,11 +339,15 @@ struct AIChatEditView: View {
                 entry.name = result.food_name
                 entry.calories = result.calories
                 entry.protein = result.protein
+                entry.carbs = result.carbs
+                entry.fat = result.fat
                 entry.ingredients = result.ingredients_breakdown
                 originalIngredients = result.ingredients_breakdown
                 originalCalories = result.calories
                 originalProtein = result.protein
-                messages.append(ChatMessage(text: "Fresh calculation applied. If it still looks off, tell me what the food really is.", isUser: false, ingredients: result.ingredients_breakdown, calories: result.calories, protein: result.protein, shouldTypewrite: true))
+                originalCarbs = result.carbs
+                originalFat = result.fat
+                messages.append(ChatMessage(text: "Fresh calculation applied. If it still looks off, tell me what the food really is.", isUser: false, ingredients: result.ingredients_breakdown, calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true))
             }

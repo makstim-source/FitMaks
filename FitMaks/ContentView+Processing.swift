@@ -558,6 +558,8 @@ extension HomeViewModel {
                         name: item.name,
                         calories: item.calories,
                         protein: item.protein,
+                        carbs: item.carbs,
+                        fat: item.fat,
                         ingredients: item.ingredients,
                         date: targetDate
                     ))
@@ -567,6 +569,8 @@ extension HomeViewModel {
                         name: item.name,
                         calories: item.calories,
                         protein: item.protein,
+                        carbs: item.carbs,
+                        fat: item.fat,
                         ingredients: item.ingredients
                     ))
                 case .meals:
@@ -576,6 +580,8 @@ extension HomeViewModel {
                         instructions: "",
                         calories: item.calories,
                         protein: item.protein,
+                        carbs: item.carbs,
+                        fat: item.fat,
                         ingredients: item.ingredients
                     ))
                 }
@@ -606,6 +612,8 @@ extension HomeViewModel {
                     name: result.food_name,
                     calories: result.calories,
                     protein: result.protein,
+                    carbs: result.carbs,
+                    fat: result.fat,
                     ingredients: result.ingredients_breakdown,
                     date: targetDate
                 ))
@@ -632,6 +640,8 @@ extension HomeViewModel {
                         instructions: "",
                         calories: result.calories,
                         protein: result.protein,
+                        carbs: result.carbs,
+                        fat: result.fat,
                         ingredients: result.ingredients_breakdown
                     ))
                 } else {
@@ -640,6 +650,8 @@ extension HomeViewModel {
                         name: result.food_name,
                         calories: result.calories,
                         protein: result.protein,
+                        carbs: result.carbs,
+                        fat: result.fat,
                         ingredients: result.ingredients_breakdown
                     ))
                 }
@@ -672,6 +684,8 @@ extension HomeViewModel {
                     name: result.food_name,
                     calories: result.calories,
                     protein: result.protein,
+                    carbs: result.carbs,
+                    fat: result.fat,
                     ingredients: result.ingredients_breakdown
                 ))
             }

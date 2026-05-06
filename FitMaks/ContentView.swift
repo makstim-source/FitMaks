@@ -80,7 +80,8 @@ struct ContentView: View {
             baseCalories: selectedBaseCaloriesGoal,
             baseProtein: selectedBaseProteinGoal,
             mode: currentDayMode,
-            trainingCalories: dailyTrainingCalories
+            trainingCalories: dailyTrainingCalories,
+            activityLevel: activityLevel
         )
     }
     var calorieGoalBonus: Double { dailyTargets.calorieBonus }
@@ -132,6 +133,7 @@ struct ContentView: View {
             baseProtein: baseProteinGoal,
             steps: todayStepsForNotifications,
             uploadedSteps: todayUploadedTrainingSteps,
+            activityLevel: activityLevel,
             stepTarget: targetSteps
         )
     }
@@ -158,6 +160,8 @@ struct ContentView: View {
     var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
     var dailyCarbs: Double { dailyFoodEntries.reduce(0) { $0 + $1.carbs } }
     var dailyFat: Double { dailyFoodEntries.reduce(0) { $0 + $1.fat } }
+    var baseTargetCarbs: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.55 / 4 }
+    var baseTargetFat: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.45 / 9 }
     var targetCarbs: Double { max(maxCalories - targetProtein * 4, 0) * 0.55 / 4 }
     var targetFat: Double { max(maxCalories - targetProtein * 4, 0) * 0.45 / 9 }
     var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
@@ -174,6 +178,7 @@ struct ContentView: View {
             baseProtein: selectedBaseProteinGoal,
             steps: viewModel.dailySteps,
             uploadedSteps: dailyUploadedTrainingSteps,
+            activityLevel: activityLevel,
             stepTarget: targetSteps
         )
     }
@@ -209,6 +214,7 @@ struct ContentView: View {
                 baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
                 steps: viewModel.homeWeeklySteps[dateID] ?? 0,
                 uploadedSteps: dayUploadedTrainingSteps,
+                activityLevel: activityLevel,
                 stepTarget: targetSteps
             )
         }
@@ -245,6 +251,7 @@ struct ContentView: View {
                 baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
                 steps: viewModel.homeWeeklySteps[dateID] ?? 0,
                 uploadedSteps: dayUploadedTrainingSteps,
+                activityLevel: activityLevel,
                 stepTarget: targetSteps
             )
         }
@@ -299,17 +306,23 @@ struct ContentView: View {
             .blur(radius: (viewModel.selectedEntryForEdit != nil || viewModel.selectedTrainingDetail != nil) ? 15 : 0)
 
             if let banner = viewModel.achievementBanner {
-                VStack {
-                    StatsAchievementUnlockBanner(achievement: banner) {
+                Color.black.opacity(0.58)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(12)
+
+                StatsAchievementUnlockPopup(
+                    achievement: banner,
+                    onPost: {
+                        postAchievementBanner()
+                    },
+                    onDismiss: {
                         dismissAchievementBanner()
                     }
-                    .padding(.top, 8)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .zIndex(12)
+                )
+                .padding(.horizontal, 24)
+                .transition(.scale(scale: 0.94).combined(with: .opacity))
+                .zIndex(13)
             }
 
             if let entry = viewModel.selectedEntryForEdit {
@@ -394,12 +407,16 @@ struct ContentView: View {
                 selectedDate: viewModel.selectedDate,
                 consumedCalories: dailyCaloriesConsumed,
                 consumedProtein: dailyProtein,
+                consumedCarbs: dailyCarbs,
+                consumedFat: dailyFat,
                 targetCalories: maxCalories,
                 targetProtein: targetProtein,
+                targetCarbs: targetCarbs,
+                targetFat: targetFat,
                 foods: dailyFoodEntries,
                 trainings: dailyTrainingEntries,
                 favorites: favorites
-            ).presentationDetents([.medium, .large])
+            ).presentationDetents([.large])
         }
         .sheet(isPresented: $viewModel.isShowingGoalBreakdown) {
             DailyCalorieBreakdownSheet(
@@ -416,6 +433,11 @@ struct ContentView: View {
                 proteinBonus: proteinGoalBonus,
                 targetProtein: targetProtein,
                 consumedProtein: dailyProtein,
+                baseCarbs: baseTargetCarbs,
+                targetCarbs: targetCarbs,
+                consumedCarbs: dailyCarbs,
+                targetFat: targetFat,
+                consumedFat: dailyFat,
                 actualSteps: viewModel.dailySteps,
                 uploadedSteps: dailyUploadedTrainingSteps,
                 stepBonus: dailyProgress.stepBonus,
@@ -673,10 +695,18 @@ struct ContentView: View {
             }
 
             HStack(spacing: 8) {
-                let carbsOver = dailyCarbs > targetCarbs
-                let fatOver = dailyFat > targetFat
-                HomeMacroSummaryPill(title: "Carbs", value: "\(Int(dailyCarbs))g", subtitle: "of \(Int(targetCarbs))g", progress: dailyCarbs / max(targetCarbs, 1), color: carbsOver ? .red : .fitOrange, systemName: "leaf.fill")
-                HomeMacroSummaryPill(title: "Fat", value: "\(Int(dailyFat))g", subtitle: "of \(Int(targetFat))g", progress: dailyFat / max(targetFat, 1), color: fatOver ? .red : .yellow, systemName: "circle.inset.filled")
+                HomeCarbControlCard(
+                    consumed: dailyCarbs,
+                    baseTarget: baseTargetCarbs,
+                    activeTarget: targetCarbs
+                )
+                .onTapGesture { viewModel.openGoalBreakdown(.carbs) }
+
+                HomeFatControlCard(
+                    consumed: dailyFat,
+                    target: targetFat
+                )
+                .onTapGesture { viewModel.openGoalBreakdown(.fat) }
             }
 
             modeSelectorSection
@@ -735,24 +765,25 @@ struct ContentView: View {
     }
 
     private var timelinePanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Diary")
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundColor(.appText)
+                Text("DIARY")
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.5)
 
                 Spacer()
 
                 Text("\(dailyFeed.count) entries")
-                    .font(.caption2.bold())
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundColor(.appMuted)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
                     .background(Capsule().fill(Color.appSurface))
             }
             .padding(.horizontal, 3)
 
-            ScrollView(showsIndicators: false) {
+            ScrollView(showsIndicators: true) {
                 VStack(spacing: 10) {
                     ForEach(visibleProcessingItems) { item in HomeProcessingRow(item: item) }
 
@@ -775,6 +806,7 @@ struct ContentView: View {
                 }
                 .padding(.bottom, 4)
             }
+            .scrollIndicators(.visible)
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -922,12 +954,6 @@ struct ContentView: View {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
             viewModel.achievementBanner = next
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) { [self] in
-            if viewModel.achievementBanner?.id == next.id {
-                dismissAchievementBanner()
-            }
-        }
     }
 
     private func dismissAchievementBanner() {
@@ -947,6 +973,15 @@ struct ContentView: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [self] in
             showNextAchievementBanner()
+        }
+    }
+
+    private func postAchievementBanner() {
+        guard let current = viewModel.achievementBanner else { return }
+        let payload = achievementSharePayload(from: current)
+        dismissAchievementBanner()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            viewModel.livePayload = payload
         }
     }
 
@@ -1059,7 +1094,6 @@ extension View {
     private func applyEventObservers(_ view: ContentView) -> some View {
         self
             .onAppear { view.handleOnAppear() }
-            .onChange(of: view.unlockedAchievementSignature) { _, _ in view.refreshAchievementBannerQueue() }
             .onChange(of: view.viewModel.selectedDate) { _, newDate in view.handleDateChange(newDate) }
             .onChange(of: view.goalSnapshotSignature) { _, _ in view.handleGoalSnapshotChange() }
             .onChange(of: view.loggedPastDaysSignature) { _, _ in view.handleLoggedPastDaysChange() }

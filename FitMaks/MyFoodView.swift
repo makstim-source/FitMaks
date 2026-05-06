@@ -524,10 +524,10 @@ struct MyFoodView: View {
                         .foregroundColor(.yellow)
                 }
                 .font(.system(size: 10, weight: .heavy))
+                .lineLimit(1)
+                .fixedSize()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer()
 
             HStack(spacing: 6) {
                 rowIconButton(systemName: "pencil", color: .white.opacity(0.82)) {
@@ -763,6 +763,8 @@ struct MyFoodView: View {
                         Label("\(Int(recipe.fat))g", systemImage: "circle.inset.filled")
                             .foregroundColor(.yellow)
                     }.font(.system(size: 10, weight: .heavy))
+                    .lineLimit(1)
+                    .fixedSize()
                 }
                 Spacer()
             }
@@ -943,17 +945,16 @@ struct MyFoodView: View {
                         .foregroundColor(.yellow)
                 }
                 .font(.system(size: 10, weight: .heavy))
+                .lineLimit(1)
+                .fixedSize()
 
                 Text(fav.basisDisplayText)
                     .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(.appMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                    .layoutPriority(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer()
 
             HStack(spacing: 6) {
                 rowIconButton(systemName: "pencil", color: .white.opacity(0.82)) {
@@ -1268,18 +1269,19 @@ struct FavoriteAmountSheet: View {
 
                 HStack(spacing: 10) {
                     ForEach(favorite.quickAddPresets) { preset in
+                        let isDefault = preset.amount == customAmount
                         Button {
                             onAdd(preset.amount)
                         } label: {
                             Text(preset.label)
                                 .font(.system(size: 13, weight: .black))
-                                .foregroundColor(.white)
+                                .foregroundColor(isDefault ? .black : .white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.white.opacity(0.06))
-                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
+                                        .fill(isDefault ? Color.neonCyan : Color.white.opacity(0.06))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(isDefault ? Color.neonCyan.opacity(0.5) : Color.neonCyan.opacity(0.18), lineWidth: 1))
                                 )
                         }
                         .buttonStyle(.plain)
@@ -1288,39 +1290,38 @@ struct FavoriteAmountSheet: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Custom")
-                            .font(.system(size: 14, weight: .heavy))
-                            .foregroundColor(.white)
+                        Text("CUSTOM")
+                            .font(.system(size: 8, weight: .heavy))
+                            .foregroundColor(.appMuted)
+                            .tracking(0.5)
                         Spacer()
                         Text(FavoritePortionRules.amountLabel(for: favorite, amount: customAmount))
-                            .font(.system(size: 14, weight: .black))
+                            .font(.system(size: 13, weight: .black))
                             .foregroundColor(.neonGreen)
                     }
 
                     Slider(value: $customAmount, in: manualRange, step: manualStep)
                         .tint(.neonCyan)
 
-                    HStack {
-                        Text("\(Int((favorite.calories * previewMultiplier).rounded())) kcal")
-                        Spacer()
-                        Text("\(Int((favorite.protein * previewMultiplier).rounded()))g protein")
+                    HStack(spacing: 10) {
+                        Label("\(Int((favorite.calories * previewMultiplier).rounded()))", systemImage: "flame.fill")
+                            .foregroundColor(.neonGreen)
+                        Label("\(Int((favorite.protein * previewMultiplier).rounded()))g", systemImage: "drop.fill")
+                            .foregroundColor(.neonCyan)
+                        Label("\(Int((favorite.carbs * previewMultiplier).rounded()))g", systemImage: "leaf.fill")
+                            .foregroundColor(.fitOrange)
+                        Label("\(Int((favorite.fat * previewMultiplier).rounded()))g", systemImage: "circle.inset.filled")
+                            .foregroundColor(.yellow)
                     }
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.appMuted)
-
-                    HStack {
-                        Text("C \(Int((favorite.carbs * previewMultiplier).rounded()))g")
-                        Spacer()
-                        Text("F \(Int((favorite.fat * previewMultiplier).rounded()))g")
-                    }
-                    .font(.system(size: 12, weight: .heavy))
-                    .foregroundColor(.appMuted)
+                    .font(.system(size: 10, weight: .heavy))
+                    .lineLimit(1)
+                    .fixedSize()
                 }
-                .padding(16)
+                .padding(14)
                 .background(
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(Color.white.opacity(0.04))
-                        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.white.opacity(0.055))
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
                 )
 
                 Spacer()

@@ -13,17 +13,31 @@ final class FoodEntry {
     var name: String = ""
     var calories: Double = 0
     var protein: Double = 0
+    var carbs: Double = 0
+    var fat: Double = 0
     var ingredients: String = ""
     var date: Date = Date()
     var location: String = "fridge"
     
-    init(image: UIImage, name: String, calories: Double, protein: Double, ingredients: String, date: Date, location: String = "fridge") {
+    init(
+        image: UIImage,
+        name: String,
+        calories: Double,
+        protein: Double,
+        carbs: Double = 0,
+        fat: Double = 0,
+        ingredients: String,
+        date: Date,
+        location: String = "fridge"
+    ) {
         self.id = UUID()
         self.createdAt = Date()
         self.imageData = image.preparedForAppStorage().jpegData(compressionQuality: 0.72) ?? Data()
         self.name = name.isEmpty ? "Food" : name
         self.calories = max(0, calories)
         self.protein = max(0, protein)
+        self.carbs = max(0, carbs)
+        self.fat = max(0, fat)
         self.ingredients = ingredients
         self.date = date
         self.location = location

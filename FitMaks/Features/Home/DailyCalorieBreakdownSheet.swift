@@ -4,6 +4,8 @@ enum DailyGoalBreakdownSection {
     case calories
     case protein
     case steps
+    case carbs
+    case fat
 
     var title: String {
         switch self {
@@ -13,6 +15,10 @@ enum DailyGoalBreakdownSection {
             return "Protein"
         case .steps:
             return "Steps"
+        case .carbs:
+            return "Carbs"
+        case .fat:
+            return "Fat"
         }
     }
 }
@@ -31,6 +37,11 @@ struct DailyCalorieBreakdownSheet: View {
     var proteinBonus: Double
     var targetProtein: Double
     var consumedProtein: Double
+    var baseCarbs: Double
+    var targetCarbs: Double
+    var consumedCarbs: Double
+    var targetFat: Double
+    var consumedFat: Double
     var actualSteps: Double
     var uploadedSteps: Double
     var stepBonus: Double
@@ -66,6 +77,10 @@ struct DailyCalorieBreakdownSheet: View {
                             proteinSection
                         case .steps:
                             stepsSection
+                        case .carbs:
+                            carbsSection
+                        case .fat:
+                            fatSection
                         }
                     }
                     .padding()
@@ -99,12 +114,21 @@ struct DailyCalorieBreakdownSheet: View {
                 isMinimumGoal: false
             )
 
-            if dayMode.hasCardio {
+            if dayMode != .chill {
                 VStack(alignment: .leading, spacing: 6) {
                     if trainingCalories > 0 {
-                        Text("Workout burned \(Int(trainingCalories)) kcal → 70% credited = \(Int(trainingCalories * DayProgressEngine.workoutCalorieCreditRatio)) kcal bonus. The 30% discount accounts for the body's tendency to compensate after exercise.")
+                        Text("Workout burned \(Int(trainingCalories)) kcal. FitMaks first credits 70% of that burn, then trims the day bonus if your profile is already set to a higher weekly activity level, so the same training is not counted twice.")
                     } else {
-                        Text("Cardio starts with a 500 kcal estimate. Upload a workout screenshot and FitMaks will use 70% of those calories as your bonus.")
+                        switch dayMode {
+                        case .cardio:
+                            Text("Cardio starts from a 500 kcal estimate, but that bonus is scaled down when your profile already says you train a lot.")
+                        case .gym:
+                            Text("Strength starts from a 300 kcal estimate, but that bonus is scaled down when your profile already says you train a lot.")
+                        case .cardioGym:
+                            Text("Mixed training uses one blended estimate instead of stacking cardio and strength in full, then scales it down if your weekly activity level is already high.")
+                        case .chill:
+                            EmptyView()
+                        }
                     }
                 }
                 .font(.caption)
@@ -138,6 +162,126 @@ struct DailyCalorieBreakdownSheet: View {
     var stepsSection: some View {
         VStack(spacing: 16) {
             stepsGoalCard
+        }
+    }
+
+    var carbsSection: some View {
+        let fuelBonus = max(targetCarbs - baseCarbs, 0)
+        let burnZone = max(min(baseCarbs * 0.7, targetCarbs), 0)
+        let isOver = consumedCarbs > targetCarbs
+        let statusColor: Color = isOver ? .red : (consumedCarbs <= burnZone ? .neonGreen : (consumedCarbs <= baseCarbs ? .yellow : .neonCyan))
+        let statusText: String = isOver ? "\(Int(consumedCarbs - targetCarbs)) g over cap" : "\(Int(max(targetCarbs - consumedCarbs, 0))) g room left"
+
+        return VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("CARBS")
+                        .font(.caption.bold())
+                        .foregroundColor(statusColor)
+
+                    Spacer()
+
+                    Text(statusText)
+                        .font(.caption.bold())
+                        .foregroundColor(statusColor)
+                }
+
+                VStack(spacing: 10) {
+                    goalRow("Rest-day base", value: baseCarbs, unit: "g", color: .appText)
+                    goalRow("Low-burn zone", value: burnZone, unit: "g", color: .neonGreen)
+                    goalRow("\(dayMode.rawValue) fuel room", value: fuelBonus, unit: "g", color: fuelBonus > 0 ? .neonCyan : .appMuted, prefix: fuelBonus > 0 ? "+" : "")
+                    Divider().background(Color.appBorder)
+                    goalRow("Today cap", value: targetCarbs, unit: "g", color: .fitOrange)
+                    goalRow("Logged", value: consumedCarbs, unit: "g", color: statusColor)
+                    goalRow(isOver ? "Over cap" : "Room left", value: abs(targetCarbs - consumedCarbs), unit: "g", color: statusColor)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Carbs work as a fuel ceiling, not a target you must finish.")
+                    Text("On chill days, staying closer to the base keeps the day lighter. On cardio days, the cap expands so training can use more carbs without making the whole day feel wrong.")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        legendRow(title: "Low", detail: "lighter day", description: "Good for a rest day when you want to keep carbs very low.", color: .neonGreen)
+                        legendRow(title: "Base", detail: "inside base", description: "You are inside your normal carb range for a regular day.", color: .yellow, darkText: true)
+                        if fuelBonus > 0 {
+                            legendRow(title: "Fuel", detail: "using bonus", description: "You are using extra carbs unlocked by training.", color: .neonCyan)
+                        }
+                        legendRow(title: "Over", detail: "past cap", description: "You went above today's carb limit.", color: .red)
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.appMuted)
+                .lineSpacing(3)
+            }
+            .padding()
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.gray.opacity(0.15)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(statusColor.opacity(0.35), lineWidth: 1)
+            )
+
+            foodEntriesSection(title: "Carb sources")
+        }
+    }
+
+    var fatSection: some View {
+        let lowerBound = max(targetFat * 0.85, targetFat - 8)
+        let upperBound = max(targetFat * 1.15, lowerBound + 6)
+        let statusColor: Color = consumedFat < lowerBound ? .fitOrange : (consumedFat > upperBound ? .fitPurple : .yellow)
+        let statusText: String
+        if consumedFat < lowerBound {
+            statusText = "\(Int(lowerBound - consumedFat)) g below zone"
+        } else if consumedFat > upperBound {
+            statusText = "\(Int(consumedFat - upperBound)) g above zone"
+        } else {
+            statusText = "inside support zone"
+        }
+
+        return VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("FAT")
+                        .font(.caption.bold())
+                        .foregroundColor(statusColor)
+
+                    Spacer()
+
+                    Text(statusText)
+                        .font(.caption.bold())
+                        .foregroundColor(statusColor)
+                }
+
+                VStack(spacing: 10) {
+                    goalRow("Support floor", value: lowerBound, unit: "g", color: .fitOrange)
+                    goalRow("Comfort ceiling", value: upperBound, unit: "g", color: .fitPurple)
+                    Divider().background(Color.appBorder)
+                    goalRow("Center target", value: targetFat, unit: "g", color: .yellow)
+                    goalRow("Logged", value: consumedFat, unit: "g", color: statusColor)
+                    goalRow(consumedFat < lowerBound ? "Still needed" : (consumedFat > upperBound ? "Above zone" : "Buffer left"), value: consumedFat < lowerBound ? (lowerBound - consumedFat) : (consumedFat > upperBound ? (consumedFat - upperBound) : (upperBound - consumedFat)), unit: "g", color: statusColor)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Fat is shown as a comfort zone, not a race to max out.")
+                    Text("Too low means the day may be under-fueled. Too high usually means calories are getting dense fast. The sweet spot is the yellow support corridor.")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        legendRow(title: "Low", detail: "below floor", description: "Fat is a bit too low for a well-supported day.", color: .fitOrange)
+                        legendRow(title: "In range", detail: "support zone", description: "This is the sweet spot for a balanced day.", color: .yellow, darkText: true)
+                        legendRow(title: "High", detail: "above zone", description: "Fat is getting dense and can push calories up fast.", color: .fitPurple)
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.appMuted)
+                .lineSpacing(3)
+            }
+            .padding()
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.gray.opacity(0.15)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(statusColor.opacity(0.35), lineWidth: 1)
+            )
+
+            foodEntriesSection(title: "Fat sources")
         }
     }
 
@@ -263,6 +407,41 @@ struct DailyCalorieBreakdownSheet: View {
         .font(.subheadline)
     }
 
+    func legendRow(title: String, detail: String, description: String, color: Color, darkText: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(title)
+                .font(.caption2)
+                .fontWeight(.black)
+                .foregroundColor(darkText ? .black : .appAccentText)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(color))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(detail)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appText)
+
+                Text(description)
+                    .font(.caption2)
+                    .foregroundColor(.appMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(color.opacity(0.18), lineWidth: 1)
+                )
+        )
+    }
+
     var emptyFoodState: some View {
         VStack(spacing: 12) {
             Image(systemName: "fork.knife.circle")
@@ -313,7 +492,7 @@ struct DailyCalorieBreakdownSheet: View {
                         .bold()
                         .foregroundColor(.white)
 
-                    Text("\(Int(entry.calories)) kcal • \(Int(entry.protein))g protein")
+                    Text("\(Int(entry.calories)) kcal • \(Int(entry.protein))g protein • \(Int(entry.carbs))g carbs • \(Int(entry.fat))g fat")
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -332,7 +511,7 @@ struct DailyCalorieBreakdownSheet: View {
 
                             Spacer()
 
-                            Text("\(ingredient.kcal) kcal • \(ingredient.prot)g")
+                            Text("\(ingredient.kcal) kcal • P \(ingredient.prot)g • C \(ingredient.carbs)g • F \(ingredient.fat)g")
                                 .foregroundColor(.gray)
                         }
                         .font(.caption)

@@ -96,9 +96,14 @@ enum DayProgressEngine {
         baseProtein: Double,
         mode: DayMode,
         trainingCalories: Double = 0,
+        activityLevel: String = "Moderate",
         stepTarget: Double = defaultStepTarget
     ) -> DayTargets {
-        let bonuses = bonuses(for: mode, trainingCalories: trainingCalories)
+        let bonuses = bonuses(
+            for: mode,
+            trainingCalories: trainingCalories,
+            activityLevel: activityLevel
+        )
 
         return DayTargets(
             baseCalories: baseCalories,
@@ -119,6 +124,7 @@ enum DayProgressEngine {
         baseProtein: Double,
         steps: Double,
         uploadedSteps: Double = 0,
+        activityLevel: String = "Moderate",
         stepTarget: Double = defaultStepTarget
     ) -> DayProgress {
         let consumed = foodEntries.reduce(0) { $0 + $1.calories }
@@ -135,6 +141,7 @@ enum DayProgressEngine {
             baseProtein: baseProtein,
             steps: steps,
             uploadedSteps: uploadedSteps,
+            activityLevel: activityLevel,
             stepTarget: stepTarget
         )
     }
@@ -150,6 +157,7 @@ enum DayProgressEngine {
         baseProtein: Double,
         steps: Double,
         uploadedSteps: Double = 0,
+        activityLevel: String = "Moderate",
         stepTarget: Double = defaultStepTarget
     ) -> DayProgress {
         let targets = targets(
@@ -157,6 +165,7 @@ enum DayProgressEngine {
             baseProtein: baseProtein,
             mode: mode,
             trainingCalories: trainingCalories,
+            activityLevel: activityLevel,
             stepTarget: stepTarget
         )
 
@@ -224,23 +233,53 @@ enum DayProgressEngine {
 
     static let workoutCalorieCreditRatio: Double = 0.7
 
-    private static func bonuses(for mode: DayMode, trainingCalories: Double = 0) -> (calories: Double, protein: Double, steps: Double) {
-        let creditedCardio = trainingCalories > 0
+    private static func bonuses(
+        for mode: DayMode,
+        trainingCalories: Double = 0,
+        activityLevel: String = "Moderate"
+    ) -> (calories: Double, protein: Double, steps: Double) {
+        let activityScale = activityBonusScale(for: activityLevel)
+        let creditedTrainingCalories = trainingCalories > 0
             ? trainingCalories * workoutCalorieCreditRatio
-            : 500
-        let creditedStrength = trainingCalories > 0
-            ? trainingCalories * workoutCalorieCreditRatio
-            : 300
+            : 0
 
         switch mode {
         case .chill:
             return (0, 0, 0)
         case .cardio:
-            return (creditedCardio, 15, 0)
+            let fallback = 500.0
+            let calorieBonus = max(
+                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
+                0
+            )
+            return (calorieBonus, 15, 0)
         case .gym:
-            return (creditedStrength, 25, gymStepBonus)
+            let fallback = 300.0
+            let calorieBonus = max(
+                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
+                0
+            )
+            return (calorieBonus, 25, gymStepBonus)
         case .cardioGym:
-            return (creditedCardio + creditedStrength, 40, gymStepBonus)
+            let fallback = 600.0
+            let calorieBonus = max(
+                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
+                0
+            )
+            return (calorieBonus, 40, gymStepBonus)
+        }
+    }
+
+    private static func activityBonusScale(for activityLevel: String) -> Double {
+        switch activityLevel {
+        case "Light":
+            return 0.85
+        case "Moderate":
+            return 0.65
+        case "Active":
+            return 0.45
+        default:
+            return 1.0
         }
     }
 }

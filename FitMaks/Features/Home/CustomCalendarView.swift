@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CustomCalendarView: View {
     @Binding var selectedDate: Date
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
 
     var allEntries: [FoodEntry]
     var allTrainingEntries: [TrainingEntry]
@@ -82,6 +83,7 @@ struct CustomCalendarView: View {
                                 baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
                                 steps: steps,
                                 uploadedSteps: uploadedTrainingSteps,
+                                activityLevel: activityLevel,
                                 stepTarget: targetSteps
                             )
                             let calorieGoalMet = progress.calorieWin

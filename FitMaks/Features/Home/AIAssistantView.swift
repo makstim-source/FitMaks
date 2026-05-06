@@ -6,8 +6,12 @@ struct AIAssistantView: View {
     var selectedDate: Date
     var consumedCalories: Double
     var consumedProtein: Double
+    var consumedCarbs: Double
+    var consumedFat: Double
     var targetCalories: Double
     var targetProtein: Double
+    var targetCarbs: Double
+    var targetFat: Double
     var foods: [FoodEntry]
     var trainings: [TrainingEntry]
     var favorites: [FavoriteFood]
@@ -152,6 +156,26 @@ struct AIAssistantView: View {
                         : (consumedProtein >= AppRules.completionMinimum(for: targetProtein) ? "within 3% grace" : "\(Int(max(targetProtein - consumedProtein, 0)))g missing")
                 )
             }
+
+            HStack(spacing: 10) {
+                compactMacroCard(
+                    title: "Carbs",
+                    valueText: "\(Int(consumedCarbs))g",
+                    detailText: "cap \(Int(targetCarbs))g",
+                    statusText: carbStatusLabel,
+                    statusColor: carbStatusColor,
+                    tintColor: .fitOrange
+                )
+
+                compactMacroCard(
+                    title: "Fat",
+                    valueText: "\(Int(consumedFat))g",
+                    detailText: "zone \(Int(fatLowerBound))-\(Int(fatUpperBound))g",
+                    statusText: fatCompactStatusLabel,
+                    statusColor: fatStatusColor,
+                    tintColor: .yellow
+                )
+            }
         }
         .padding(18)
         .background(
@@ -217,6 +241,94 @@ struct AIAssistantView: View {
             }
             .frame(height: 7)
         }
+    }
+
+    private func compactMacroCard(title: String, valueText: String, detailText: String, statusText: String, statusColor: Color, tintColor: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(tintColor)
+                    .tracking(0.7)
+
+                Spacer(minLength: 6)
+
+                Text(statusText)
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(statusText == "Base" || statusText == "In range" ? .black : .appAccentText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(statusColor))
+            }
+
+            Text(valueText)
+                .font(.system(size: 16, weight: .black))
+                .foregroundColor(.appText)
+
+            Text(detailText)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.appMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.appElevated.opacity(0.78))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(tintColor.opacity(0.16), lineWidth: 1)
+                )
+        )
+    }
+
+    private var carbBurnThreshold: Double {
+        max(min(targetCarbs * 0.7, targetCarbs), 0)
+    }
+
+    private var carbStatusColor: Color {
+        if consumedCarbs > targetCarbs { return .red }
+        if consumedCarbs <= carbBurnThreshold { return .neonGreen }
+        if consumedCarbs <= targetCarbs { return .fitOrange }
+        return .red
+    }
+
+    private var carbStatusLabel: String {
+        if consumedCarbs > targetCarbs { return "Over" }
+        if consumedCarbs <= carbBurnThreshold { return "Low" }
+        return "Base"
+    }
+
+    private var fatLowerBound: Double {
+        max(targetFat * 0.85, targetFat - 8)
+    }
+
+    private var fatUpperBound: Double {
+        max(targetFat * 1.15, fatLowerBound + 6)
+    }
+
+    private var fatStatusColor: Color {
+        if consumedFat < fatLowerBound { return .fitOrange }
+        if consumedFat > fatUpperBound { return .fitPurple }
+        return .yellow
+    }
+
+    private var fatStatusDetail: String {
+        if consumedFat < fatLowerBound {
+            return "\(Int(fatLowerBound - consumedFat))g below zone"
+        }
+        if consumedFat > fatUpperBound {
+            return "\(Int(consumedFat - fatUpperBound))g above zone"
+        }
+        return "in support zone"
+    }
+
+    private var fatCompactStatusLabel: String {
+        if consumedFat < fatLowerBound { return "Low" }
+        if consumedFat > fatUpperBound { return "High" }
+        return "In range"
     }
 
     private var chatComposer: some View {
@@ -327,8 +439,11 @@ struct AIAssistantView: View {
             return "\(training.name) (\(Int(training.caloriesBurned)) kcal burned\(stepsText))"
         }
         let fridgeNames = favorites.map { "\($0.name) (\(Int($0.calories))kcal, \(Int($0.protein))g protein)" }
+        let recentMessages = messages.suffix(4).map { msg in
+            "\(msg.isUser ? "User" : "Coach"): \(msg.text)"
+        }
 
-        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, targetCalories: targetCalories, targetProtein: targetProtein, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames, userName: AuthService.shared.displayName) { result, error in
+        GeminiService.shared.sendCoachMessage(image: image, message: message, isInitial: isInitial, isPastDay: isPastDay, selectedDateDescription: selectedDateDescription, selectedDateRelation: selectedDateRelation, timeOfDay: timeString, consumedCalories: consumedCalories, consumedProtein: consumedProtein, consumedCarbs: consumedCarbs, consumedFat: consumedFat, targetCalories: targetCalories, targetProtein: targetProtein, targetCarbs: targetCarbs, targetFat: targetFat, meals: mealNames, workouts: workoutNames, fridgeItems: fridgeNames, recentMessages: recentMessages, userName: AuthService.shared.displayName) { result, error in
             DispatchQueue.main.async {
                 self.isWaiting = false
                 let aiText = result ?? error ?? "Oops, something went wrong connecting to the AI. Try again!"

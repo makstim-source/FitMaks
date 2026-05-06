@@ -2,14 +2,20 @@ import SwiftUI
 
 private let fillerWords: Set<String> = ["and", "with", "in", "on", "the", "a", "of", "for", "from", "с", "и", "в", "на", "из", "для", "по", "к", "от", "до"]
 
-func shortFoodName(_ name: String, maxWords: Int = 3) -> String {
-    let words = name.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-    guard words.count > maxWords else { return name }
-    var result = Array(words.prefix(maxWords))
+func shortFoodName(_ name: String, maxChars: Int = 22) -> String {
+    let trimmed = name.trimmingCharacters(in: .whitespaces)
+    guard trimmed.count > maxChars else { return trimmed }
+    let words = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+    var result: [String] = []
+    for word in words {
+        let candidate = (result + [word]).joined(separator: " ")
+        if candidate.count > maxChars { break }
+        result.append(word)
+    }
     while let last = result.last, fillerWords.contains(last.lowercased()) {
         result.removeLast()
     }
-    return result.joined(separator: " ")
+    return result.isEmpty ? String(trimmed.prefix(maxChars)) : result.joined(separator: " ")
 }
 
 struct HomeBackground: View {
@@ -371,10 +377,10 @@ struct HomeCarbControlCard: View {
                         .fill(accentColor)
                         .frame(width: max(6, width * fillProgress))
 
-                    Rectangle()
+                    Circle()
                         .fill(Color.white.opacity(0.5))
-                        .frame(width: 1.5, height: 3)
-                        .offset(x: max(0, min(width - 2, width * markerProgress - 1)))
+                        .frame(width: 6, height: 6)
+                        .offset(x: max(0, min(width - 6, width * markerProgress - 3)))
                 }
             }
             .frame(height: 3)
@@ -537,9 +543,10 @@ struct HomeFoodRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(shortFoodName(entry.name))
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(.system(size: 13, weight: .heavy))
                     .foregroundColor(.appText)
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
 
                 HStack(spacing: 6) {
                     Label("\(Int(entry.calories))", systemImage: "flame.fill")

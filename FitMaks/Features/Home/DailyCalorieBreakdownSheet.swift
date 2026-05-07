@@ -501,6 +501,7 @@ struct DailyCalorieBreakdownSheet: View {
             }
 
             let ingredients = parseIngredientBreakdown(entry.ingredients)
+            let showCF = entry.carbs > 0 || entry.fat > 0 || ingredients.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
             if !ingredients.isEmpty {
                 VStack(spacing: 6) {
                     ForEach(ingredients.prefix(4)) { ingredient in
@@ -512,7 +513,7 @@ struct DailyCalorieBreakdownSheet: View {
 
                             Spacer(minLength: 4)
 
-                            ingredientMacroLabel(ingredient)
+                            ingredientMacroLabel(ingredient, showCF: showCF)
                                 .layoutPriority(2)
                         }
                         .font(.caption)
@@ -528,20 +529,15 @@ struct DailyCalorieBreakdownSheet: View {
         )
     }
 
-    private func ingredientMacroLabel(_ ing: ParsedIng) -> some View {
-        let hasCarbs = (Double(ing.carbs) ?? 0) > 0
-        let hasFat = (Double(ing.fat) ?? 0) > 0
-
+    private func ingredientMacroLabel(_ ing: ParsedIng, showCF: Bool) -> some View {
         return HStack(spacing: 4) {
             Text("\(ing.kcal) kcal")
                 .foregroundColor(.neonGreen)
             Text("P \(ing.prot)g")
                 .foregroundColor(.neonCyan)
-            if hasCarbs {
+            if showCF {
                 Text("C \(ing.carbs)g")
                     .foregroundColor(.fitOrange)
-            }
-            if hasFat {
                 Text("F \(ing.fat)g")
                     .foregroundColor(.yellow)
             }

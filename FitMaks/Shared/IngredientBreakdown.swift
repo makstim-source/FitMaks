@@ -131,7 +131,7 @@ struct IngredientBreakdownCard: View {
 
             VStack(spacing: 8) {
                 let parsedItems = parseIngredientBreakdown(ingredients)
-                let showCF = parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
+                let showCF = carbs > 0 || fat > 0 || parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
 
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)

@@ -504,15 +504,16 @@ struct DailyCalorieBreakdownSheet: View {
             if !ingredients.isEmpty {
                 VStack(spacing: 6) {
                     ForEach(ingredients.prefix(4)) { ingredient in
-                        HStack {
+                        HStack(spacing: 6) {
                             Text(ingredient.name)
                                 .foregroundColor(.white)
                                 .lineLimit(1)
+                                .layoutPriority(1)
 
-                            Spacer()
+                            Spacer(minLength: 4)
 
-                            Text("\(ingredient.kcal) kcal • P \(ingredient.prot)g • C \(ingredient.carbs)g • F \(ingredient.fat)g")
-                                .foregroundColor(.gray)
+                            ingredientMacroLabel(ingredient)
+                                .layoutPriority(2)
                         }
                         .font(.caption)
                     }
@@ -525,5 +526,28 @@ struct DailyCalorieBreakdownSheet: View {
             RoundedRectangle(cornerRadius: 18)
                 .stroke(Color.gray.opacity(0.25), lineWidth: 1)
         )
+    }
+
+    private func ingredientMacroLabel(_ ing: ParsedIng) -> some View {
+        let hasCarbs = (Double(ing.carbs) ?? 0) > 0
+        let hasFat = (Double(ing.fat) ?? 0) > 0
+
+        return HStack(spacing: 4) {
+            Text("\(ing.kcal) kcal")
+                .foregroundColor(.neonGreen)
+            Text("P \(ing.prot)g")
+                .foregroundColor(.neonCyan)
+            if hasCarbs {
+                Text("C \(ing.carbs)g")
+                    .foregroundColor(.fitOrange)
+            }
+            if hasFat {
+                Text("F \(ing.fat)g")
+                    .foregroundColor(.yellow)
+            }
+        }
+        .font(.system(size: 10, weight: .heavy))
+        .lineLimit(1)
+        .fixedSize()
     }
 }

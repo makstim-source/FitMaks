@@ -130,22 +130,35 @@ struct IngredientBreakdownCard: View {
             }
 
             VStack(spacing: 8) {
+                let parsedItems = parseIngredientBreakdown(ingredients)
+                let showCF = parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
+
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Weight").frame(width: 58, alignment: .center)
                     Text("Kcal").frame(width: 42, alignment: .trailing)
-                    Text("Prot").frame(width: 38, alignment: .trailing)
+                    Text("P").frame(width: 30, alignment: .trailing)
+                    if showCF {
+                        Text("C").frame(width: 30, alignment: .trailing)
+                        Text("F").frame(width: 30, alignment: .trailing)
+                    }
                 }
                 .font(.system(size: 10, weight: .heavy))
                 .foregroundColor(.gray)
 
-                ForEach(parseIngredientBreakdown(ingredients)) { item in
+                ForEach(parsedItems) { item in
                     HStack {
                         Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(2)
-                        Text(item.weight).frame(width: 58, alignment: .center)
                         Text(item.kcal).frame(width: 42, alignment: .trailing)
-                        Text(item.prot).frame(width: 38, alignment: .trailing)
+                            .foregroundColor(.neonGreen)
+                        Text(item.prot).frame(width: 30, alignment: .trailing)
+                            .foregroundColor(.neonCyan)
+                        if showCF {
+                            Text(item.carbs).frame(width: 30, alignment: .trailing)
+                                .foregroundColor(.fitOrange)
+                            Text(item.fat).frame(width: 30, alignment: .trailing)
+                                .foregroundColor(.yellow)
+                        }
                     }
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)

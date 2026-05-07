@@ -69,7 +69,7 @@ struct RecipeSheet: View {
 
     func addToDiary() {
         let safeName = recipe.recipe_name.hasPrefix("👨‍🍳") ? recipe.recipe_name : "👨‍🍳 " + recipe.recipe_name
-        modelContext.insert(FoodEntry(image: UIImage(systemName: "fork.knife")!, name: safeName, calories: recipe.estimated_calories, protein: recipe.estimated_protein, carbs: recipe.estimated_carbs, fat: recipe.estimated_fat, ingredients: "Recipe;1 portion;\(recipe.estimated_calories);\(recipe.estimated_protein);\(recipe.estimated_carbs);\(recipe.estimated_fat)", date: selectedDate))
+        modelContext.insert(FoodEntry(image: UIImage(systemName: "fork.knife") ?? UIImage(), name: safeName, calories: recipe.estimated_calories, protein: recipe.estimated_protein, carbs: recipe.estimated_carbs, fat: recipe.estimated_fat, ingredients: "Recipe;1 portion;\(recipe.estimated_calories);\(recipe.estimated_protein);\(recipe.estimated_carbs);\(recipe.estimated_fat)", date: selectedDate))
         withAnimation { isAddedToDiary = true }
     }
 }

@@ -33,20 +33,6 @@ struct ContentView: View {
 
     var currentDayMode: DayMode { viewModel.dayMode(for: viewModel.selectedDate) }
 
-    func setDayMode(_ mode: DayMode) {
-        viewModel.setDayMode(mode, for: viewModel.selectedDate)
-    }
-
-    func setDayMode(_ mode: DayMode, for date: Date) {
-        viewModel.setDayMode(mode, for: date)
-    }
-
-    func dayMode(for date: Date) -> DayMode {
-        let id = DateFormatter.yyyyMMdd.string(from: date)
-        let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode
-        return DayMode.fromStoredValue(storedMode)
-    }
-
     func setup(for date: Date) -> DailySetup? {
         let id = DateFormatter.yyyyMMdd.string(from: date)
         return allDailySetups.first(where: { $0.dateID == id })

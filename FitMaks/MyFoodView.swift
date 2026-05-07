@@ -120,7 +120,7 @@ struct MyFoodView: View {
                 TextField("E.g. 150g Greek Yogurt", text: $manualText)
                 Button("Analyze") {
                     guard !manualText.isEmpty else { return }
-                    let item = ProcessingItem(images: [UIImage(systemName: "brain")!], textPrompt: manualText, targetTab: currentTab)
+                    let item = ProcessingItem(images: [UIImage(systemName: "brain") ?? UIImage()], textPrompt: manualText, targetTab: currentTab)
                     withAnimation { processingItems.append(item) }
                     onProcessQueue([item])
                     manualText = ""

@@ -1143,6 +1143,171 @@ struct FitMaksTests {
         #expect(StatsAchievementFamily.chaos.label == "Side quest")
     }
 
+    // MARK: - Short Food Name
+
+    @Test func shortFoodNameReturnShortNamesUnchanged() async throws {
+        #expect(shortFoodName("3 eggs") == "3 eggs")
+        #expect(shortFoodName("Mixed Plate") == "Mixed Plate")
+    }
+
+    @Test func shortFoodNameTruncatesAtWordBoundary() async throws {
+        let result = shortFoodName("Sportyfeel Recovery Drink Vanilla Flavour")
+        #expect(!result.contains("..."))
+        #expect(result.count <= 22)
+        #expect(result == "Sportyfeel Recovery")
+    }
+
+    @Test func shortFoodNameStripsTrailingFillerWords() async throws {
+        let result = shortFoodName("Chicken Breast with Sauce and Rice", maxChars: 25)
+        #expect(!result.hasSuffix("with"))
+        #expect(!result.hasSuffix("and"))
+    }
+
+    @Test func shortFoodNameRespectsCustomMaxChars() async throws {
+        let result = shortFoodName("Pohjolan Raejuusto Laktoositon", maxChars: 30)
+        #expect(result == "Pohjolan Raejuusto Laktoositon")
+    }
+
+    @Test func shortFoodNameHandlesEmojiPrefix() async throws {
+        let result = shortFoodName("❄️ Vaasan Ruispalat Original")
+        #expect(result.count <= 22)
+        #expect(!result.contains("..."))
+    }
+
+    @Test func shortFoodNameHandlesEmptyAndWhitespace() async throws {
+        #expect(shortFoodName("") == "")
+        #expect(shortFoodName("   ") == "")
+    }
+
+    @Test func shortFoodNameKeepsAtLeastOneWord() async throws {
+        let result = shortFoodName("Superlongsinglewooooord", maxChars: 10)
+        #expect(!result.isEmpty)
+    }
+
+    // MARK: - Carbs/Fat Target Formula
+
+    @Test func carbsFatTargetFormulaUsesCorrectSplit() async throws {
+        let calories: Double = 2500
+        let protein: Double = 180
+        let remaining = max(calories - protein * 4, 0)
+        let expectedCarbs = remaining * 0.55 / 4
+        let expectedFat = remaining * 0.45 / 9
+
+        #expect(abs(expectedCarbs - 237.875) < 0.01)
+        #expect(abs(expectedFat - 86.5) < 0.01)
+    }
+
+    @Test func carbsFatEstimationZeroesWhenProteinExceedsCalories() async throws {
+        let calories: Double = 500
+        let protein: Double = 200
+        let remaining = max(calories - protein * 4, 0)
+
+        #expect(remaining == 0)
+        #expect(remaining * 0.55 / 4 == 0)
+        #expect(remaining * 0.45 / 9 == 0)
+    }
+
+    // MARK: - Ingredient Breakdown Parsing (Carbs & Fat)
+
+    @Test func parseIngredientBreakdownExtractsCarbsAndFat() async throws {
+        let input = "Chicken;200g;350;42;10g;8g"
+        let items = parseIngredientBreakdown(input)
+
+        #expect(items.count == 1)
+        #expect(items[0].name == "Chicken")
+        #expect(items[0].kcal == "350")
+        #expect(items[0].prot == "42")
+        #expect(items[0].carbs == "10")
+        #expect(items[0].fat == "8")
+    }
+
+    @Test func parseIngredientBreakdownDefaultsMissingCarbsFat() async throws {
+        let input = "Rice;150g;200;4"
+        let items = parseIngredientBreakdown(input)
+
+        #expect(items.count == 1)
+        #expect(items[0].carbs == "0")
+        #expect(items[0].fat == "0")
+    }
+
+    @Test func parseIngredientBreakdownHandlesMultipleLines() async throws {
+        let input = "Chicken;200g;350;42;10g;8g\nRice;150g;200;4;44g;1g\nBroccoli;100g;35;3;7g;0g"
+        let items = parseIngredientBreakdown(input)
+
+        #expect(items.count == 3)
+        #expect(items[1].carbs == "44")
+        #expect(items[2].fat == "0")
+    }
+
+    @Test func parseIngredientBreakdownSkipsMalformedLines() async throws {
+        let input = "BadLine\nChicken;200g;350;42"
+        let items = parseIngredientBreakdown(input)
+
+        #expect(items.count == 1)
+        #expect(items[0].name == "Chicken")
+    }
+
+    // MARK: - Scale Ingredient Breakdown (Carbs & Fat)
+
+    @Test func scaleIngredientBreakdownScalesCarbsAndFat() async throws {
+        let input = "Chicken;200g;350;42g;10g;8g"
+        let scaled = scaleIngredientBreakdown(input, by: 2.0)
+        let parts = scaled.components(separatedBy: ";")
+
+        #expect(parts.count == 6)
+        #expect(parts[4] == "20g")
+        #expect(parts[5] == "16g")
+    }
+
+    @Test func scaleIngredientBreakdownHandlesZeroFactor() async throws {
+        let input = "Chicken;200g;350;42g;10g;8g"
+        let result = scaleIngredientBreakdown(input, by: 0)
+        #expect(result == input)
+    }
+
+    @Test func scaleIngredientBreakdownHandlesHalfPortion() async throws {
+        let input = "Chicken;200g;350;42g;10g;8g"
+        let scaled = scaleIngredientBreakdown(input, by: 0.5)
+        let parts = scaled.components(separatedBy: ";")
+
+        #expect(parts[2] == "175")
+        #expect(parts[3] == "21g")
+        #expect(parts[4] == "5g")
+        #expect(parts[5] == "4g")
+    }
+
+    // MARK: - Day Mode Suggestions from Training
+
+    @Test func suggestedDayModeDetectsGymFromKeywords() async throws {
+        let vm = await HomeViewModel()
+        let result = try trainingResult(name: "Upper Body Workout", summary: "Heavy lifting session")
+        await #expect(vm.suggestedDayMode(from: result) == .gym)
+    }
+
+    @Test func suggestedDayModeDetectsCardioFromKeywords() async throws {
+        let vm = await HomeViewModel()
+        let result = try trainingResult(name: "Morning Run", summary: "Easy pace run")
+        await #expect(vm.suggestedDayMode(from: result) == .cardio)
+    }
+
+    @Test func suggestedDayModeDetectsMixedTraining() async throws {
+        let vm = await HomeViewModel()
+        let result = try trainingResult(name: "Gym and Running", summary: "Strength followed by cardio")
+        await #expect(vm.suggestedDayMode(from: result) == .cardioGym)
+    }
+
+    @Test func suggestedDayModeReturnsNilForUnknownActivity() async throws {
+        let vm = await HomeViewModel()
+        let result = try trainingResult(name: "Meditation", summary: "Relaxation")
+        await #expect(vm.suggestedDayMode(from: result) == nil)
+    }
+
+    @Test func suggestedDayModeUsesDayModeFieldWhenPresent() async throws {
+        let vm = await HomeViewModel()
+        let result = try trainingResult(name: "Session", summary: "Some session", dayMode: "Gym")
+        await #expect(vm.suggestedDayMode(from: result) == .gym)
+    }
+
     // MARK: - Share Payload Helpers
 
     private func makeTodayPayload() -> FitMaksSharePayload {
@@ -1199,6 +1364,17 @@ struct FitMaksTests {
             accentColor: .fitPurple,
             image: nil
         ))
+    }
+
+    private func trainingResult(name: String, calories: Double = 300, summary: String, dayMode: String? = nil) throws -> TrainingResult {
+        var dict: [String: Any] = [
+            "activity_name": name,
+            "calories_burned": calories,
+            "ai_summary": summary
+        ]
+        if let dayMode { dict["day_mode"] = dayMode }
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        return try JSONDecoder().decode(TrainingResult.self, from: data)
     }
 
     private func makeAchievementPayload() -> FitMaksSharePayload {

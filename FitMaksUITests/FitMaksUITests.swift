@@ -18,7 +18,7 @@ final class FitMaksUITests: XCTestCase {
     // MARK: - Helpers
 
     private func waitForHomeScreen() -> Bool {
-        app.staticTexts["Diary"].waitForExistence(timeout: 8)
+        app.staticTexts["DIARY"].waitForExistence(timeout: 8)
     }
 
     // MARK: - Home Screen
@@ -57,7 +57,7 @@ final class FitMaksUITests: XCTestCase {
         XCTAssertTrue(cameraButton.waitForExistence(timeout: 5))
 
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Library'")).firstMatch.exists)
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Type Text'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Type Food'")).firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Training'")).firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Fridge'")).firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Meals'")).firstMatch.exists)
@@ -74,7 +74,7 @@ final class FitMaksUITests: XCTestCase {
 
         app.buttons["Done"].tap()
 
-        XCTAssertTrue(app.staticTexts["Diary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["DIARY"].waitForExistence(timeout: 5))
     }
 
     // MARK: - Food Sheet
@@ -100,7 +100,7 @@ final class FitMaksUITests: XCTestCase {
 
         app.buttons["Close"].tap()
 
-        XCTAssertTrue(app.staticTexts["Diary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["DIARY"].waitForExistence(timeout: 5))
     }
 
     // MARK: - Sign In Flow

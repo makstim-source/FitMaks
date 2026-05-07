@@ -500,7 +500,7 @@ struct DailyCalorieBreakdownSheet: View {
                 Spacer()
             }
 
-            let ingredients = parseIngredientBreakdown(entry.ingredients)
+            let ingredients = fillMissingMacros(parseIngredientBreakdown(entry.ingredients), totalCarbs: entry.carbs, totalFat: entry.fat)
             let showCF = ingredients.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
             if !ingredients.isEmpty {
                 VStack(spacing: 6) {

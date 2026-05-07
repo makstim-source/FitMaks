@@ -104,6 +104,29 @@ func parseIngredientBreakdown(_ input: String) -> [ParsedIng] {
     }
 }
 
+func fillMissingMacros(_ items: [ParsedIng], totalCarbs: Double, totalFat: Double) -> [ParsedIng] {
+    let hasPerIngredient = items.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
+    guard !hasPerIngredient, (totalCarbs > 0 || totalFat > 0) else { return items }
+
+    let totalCal = items.reduce(0.0) { $0 + (Double($1.kcal) ?? 0) }
+    guard totalCal > 0 else { return items }
+
+    return items.map { item in
+        let cal = Double(item.kcal) ?? 0
+        let share = cal / totalCal
+        let c = (totalCarbs * share).rounded()
+        let f = (totalFat * share).rounded()
+        return ParsedIng(
+            name: item.name,
+            weight: item.weight,
+            kcal: item.kcal,
+            prot: item.prot,
+            carbs: c > 0 ? String(Int(c)) : "0",
+            fat: f > 0 ? String(Int(f)) : "0"
+        )
+    }
+}
+
 struct IngredientBreakdownCard: View {
     var title: String
     var ingredients: String
@@ -130,7 +153,7 @@ struct IngredientBreakdownCard: View {
             }
 
             VStack(spacing: 8) {
-                let parsedItems = parseIngredientBreakdown(ingredients)
+                let parsedItems = fillMissingMacros(parseIngredientBreakdown(ingredients), totalCarbs: carbs, totalFat: fat)
                 let showCF = parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
 
                 HStack {

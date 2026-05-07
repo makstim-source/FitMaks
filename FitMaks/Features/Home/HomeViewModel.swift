@@ -45,8 +45,18 @@ final class HomeViewModel {
     var baseCaloriesGoal: Double = 0
     var baseProteinGoal: Double = 0
     var allDailySetups: [DailySetup] = []
+    var setupIndex: [String: DailySetup] = [:]
     var allFoodEntries: [FoodEntry] = []
     var allTrainingEntries: [TrainingEntry] = []
+
+    var cachedLast30Stats: [DayProgress] = []
+    var cachedPerfectStreak: Int = 0
+    var cachedAchievementCollection: StatsAchievementCollection = .empty
+
+    var cachedDailyFood: [FoodEntry] = []
+    var cachedDailyTraining: [TrainingEntry] = []
+    var cachedTodayFood: [FoodEntry] = []
+    var cachedTodayTraining: [TrainingEntry] = []
 
     func sync(
         weight: Double,
@@ -55,22 +65,75 @@ final class HomeViewModel {
         allDailySetups: [DailySetup],
         allFoodEntries: [FoodEntry],
         allTrainingEntries: [TrainingEntry],
+        activityLevel: String,
         modelContext: ModelContext
     ) {
         self.currentWeight = weight
         self.baseCaloriesGoal = baseCaloriesGoal
         self.baseProteinGoal = baseProteinGoal
         self.allDailySetups = allDailySetups
+        self.setupIndex = Dictionary(allDailySetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
         self.allFoodEntries = allFoodEntries
         self.allTrainingEntries = allTrainingEntries
         if self.modelContext == nil {
             self.modelContext = modelContext
         }
+        rebuildDailyCache()
+        rebuildCachedStats(activityLevel: activityLevel)
+    }
+
+    func rebuildDailyCache() {
+        let calendar = Calendar.current
+        cachedDailyFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
+        cachedDailyTraining = allTrainingEntries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
+        cachedTodayFood = allFoodEntries.filter { calendar.isDateInToday($0.date) }
+        cachedTodayTraining = allTrainingEntries.filter { calendar.isDateInToday($0.date) }
+    }
+
+    private func rebuildCachedStats(activityLevel: String) {
+        let calendar = Calendar.current
+        let today = Date()
+        let stepTarget = DayProgressEngine.defaultStepTarget
+
+        cachedLast30Stats = (0..<30).compactMap { index in
+            let daysBack = 29 - index
+            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: today) else { return nil }
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = setupIndex[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            let dayTrainingCalories = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + $1.caloriesBurned }
+            let dayUploadedSteps = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: date) }
+                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: dayFood,
+                trainingCalories: dayTrainingCalories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
+                steps: homeWeeklySteps[dateID] ?? 0,
+                uploadedSteps: dayUploadedSteps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            )
+        }
+
+        let recent7 = Array(cachedLast30Stats.suffix(7))
+        cachedPerfectStreak = AchievementEngine.homePerfectStreak(in: recent7)
+        cachedAchievementCollection = AchievementEngine.achievementCollection(
+            last30Stats: cachedLast30Stats,
+            recentSevenDayStats: recent7,
+            foodEntries: allFoodEntries
+        )
     }
 
     func dayMode(for date: Date) -> DayMode {
         let id = DateFormatter.yyyyMMdd.string(from: date)
-        let storedMode = allDailySetups.first(where: { $0.dateID == id })?.mode
+        let storedMode = setupIndex[id]?.mode
         return DayMode.fromStoredValue(storedMode)
     }
 
@@ -78,7 +141,7 @@ final class HomeViewModel {
         guard let modelContext else { return }
         let id = DateFormatter.yyyyMMdd.string(from: date)
 
-        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+        if let existing = setupIndex[id] {
             existing.mode = mode.rawValue
             snapshotPastGoalsIfNeeded(for: date)
         } else {
@@ -107,7 +170,7 @@ final class HomeViewModel {
         guard shouldSnapshotGoals(for: date) else { return }
         let id = DateFormatter.yyyyMMdd.string(from: date)
 
-        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+        if let existing = setupIndex[id] {
             existing.applyGoalSnapshotIfNeeded(baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal)
         } else {
             modelContext.insert(DailySetup(
@@ -129,7 +192,7 @@ final class HomeViewModel {
 
         guard hasActivity else { return }
 
-        if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+        if let existing = setupIndex[id] {
             existing.applyGoalSnapshotIfNeeded(baseCalories: baseCalories, baseProtein: baseProtein)
         } else {
             modelContext.insert(DailySetup(
@@ -146,7 +209,7 @@ final class HomeViewModel {
         guard baseCalories > 0, baseProtein > 0 else { return }
         for date in loggedPastDatesWithActivity() {
             let id = DateFormatter.yyyyMMdd.string(from: date)
-            if let existing = allDailySetups.first(where: { $0.dateID == id }) {
+            if let existing = setupIndex[id] {
                 existing.applyGoalSnapshotIfNeeded(baseCalories: baseCalories, baseProtein: baseProtein)
             } else {
                 modelContext.insert(DailySetup(

@@ -22,25 +22,31 @@ struct StatsView: View {
 
     typealias WeekStat = DayProgress
 
+    private var setupIndex: [String: DailySetup] {
+        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+
     var stats: [WeekStat] {
         let calendar = Calendar.current
+        let index = setupIndex
 
-        return (0..<7).map { index in
-            let date = calendar.date(byAdding: .day, value: -index, to: Date()) ?? Date()
-            return stat(for: date)
+        return (0..<7).map { i in
+            let date = calendar.date(byAdding: .day, value: -i, to: Date()) ?? Date()
+            return stat(for: date, setupIndex: index)
         }
     }
 
     var last30Stats: [WeekStat] {
         let calendar = Calendar.current
+        let index = setupIndex
 
-        return (0..<30).compactMap { index in
-            let daysBack = 29 - index
+        return (0..<30).compactMap { i in
+            let daysBack = 29 - i
             guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
                 return nil
             }
 
-            return stat(for: date)
+            return stat(for: date, setupIndex: index)
         }
     }
 
@@ -65,13 +71,14 @@ struct StatsView: View {
 
     private var currentSevenDayStats: [WeekStat] {
         let calendar = Calendar.current
+        let index = setupIndex
 
-        return (0..<7).compactMap { index in
-            guard let date = calendar.date(byAdding: .day, value: -index, to: Date()) else {
+        return (0..<7).compactMap { i in
+            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else {
                 return nil
             }
 
-            return stat(for: date)
+            return stat(for: date, setupIndex: index)
         }
     }
 
@@ -198,10 +205,10 @@ struct StatsView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private func stat(for date: Date) -> WeekStat {
+    private func stat(for date: Date, setupIndex: [String: DailySetup]) -> WeekStat {
         let calendar = Calendar.current
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let setup = allSetups.first(where: { $0.dateID == dateID })
+        let setup = setupIndex[dateID]
         let mode = DayMode.fromStoredValue(setup?.mode)
         let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
         let dayTrainingCalories = allTrainingEntries
@@ -372,28 +379,34 @@ struct AchievementsView: View {
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
+    private var setupIndex: [String: DailySetup] {
+        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+
     private var last30Stats: [DayProgress] {
         let calendar = Calendar.current
+        let index = setupIndex
 
-        return (0..<30).compactMap { index in
-            let daysBack = 29 - index
+        return (0..<30).compactMap { i in
+            let daysBack = 29 - i
             guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
                 return nil
             }
 
-            return stat(for: date)
+            return stat(for: date, setupIndex: index)
         }
     }
 
     private var currentSevenDayStats: [DayProgress] {
         let calendar = Calendar.current
+        let index = setupIndex
 
-        return (0..<7).compactMap { index in
-            guard let date = calendar.date(byAdding: .day, value: -index, to: Date()) else {
+        return (0..<7).compactMap { i in
+            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else {
                 return nil
             }
 
-            return stat(for: date)
+            return stat(for: date, setupIndex: index)
         }
     }
 
@@ -469,10 +482,10 @@ struct AchievementsView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private func stat(for date: Date) -> DayProgress {
+    private func stat(for date: Date, setupIndex: [String: DailySetup]) -> DayProgress {
         let calendar = Calendar.current
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let setup = allSetups.first(where: { $0.dateID == dateID })
+        let setup = setupIndex[dateID]
         let mode = DayMode.fromStoredValue(setup?.mode)
         let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
         let dayTrainingCalories = allTrainingEntries

@@ -59,6 +59,8 @@ struct StatsAchievementCollection {
     let core: [StatsAchievement]
     let chaos: [StatsAchievement]
 
+    static let empty = StatsAchievementCollection(core: [], chaos: [])
+
     var all: [StatsAchievement] { core + chaos }
 
     var orderedChaos: [StatsAchievement] {

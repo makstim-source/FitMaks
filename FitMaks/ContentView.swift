@@ -35,7 +35,7 @@ struct ContentView: View {
 
     func setup(for date: Date) -> DailySetup? {
         let id = DateFormatter.yyyyMMdd.string(from: date)
-        return allDailySetups.first(where: { $0.dateID == id })
+        return viewModel.setupIndex[id]
     }
 
     // MARK: - Goals & Targets
@@ -90,17 +90,17 @@ struct ContentView: View {
 
     // MARK: - Daily Data
 
-    var dailyFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) } }
-    var dailyTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) } }
+    var dailyFoodEntries: [FoodEntry] { viewModel.cachedDailyFood }
+    var dailyTrainingEntries: [TrainingEntry] { viewModel.cachedDailyTraining }
     var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
     var dailyUploadedTrainingSteps: Double { dailyTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
-    var todayFoodEntries: [FoodEntry] { allFoodEntries.filter { Calendar.current.isDateInToday($0.date) } }
-    var todayTrainingEntries: [TrainingEntry] { allTrainingEntries.filter { Calendar.current.isDateInToday($0.date) } }
+    var todayFoodEntries: [FoodEntry] { viewModel.cachedTodayFood }
+    var todayTrainingEntries: [TrainingEntry] { viewModel.cachedTodayTraining }
     var todayTrainingCalories: Double { todayTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
     var todayUploadedTrainingSteps: Double { todayTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
     var todayMode: DayMode {
         let dateID = DateFormatter.yyyyMMdd.string(from: Date())
-        return DayMode.fromStoredValue(allDailySetups.first(where: { $0.dateID == dateID })?.mode)
+        return DayMode.fromStoredValue(viewModel.setupIndex[dateID]?.mode)
     }
     var todayStepsForNotifications: Double {
         let dateID = DateFormatter.yyyyMMdd.string(from: Date())
@@ -173,87 +173,10 @@ struct ContentView: View {
         dailyProgress.isPerfectPastDay()
     }
 
-    var homePerfectStreak: Int {
-        let calendar = Calendar.current
-        let recentDays: [DayProgress] = (0..<7).compactMap { index in
-            guard let date = calendar.date(byAdding: .day, value: -index, to: Date()) else {
-                return nil
-            }
-
-            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-            let setup = allDailySetups.first(where: { $0.dateID == dateID })
-            let mode = DayMode.fromStoredValue(setup?.mode)
-            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            let dayTrainingCalories = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + $1.caloriesBurned }
-            let dayUploadedTrainingSteps = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
-
-            return DayProgressEngine.progress(
-                date: date,
-                foodEntries: dayFood,
-                trainingCalories: dayTrainingCalories,
-                mode: mode,
-                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
-                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
-                steps: viewModel.homeWeeklySteps[dateID] ?? 0,
-                uploadedSteps: dayUploadedTrainingSteps,
-                activityLevel: activityLevel,
-                stepTarget: targetSteps
-            )
-        }
-
-        return AchievementEngine.homePerfectStreak(in: recentDays)
-    }
-
-    var homeLast30Stats: [DayProgress] {
-        let calendar = Calendar.current
-
-        return (0..<30).compactMap { index in
-            let daysBack = 29 - index
-            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
-                return nil
-            }
-
-            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-            let setup = allDailySetups.first(where: { $0.dateID == dateID })
-            let mode = DayMode.fromStoredValue(setup?.mode)
-            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            let dayTrainingCalories = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + $1.caloriesBurned }
-            let dayUploadedTrainingSteps = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
-
-            return DayProgressEngine.progress(
-                date: date,
-                foodEntries: dayFood,
-                trainingCalories: dayTrainingCalories,
-                mode: mode,
-                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
-                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProteinGoal) ?? baseProteinGoal,
-                steps: viewModel.homeWeeklySteps[dateID] ?? 0,
-                uploadedSteps: dayUploadedTrainingSteps,
-                activityLevel: activityLevel,
-                stepTarget: targetSteps
-            )
-        }
-    }
-
-    var homeRecentSevenDayStats: [DayProgress] {
-        Array(homeLast30Stats.suffix(7))
-    }
-
-    var homeAchievementCollection: StatsAchievementCollection {
-        AchievementEngine.achievementCollection(
-            last30Stats: homeLast30Stats,
-            recentSevenDayStats: homeRecentSevenDayStats,
-            foodEntries: allFoodEntries
-        )
-    }
+    var homePerfectStreak: Int { viewModel.cachedPerfectStreak }
+    var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
+    var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
+    var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
 
     var unlockedAchievementSignature: String {
         homeAchievementCollection.all
@@ -274,6 +197,7 @@ struct ContentView: View {
             allDailySetups: allDailySetups,
             allFoodEntries: allFoodEntries,
             allTrainingEntries: allTrainingEntries,
+            activityLevel: activityLevel,
             modelContext: modelContext
         )
     }
@@ -1033,6 +957,7 @@ struct ContentView: View {
     }
 
     fileprivate func handleDateChange(_ newDate: Date) {
+        viewModel.rebuildDailyCache()
         HealthKitManager.shared.fetchSteps(for: newDate) { steps in
             DispatchQueue.main.async {
                 self.viewModel.dailySteps = steps

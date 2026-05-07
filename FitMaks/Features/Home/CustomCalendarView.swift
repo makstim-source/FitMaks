@@ -72,7 +72,7 @@ struct CustomCalendarView: View {
                                 .reduce(0) { $0 + max($1.steps ?? 0, 0) }
                             let dateID = DateFormatter.yyyyMMdd.string(from: date)
                             let steps = stepsByDay[dateID] ?? 0
-                            let setup = allSetups.first(where: { $0.dateID == dateID })
+                            let setup = calendarSetupIndex[dateID]
                             let mode = DayMode.fromStoredValue(setup?.mode)
                             let progress = DayProgressEngine.progress(
                                 date: date,
@@ -160,10 +160,13 @@ struct CustomCalendarView: View {
         .foregroundColor(.appMuted)
     }
 
+    private var calendarSetupIndex: [String: DailySetup] {
+        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+
     private func dayMode(for date: Date) -> DayMode {
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let modeString = allSetups.first(where: { $0.dateID == dateID })?.mode
-
+        let modeString = calendarSetupIndex[dateID]?.mode
         return DayMode.fromStoredValue(modeString)
     }
 

@@ -280,10 +280,8 @@ final class FavoriteFood {
     }
 
     var uiImage: UIImage? {
-        guard let imageData else {
-            return nil
-        }
-        return UIImage(data: imageData)
+        guard let imageData else { return nil }
+        return ImageCache.shared.image(for: id.uuidString, data: imageData)
     }
 
     init(
@@ -405,10 +403,8 @@ final class TrainingEntry {
     @Attribute(.externalStorage) var imageData: Data?
 
     var uiImage: UIImage? {
-        guard let imageData else {
-            return nil
-        }
-        return UIImage(data: imageData)
+        guard let imageData else { return nil }
+        return ImageCache.shared.image(for: id.uuidString, data: imageData)
     }
 
     init(image: UIImage?, name: String, caloriesBurned: Double, steps: Double? = nil, tonnageKg: Double? = nil, duration: String, date: Date, aiSummary: String? = nil) {
@@ -592,10 +588,8 @@ final class SavedRecipe {
     @Attribute(.externalStorage) var imageData: Data?
 
     var uiImage: UIImage? {
-        guard let imageData else {
-            return nil
-        }
-        return UIImage(data: imageData)
+        guard let imageData else { return nil }
+        return ImageCache.shared.image(for: id.uuidString, data: imageData)
     }
 
     init(

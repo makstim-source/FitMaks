@@ -501,7 +501,7 @@ struct DailyCalorieBreakdownSheet: View {
             }
 
             let ingredients = parseIngredientBreakdown(entry.ingredients)
-            let showCF = entry.carbs > 0 || entry.fat > 0 || ingredients.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
+            let showCF = ingredients.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
             if !ingredients.isEmpty {
                 VStack(spacing: 6) {
                     ForEach(ingredients.prefix(4)) { ingredient in

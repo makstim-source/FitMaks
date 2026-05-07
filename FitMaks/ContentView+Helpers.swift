@@ -80,6 +80,7 @@ extension HomeViewModel {
     func changeDate(by days: Int) {
         if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate),
            newDate <= Date() {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             selectedDate = newDate
         }
     }

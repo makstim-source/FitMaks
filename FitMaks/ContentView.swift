@@ -221,7 +221,7 @@ struct ContentView: View {
                     onShare: {
                         viewModel.livePayload = foodSharePayload(for: entry)
                     },
-                    onDelete: { viewModel.deleteFoodEntry(entry); withAnimation { viewModel.selectedEntryForEdit = nil } },
+                    onDelete: { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); viewModel.deleteFoodEntry(entry); withAnimation { viewModel.selectedEntryForEdit = nil } },
                     onDone: { withAnimation { viewModel.selectedEntryForEdit = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -618,6 +618,7 @@ struct ContentView: View {
             HStack(spacing: 7) {
                 ForEach(DayMode.allCases, id: \.self) { mode in
                     Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
                             viewModel.setDayMode(currentDayMode.toggled(mode), for: viewModel.selectedDate)
                         }
@@ -682,11 +683,17 @@ struct ContentView: View {
                             case .food(let entry):
                                 HomeFoodRow(entry: entry)
                                     .onTapGesture { withAnimation(.spring()) { viewModel.selectedEntryForEdit = entry } }
-                                    .swipeToDelete { withAnimation(.spring()) { viewModel.deleteFoodEntry(entry) } }
+                                    .swipeToDelete {
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        withAnimation(.spring()) { viewModel.deleteFoodEntry(entry) }
+                                    }
                             case .training(let entry):
                                 HomeTrainingRow(entry: entry)
                                     .onTapGesture { withAnimation(.spring()) { viewModel.selectedTrainingDetail = entry } }
-                                    .swipeToDelete { withAnimation(.spring()) { modelContext.delete(entry) } }
+                                    .swipeToDelete {
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        withAnimation(.spring()) { modelContext.delete(entry) }
+                                    }
                             }
                         }
                     }
@@ -766,7 +773,10 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
 
-            Button(action: { viewModel.isShowingSourceDialog = true }) {
+            Button(action: {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                viewModel.isShowingSourceDialog = true
+            }) {
                 ZStack {
                     Circle()
                         .fill(Color.neonGreen)
@@ -838,6 +848,7 @@ struct ContentView: View {
         guard !viewModel.pendingAchievementBanners.isEmpty else { return }
 
         let next = viewModel.pendingAchievementBanners.removeFirst()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
             viewModel.achievementBanner = next
         }

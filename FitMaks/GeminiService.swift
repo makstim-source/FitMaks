@@ -226,7 +226,7 @@ class GeminiService {
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Macro calculation is MANDATORY.
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
@@ -258,7 +258,7 @@ class GeminiService {
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
         {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
         sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
@@ -309,7 +309,7 @@ class GeminiService {
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
         {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"carbs":0,"fat":0,"ingredients_breakdown":"Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0","ai_response_text":""}]}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Macro calculation is MANDATORY.
+        Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
 
         sendToGemini(images: images, prompt: prompt, responseType: FoodItemsResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -340,7 +340,8 @@ class GeminiService {
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
         If you need accurate nutrition data for a product, search the internet.
         LANGUAGE RULE: Detect the language of USER COMMAND. Write food_name, ingredients_breakdown names, and ai_response_text in that same language.
-        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item;Weight;Kcal;Protein;Carbs;Fat", "ai_response_text": "your answer"}
+        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;12;3\\nItem2;50g;50;5;8;2", "ai_response_text": "your answer"}
+        Every ingredients_breakdown row MUST have exactly 6 semicolon-separated fields: Item;Weight;Kcal;Protein;Carbs;Fat.
         """
         let imgs = image != nil ? [image!] : []
         sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -734,11 +735,32 @@ class GeminiService {
         return normalized.isEmpty ? "The AI request failed. Please try again." : normalized
     }
 
+    private func padIngredientRows(_ breakdown: String) -> String {
+        breakdown.components(separatedBy: .newlines).map { line in
+            let parts = line.components(separatedBy: ";")
+            guard parts.count >= 4, parts.count < 6 else { return line }
+            var padded = parts
+            while padded.count < 6 { padded.append("0") }
+            return padded.joined(separator: ";")
+        }.joined(separator: "\n")
+    }
+
     private func stabilizedFoodResult(_ result: FoodResult) -> FoodResult {
-        let rowTotals = nutritionTotals(from: result.ingredients_breakdown)
+        let paddedBreakdown = padIngredientRows(result.ingredients_breakdown)
+        let rowTotals = nutritionTotals(from: paddedBreakdown)
 
         guard let rowTotals else {
-            return roundedFoodResult(result)
+            return roundedFoodResult(FoodResult(
+                food_name: result.food_name,
+                emoji: result.emoji,
+                source_photo_number: result.source_photo_number,
+                calories: result.calories,
+                protein: result.protein,
+                carbs: result.carbs,
+                fat: result.fat,
+                ingredients_breakdown: paddedBreakdown,
+                ai_response_text: result.ai_response_text
+            ))
         }
 
         let calorieDifference = abs(rowTotals.calories - result.calories)
@@ -759,7 +781,7 @@ class GeminiService {
                 protein: protein,
                 carbs: carbs,
                 fat: fat,
-                ingredients_breakdown: result.ingredients_breakdown,
+                ingredients_breakdown: paddedBreakdown,
                 ai_response_text: result.ai_response_text
             )
         )

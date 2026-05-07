@@ -76,24 +76,14 @@ struct ContentView: View {
     var maxCalories: Double { dailyTargets.calories }
     let targetSteps: Double = DayProgressEngine.defaultStepTarget
     var goalSnapshotSignature: String { "\(Int(baseCaloriesGoal.rounded()))#\(Int(baseProteinGoal.rounded()))" }
-    var loggedPastDaysSignature: String {
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
-        let ids = Set(
-            (allFoodEntries.map(\.date) + allTrainingEntries.map(\.date))
-                .filter { $0 < todayStart }
-                .map { DateFormatter.yyyyMMdd.string(from: $0) }
-        )
-
-        return ids.sorted().joined(separator: "|")
-    }
+    var loggedPastDaysSignature: String { viewModel.cachedLoggedPastDaysSignature }
 
     // MARK: - Daily Data
 
     var dailyFoodEntries: [FoodEntry] { viewModel.cachedDailyFood }
     var dailyTrainingEntries: [TrainingEntry] { viewModel.cachedDailyTraining }
-    var dailyTrainingCalories: Double { dailyTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
-    var dailyUploadedTrainingSteps: Double { dailyTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
+    var dailyTrainingCalories: Double { viewModel.cachedDailyTrainingCalories }
+    var dailyUploadedTrainingSteps: Double { viewModel.cachedDailyUploadedSteps }
     var todayFoodEntries: [FoodEntry] { viewModel.cachedTodayFood }
     var todayTrainingEntries: [TrainingEntry] { viewModel.cachedTodayTraining }
     var todayTrainingCalories: Double { todayTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
@@ -128,29 +118,16 @@ struct ContentView: View {
         let trainingSignature = todayTrainingEntries.map { "\($0.id.uuidString):\(Int($0.caloriesBurned)):\(Int($0.steps ?? 0))" }.joined(separator: "|")
         return "\(DateFormatter.yyyyMMdd.string(from: Date()))#\(foodSignature)#\(trainingSignature)#\(Int(todayStepsForNotifications))#\(todayMode.rawValue)#\(Int(baseProteinGoal))"
     }
-    var dailyFeed: [TimelineItem] {
-        let foods = dailyFoodEntries.map { TimelineItem.food($0) }
-        let trainings = dailyTrainingEntries.map { TimelineItem.training($0) }
-        return (foods + trainings).sorted { lhs, rhs in
-            switch (lhs, rhs) {
-            case (.training, .food):
-                return true
-            case (.food, .training):
-                return false
-            default:
-                return lhs.createdAt > rhs.createdAt
-            }
-        }
-    }
+    var dailyFeed: [TimelineItem] { viewModel.cachedDailyFeed }
     var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.sorted { $0.createdAt > $1.createdAt } }
-    var dailyProtein: Double { dailyFoodEntries.reduce(0) { $0 + $1.protein } }
-    var dailyCarbs: Double { dailyFoodEntries.reduce(0) { $0 + $1.carbs } }
-    var dailyFat: Double { dailyFoodEntries.reduce(0) { $0 + $1.fat } }
+    var dailyProtein: Double { viewModel.cachedDailyProtein }
+    var dailyCarbs: Double { viewModel.cachedDailyCarbs }
+    var dailyFat: Double { viewModel.cachedDailyFat }
     var baseTargetCarbs: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.55 / 4 }
     var baseTargetFat: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.45 / 9 }
     var targetCarbs: Double { max(maxCalories - targetProtein * 4, 0) * 0.55 / 4 }
     var targetFat: Double { max(maxCalories - targetProtein * 4, 0) * 0.45 / 9 }
-    var dailyCaloriesConsumed: Double { dailyFoodEntries.reduce(0) { $0 + $1.calories } }
+    var dailyCaloriesConsumed: Double { viewModel.cachedDailyCalories }
     var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
     var dailyProgress: DayProgress {
         DayProgressEngine.progress(

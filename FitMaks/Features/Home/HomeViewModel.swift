@@ -58,6 +58,15 @@ final class HomeViewModel {
     var cachedTodayFood: [FoodEntry] = []
     var cachedTodayTraining: [TrainingEntry] = []
 
+    var cachedDailyCalories: Double = 0
+    var cachedDailyProtein: Double = 0
+    var cachedDailyCarbs: Double = 0
+    var cachedDailyFat: Double = 0
+    var cachedDailyTrainingCalories: Double = 0
+    var cachedDailyUploadedSteps: Double = 0
+    var cachedDailyFeed: [TimelineItem] = []
+    var cachedLoggedPastDaysSignature: String = ""
+
     func sync(
         weight: Double,
         baseCaloriesGoal: Double,
@@ -79,6 +88,7 @@ final class HomeViewModel {
             self.modelContext = modelContext
         }
         rebuildDailyCache()
+        rebuildLoggedPastDaysSignature()
         rebuildCachedStats(activityLevel: activityLevel)
     }
 
@@ -88,6 +98,34 @@ final class HomeViewModel {
         cachedDailyTraining = allTrainingEntries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
         cachedTodayFood = allFoodEntries.filter { calendar.isDateInToday($0.date) }
         cachedTodayTraining = allTrainingEntries.filter { calendar.isDateInToday($0.date) }
+
+        cachedDailyCalories = cachedDailyFood.reduce(0) { $0 + $1.calories }
+        cachedDailyProtein = cachedDailyFood.reduce(0) { $0 + $1.protein }
+        cachedDailyCarbs = cachedDailyFood.reduce(0) { $0 + $1.carbs }
+        cachedDailyFat = cachedDailyFood.reduce(0) { $0 + $1.fat }
+        cachedDailyTrainingCalories = cachedDailyTraining.reduce(0) { $0 + $1.caloriesBurned }
+        cachedDailyUploadedSteps = cachedDailyTraining.reduce(0) { $0 + max($1.steps ?? 0, 0) }
+
+        let foods = cachedDailyFood.map { TimelineItem.food($0) }
+        let trainings = cachedDailyTraining.map { TimelineItem.training($0) }
+        cachedDailyFeed = (foods + trainings).sorted { lhs, rhs in
+            switch (lhs, rhs) {
+            case (.training, .food): return true
+            case (.food, .training): return false
+            default: return lhs.createdAt > rhs.createdAt
+            }
+        }
+    }
+
+    func rebuildLoggedPastDaysSignature() {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let ids = Set(
+            (allFoodEntries.map(\.date) + allTrainingEntries.map(\.date))
+                .filter { $0 < todayStart }
+                .map { DateFormatter.yyyyMMdd.string(from: $0) }
+        )
+        cachedLoggedPastDaysSignature = ids.sorted().joined(separator: "|")
     }
 
     private func rebuildCachedStats(activityLevel: String) {

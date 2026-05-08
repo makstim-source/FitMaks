@@ -154,65 +154,39 @@ struct HomeDockButton: View {
         let iphoneGlass = isIPhoneGlassTheme()
 
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 ZStack {
-                    Group {
-                        if iphoneGlass {
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.12),
-                                            Color.appSurface,
-                                            Color.appElevated
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
+                    Circle()
+                        .fill(
+                            iphoneGlass
+                                ? LinearGradient(
+                                    colors: [color.opacity(0.18), color.opacity(0.06), Color.appSurface],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
-                                .frame(width: 50, height: 46)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18)
-                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                : LinearGradient(
+                                    colors: [color.opacity(0.14), color.opacity(0.06)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
-                        } else if pastel {
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(themeChromeGradient())
-                                .frame(width: 48, height: 44)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18)
-                                        .stroke(color.opacity(0.22), lineWidth: 1)
-                                )
-                        } else {
-                            Circle()
-                                .fill(themeChromeGradient())
-                                .frame(width: 44, height: 44)
+                        )
+                        .frame(width: 46, height: 46)
 
-                            Circle()
-                                .stroke(color.opacity(0.22), lineWidth: 1)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
+                    Circle()
+                        .stroke(color.opacity(iphoneGlass ? 0.28 : 0.18), lineWidth: 1)
+                        .frame(width: 46, height: 46)
 
                     Image(systemName: systemName)
-                        .font(.system(size: 18, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: iphoneGlass
-                                    ? [Color.white.opacity(0.92), color]
-                                    : [color.opacity(0.92), color],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(color)
                 }
-                .shadow(color: themeShadowColor().opacity(iphoneGlass ? 0.20 : (pastel ? 0.28 : 0.8)), radius: iphoneGlass ? 8 : (pastel ? 7 : 12), y: iphoneGlass ? 3 : (pastel ? 2 : 4))
+                .shadow(color: color.opacity(iphoneGlass ? 0.22 : 0.12), radius: 8, y: 3)
 
                 Text(title)
                     .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(iphoneGlass ? Color.appText.opacity(0.82) : .appMuted)
+                    .foregroundColor(.appMuted)
             }
-            .frame(width: pastel ? 60 : 56)
+            .frame(width: 56)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("dock_\(title)")

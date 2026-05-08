@@ -54,8 +54,8 @@ struct HomeFoodRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.appMuted)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.appMuted.opacity(0.5))
         }
         .padding(11)
         .background(
@@ -77,11 +77,11 @@ struct HomeTrainingRow: View {
                     .scaledToFill()
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.25), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.25), lineWidth: 1))
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.blue.opacity(0.14))
+                        .fill(Color.neonCyan.opacity(0.14))
                     Image(systemName: "figure.run")
                         .foregroundColor(.blue)
                 }
@@ -103,14 +103,14 @@ struct HomeTrainingRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundColor(.appMuted)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.appMuted.opacity(0.5))
         }
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color.blue.opacity(0.09))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.blue.opacity(0.20), lineWidth: 1))
+                .fill(Color.neonCyan.opacity(0.08))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.neonCyan.opacity(0.16), lineWidth: 1))
         )
     }
 
@@ -163,7 +163,7 @@ struct TrainingDetailOverlay: View {
                             .scaledToFit()
                             .frame(maxHeight: 280)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.2), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.2), lineWidth: 1))
                     }
 
                     Text(entry.name)
@@ -201,8 +201,8 @@ struct TrainingDetailOverlay: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.blue.opacity(0.10))
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.blue.opacity(0.15), lineWidth: 1))
+                                .fill(Color.neonCyan.opacity(0.10))
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.15), lineWidth: 1))
                         )
                     }
                 }
@@ -213,7 +213,7 @@ struct TrainingDetailOverlay: View {
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color(red: 28/255, green: 28/255, blue: 32/255))
-                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.blue.opacity(0.18), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
         )
         .padding(.horizontal, 20)
         .frame(maxHeight: UIScreen.main.bounds.height * 0.7)

@@ -642,7 +642,7 @@ struct ContentView: View {
                                 .fill(
                                     isSelected
                                         ? LinearGradient(
-                                            colors: [accentColor.opacity(0.28), accentColor.opacity(0.12), Color.appSurface],
+                                            colors: [accentColor.opacity(0.22), accentColor.opacity(0.08), Color.appSurface],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
@@ -887,8 +887,7 @@ struct ContentView: View {
                         iphoneGlass
                             ? LinearGradient(
                                 colors: [
-                                    Color.black.opacity(0.08),
-                                    Color.appSurface.opacity(0.94),
+                                    Color.appSurface.opacity(0.6),
                                     Color.appElevated
                                 ],
                                 startPoint: .top,
@@ -898,28 +897,10 @@ struct ContentView: View {
                     )
                 )
                 .ignoresSafeArea(edges: .bottom)
-                .overlay(
-                    Rectangle()
-                        .fill(
-                            AnyShapeStyle(
-                                iphoneGlass
-                                    ? LinearGradient(
-                                        colors: [Color.white.opacity(0.10), Color.neonCyan.opacity(0.06), Color.clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                    : LinearGradient(
-                                        colors: [pastel ? Color.white.opacity(0.30) : Color.clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                            )
-                        )
-                )
                 .overlay(alignment: .top) {
                     Rectangle()
-                        .fill(iphoneGlass ? Color.white.opacity(0.10) : Color.clear)
-                        .frame(height: 1)
+                        .fill(Color.appBorder)
+                        .frame(height: 0.5)
                 }
                 .blur(radius: pastel ? 0 : 0.5)
         )

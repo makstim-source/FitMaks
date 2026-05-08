@@ -156,7 +156,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
                 primary: Color(red: 120/255, green: 240/255, blue: 219/255),
                 secondary: Color(red: 114/255, green: 157/255, blue: 255/255),
                 action: Color(red: 255/255, green: 142/255, blue: 111/255),
-                purple: Color(red: 190/255, green: 145/255, blue: 255/255),
+                purple: Color(red: 142/255, green: 158/255, blue: 210/255),
                 backgroundStart: Color(red: 6/255, green: 10/255, blue: 16/255),
                 backgroundMid: Color(red: 12/255, green: 18/255, blue: 28/255),
                 backgroundEnd: Color(red: 2/255, green: 4/255, blue: 9/255),

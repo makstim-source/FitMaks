@@ -527,7 +527,8 @@ struct HomeStatsPanelBackground: View {
     var isPerfectPastDay: Bool
 
     var body: some View {
-        let pastel = isPastelDayTheme()
+        let glass = isIPhoneGlassTheme()
+        let pastel = isPastelDayTheme() && !glass
 
         if isPerfectPastDay {
             RoundedRectangle(cornerRadius: 20)
@@ -575,7 +576,8 @@ struct HomeStatsPanelCelebrationOverlay: View {
     var isPerfectPastDay: Bool
 
     var body: some View {
-        let pastel = isPastelDayTheme()
+        let glass = isIPhoneGlassTheme()
+        let pastel = isPastelDayTheme() && !glass
 
         ZStack(alignment: .top) {
             if isPerfectPastDay {
@@ -587,28 +589,29 @@ struct HomeStatsPanelCelebrationOverlay: View {
                         .font(.system(size: 9, weight: .heavy))
                         .tracking(0.7)
                 }
-                .foregroundColor(.appAccentText)
+                .foregroundColor(glass ? .appText : .appAccentText)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
                 .background(
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [
-                                    pastel ? Color.fitOrange.opacity(0.88) : Color.neonGreen.opacity(0.99),
-                                    pastel ? Color.fitPurple.opacity(0.78) : Color.fitOrange.opacity(0.90)
-                                ],
+                                colors: glass
+                                    ? [Color.neonGreen.opacity(0.32), Color.neonCyan.opacity(0.22)]
+                                    : (pastel
+                                        ? [Color.neonGreen.opacity(0.82), Color.neonCyan.opacity(0.68)]
+                                        : [Color.neonGreen.opacity(0.99), Color.fitOrange.opacity(0.90)]),
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .overlay(
                             Capsule()
-                                .stroke((pastel ? Color.fitPurple : Color.neonGreen).opacity(0.22), lineWidth: 0.8)
+                                .stroke(Color.neonGreen.opacity(glass ? 0.28 : 0.22), lineWidth: 0.8)
                         )
                 )
-                .shadow(color: (pastel ? Color.fitPurple : Color.neonGreen).opacity(pastel ? 0.24 : 0.46), radius: 12, x: 0, y: 0)
-                .shadow(color: (pastel ? Color.fitPurple : Color.neonGreen).opacity(pastel ? 0.10 : 0.24), radius: 24, x: 0, y: 0)
+                .shadow(color: Color.neonGreen.opacity(glass ? 0.32 : (pastel ? 0.18 : 0.46)), radius: 12, x: 0, y: 0)
+                .shadow(color: Color.neonGreen.opacity(glass ? 0.16 : (pastel ? 0.08 : 0.24)), radius: 24, x: 0, y: 0)
                 .offset(y: -8)
             }
         }

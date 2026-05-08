@@ -10,7 +10,7 @@ struct EditEntryView: View {
             HStack {
                 Text("Edit Details")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                 Spacer()
                 Button(action: onSave) {
                     Text("Done")
@@ -29,9 +29,9 @@ struct EditEntryView: View {
 
                     TextField("Enter name", text: $entry.name, axis: .vertical)
                         .lineLimit(1...3)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .padding(10)
-                        .background(Color.black.opacity(0.3))
+                        .background(Color.appElevated)
                         .cornerRadius(8)
                 }
 
@@ -39,13 +39,13 @@ struct EditEntryView: View {
                     Text("CALORIES (KCAL)")
                         .font(.caption2)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     TextField("0", value: $entry.calories, format: .number)
                         .keyboardType(.decimalPad)
                         .foregroundColor(.neonGreen)
                         .padding(10)
-                        .background(Color.black.opacity(0.3))
+                        .background(Color.appElevated)
                         .cornerRadius(8)
                 }
 
@@ -53,13 +53,13 @@ struct EditEntryView: View {
                     Text("PROTEIN (G)")
                         .font(.caption2)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     TextField("0", value: $entry.protein, format: .number)
                         .keyboardType(.decimalPad)
                         .foregroundColor(.neonCyan)
                         .padding(10)
-                        .background(Color.black.opacity(0.3))
+                        .background(Color.appElevated)
                         .cornerRadius(8)
                 }
             }

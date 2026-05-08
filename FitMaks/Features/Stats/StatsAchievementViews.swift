@@ -175,7 +175,7 @@ struct StatsAchievementUnlockBanner: View {
                         LinearGradient(
                             colors: [
                                 achievement.color.opacity(0.96),
-                                Color.white.opacity(0.74),
+                                Color.appText,
                                 achievement.color.opacity(0.68)
                             ],
                             startPoint: .topLeading,
@@ -260,7 +260,7 @@ struct StatsAchievementUnlockPopup: View {
                         LinearGradient(
                             colors: [
                                 achievement.color.opacity(0.98),
-                                Color.white.opacity(0.76),
+                                Color.appText,
                                 achievement.color.opacity(0.68)
                             ],
                             startPoint: .topLeading,
@@ -428,7 +428,7 @@ struct StatsAchievementTile: View {
                                 ? LinearGradient(
                                     colors: [
                                         achievement.color.opacity(0.95),
-                                        Color.white.opacity(0.72),
+                                        Color.appText,
                                         achievement.color.opacity(0.70)
                                     ],
                                     startPoint: .topLeading,
@@ -451,7 +451,7 @@ struct StatsAchievementTile: View {
                     if achievement.isUnlocked {
                         Image(systemName: "sparkles")
                             .font(.system(size: isWide ? 13 : 12, weight: .black))
-                            .foregroundColor(.white)
+                            .foregroundColor(.appText)
                             .offset(x: 18, y: -17)
                             .opacity(0.92)
                             .shadow(color: .white.opacity(0.75), radius: 7)
@@ -589,7 +589,7 @@ struct StatsAchievementDetailSheet: View {
                                         .foregroundColor(.fitOrange)
                                         .padding(.horizontal, 9)
                                         .padding(.vertical, 6)
-                                        .background(Capsule().fill(Color.black))
+                                        .background(Capsule().fill(Color.appElevated))
                                         .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                                 }
                                 .buttonStyle(.plain)

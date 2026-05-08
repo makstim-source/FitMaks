@@ -65,7 +65,7 @@ struct FavoriteAmountSheet: View {
                     Text(favorite.name)
                         .font(.title3)
                         .fontWeight(.black)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                     Text(amountTitle)
                         .font(.subheadline)
                         .foregroundColor(.appMuted)
@@ -87,7 +87,7 @@ struct FavoriteAmountSheet: View {
                                 .padding(.vertical, 12)
                                 .background(
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(isDefault ? Color.neonCyan : Color.white.opacity(0.06))
+                                        .fill(isDefault ? Color.neonCyan : Color.appSurface)
                                         .overlay(RoundedRectangle(cornerRadius: 16).stroke(isDefault ? Color.neonCyan.opacity(0.5) : Color.neonCyan.opacity(0.18), lineWidth: 1))
                                 )
                         }
@@ -127,7 +127,7 @@ struct FavoriteAmountSheet: View {
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(0.055))
+                        .fill(Color.appSurface)
                         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
                 )
 
@@ -138,7 +138,7 @@ struct FavoriteAmountSheet: View {
                 } label: {
                     Text("Add to \(DateFormatter.shortDate.string(from: selectedDate))")
                         .font(.system(size: 15, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(Capsule().fill(Color.neonGreen))
@@ -183,7 +183,7 @@ struct FavoritePortionSettingsSheet: View {
                 Text(favorite.name)
                     .font(.title3)
                     .fontWeight(.black)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Text("Choose how FitMaks should count this product in Fridge.")
                     .font(.subheadline)
@@ -198,7 +198,7 @@ struct FavoritePortionSettingsSheet: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(basis.title)
                                         .font(.system(size: 15, weight: .black))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.appText)
                                     Text(basisDescription(for: basis))
                                         .font(.system(size: 12, weight: .semibold))
                                         .foregroundColor(.appMuted)
@@ -211,8 +211,8 @@ struct FavoritePortionSettingsSheet: View {
                             .padding(14)
                             .background(
                                 RoundedRectangle(cornerRadius: 18)
-                                    .fill(Color.white.opacity(0.05))
-                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(selectedBasis == basis ? Color.neonGreen.opacity(0.22) : Color.white.opacity(0.08), lineWidth: 1))
+                                    .fill(Color.appSurface)
+                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(selectedBasis == basis ? Color.neonGreen.opacity(0.22) : Color.appBorder, lineWidth: 1))
                             )
                         }
                         .buttonStyle(.plain)
@@ -227,7 +227,7 @@ struct FavoritePortionSettingsSheet: View {
                 } label: {
                     Text("Save Basis")
                         .font(.system(size: 15, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(Capsule().fill(Color.neonGreen))

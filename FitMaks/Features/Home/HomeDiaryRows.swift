@@ -11,7 +11,7 @@ struct HomeFoodRow: View {
                     .scaledToFill()
                     .frame(width: 50, height: 50)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14)
@@ -131,7 +131,7 @@ struct TrainingDetailOverlay: View {
             HStack {
                 Text("Workout Details")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                 Spacer()
                 if let onShare {
                     Button(action: onShare) {
@@ -140,7 +140,7 @@ struct TrainingDetailOverlay: View {
                             .foregroundColor(.fitOrange)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(Color.black))
+                            .background(Capsule().fill(Color.appElevated))
                             .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                     }
                     .buttonStyle(.plain)
@@ -169,7 +169,7 @@ struct TrainingDetailOverlay: View {
                     Text(entry.name)
                         .font(.title3)
                         .fontWeight(.black)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(spacing: 12) {
@@ -227,7 +227,7 @@ struct TrainingDetailOverlay: View {
 
             Text(value)
                 .font(.system(size: 17, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
 
             if !unit.isEmpty {
                 Text(unit)
@@ -258,7 +258,7 @@ struct HomeProcessingRow: View {
                     .scaledToFill()
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 15))
-                    .overlay(Color.black.opacity(0.18).clipShape(RoundedRectangle(cornerRadius: 15)))
+                    .overlay(Color.appElevated.clipShape(RoundedRectangle(cornerRadius: 15)))
             }
 
             VStack(alignment: .leading, spacing: 7) {

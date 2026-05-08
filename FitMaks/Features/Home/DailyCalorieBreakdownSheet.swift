@@ -434,7 +434,7 @@ struct DailyCalorieBreakdownSheet: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.appSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(color.opacity(0.18), lineWidth: 1)
@@ -450,7 +450,7 @@ struct DailyCalorieBreakdownSheet: View {
 
             Text("No food entries for this day")
                 .font(.subheadline.bold())
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
@@ -490,7 +490,7 @@ struct DailyCalorieBreakdownSheet: View {
                     Text(entry.name)
                         .font(.subheadline)
                         .bold()
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Text("\(Int(entry.calories)) kcal • \(Int(entry.protein))g protein • \(Int(entry.carbs))g carbs • \(Int(entry.fat))g fat")
                         .font(.caption)
@@ -507,7 +507,7 @@ struct DailyCalorieBreakdownSheet: View {
                     ForEach(ingredients.prefix(4)) { ingredient in
                         HStack(spacing: 6) {
                             Text(ingredient.name)
-                                .foregroundColor(.white)
+                                .foregroundColor(.appText)
                                 .lineLimit(1)
                                 .layoutPriority(1)
 

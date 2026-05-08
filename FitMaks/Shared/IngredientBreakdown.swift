@@ -184,20 +184,20 @@ struct IngredientBreakdownCard: View {
                         }
                     }
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 9)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.045))
+                            .fill(Color.appSurface)
                     )
                 }
             }
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(Color.black.opacity(0.34))
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.07), lineWidth: 1))
+                    .fill(Color.appElevated)
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
             )
         }
         .padding(14)
@@ -205,7 +205,7 @@ struct IngredientBreakdownCard: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(
                     LinearGradient(
-                        colors: [accentColor.opacity(0.10), Color.white.opacity(0.045), Color.black.opacity(0.22)],
+                        colors: [accentColor.opacity(0.10), Color.appSurface, Color.appElevated],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

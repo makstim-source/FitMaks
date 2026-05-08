@@ -287,7 +287,7 @@ struct FAQSheet: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.06),
+                            Color.appSurface,
                             Color.appElevated.opacity(0.92)
                         ],
                         startPoint: .topLeading,
@@ -299,6 +299,6 @@ struct FAQSheet: View {
                         .stroke(color.opacity(0.14), lineWidth: 1)
                 )
         )
-        .shadow(color: Color.black.opacity(0.16), radius: 10, x: 0, y: 6)
+        .shadow(color: Color.appElevated, radius: 10, x: 0, y: 6)
     }
 }

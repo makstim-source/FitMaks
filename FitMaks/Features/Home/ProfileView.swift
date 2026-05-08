@@ -45,6 +45,7 @@ struct ProfileView: View {
     @State private var isShowingBodyMetricHistory = false
     @State private var isShowingSignOutConfirm = false
     @State private var isShowingDeleteConfirm = false
+    @State private var isShowingThemeSelection = false
     @State private var goalSnapshot: GoalSnapshot?
     @State private var livePayload: FitMaksSharePayload?
 
@@ -103,6 +104,10 @@ struct ProfileView: View {
         let version = info?["CFBundleShortVersionString"] as? String ?? "—"
         let build = info?["CFBundleVersion"] as? String ?? "—"
         return "Version \(version) (\(build))"
+    }
+
+    private var selectedThemeName: String {
+        AppTheme.current.palette.name
     }
 
     private var latestBodyMetric: BodyMetricEntry? {
@@ -229,6 +234,11 @@ struct ProfileView: View {
         .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: mergedPostOptions())
         }
+        .fullScreenCover(isPresented: $isShowingThemeSelection) {
+            ThemeSelectionView(isFirstRun: false) {
+                isShowingThemeSelection = false
+            }
+        }
         .alert("Weight scan", isPresented: Binding(
             get: { bodyScanError != nil },
             set: { if !$0 { bodyScanError = nil } }
@@ -310,6 +320,47 @@ struct ProfileView: View {
                     .foregroundColor(.appMuted)
             }
 
+            if AppTheme.areAlternateThemesEnabled {
+                Button {
+                    isShowingThemeSelection = true
+                } label: {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.neonGreen.opacity(0.18))
+
+                            Image(systemName: "paintpalette.fill")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.neonGreen)
+                        }
+                        .frame(width: 42, height: 42)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("App theme")
+                                .font(.subheadline)
+                                .fontWeight(.heavy)
+                                .foregroundColor(.appText)
+
+                            Text(selectedThemeName)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.appMuted)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                            .foregroundColor(.appMuted)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+
             if AuthService.shared.isSignedIn {
                 Button {
                     isShowingSignOutConfirm = true
@@ -356,7 +407,7 @@ struct ProfileView: View {
                         Text("Sign in with Apple")
                             .font(.system(size: 15, weight: .bold))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(.appAccentText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(RoundedRectangle(cornerRadius: 16).fill(.white))

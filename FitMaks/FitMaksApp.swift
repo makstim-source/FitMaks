@@ -65,6 +65,7 @@ struct FitMaksApp: App {
                         .zIndex(10)
                 }
             }
+            .id(selectedTheme.id)
             .preferredColorScheme(selectedTheme.palette.preferredScheme)
             .task {
                 guard isShowingLaunchSplash else { return }

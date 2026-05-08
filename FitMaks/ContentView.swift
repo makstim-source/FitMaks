@@ -193,7 +193,7 @@ struct ContentView: View {
             .blur(radius: (viewModel.selectedEntryForEdit != nil || viewModel.selectedTrainingDetail != nil) ? 15 : 0)
 
             if let banner = viewModel.achievementBanner {
-                Color.black.opacity(0.58)
+                Color.appScrim
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .zIndex(12)
@@ -213,7 +213,7 @@ struct ContentView: View {
             }
 
             if let entry = viewModel.selectedEntryForEdit {
-                Color.black.opacity(0.5)
+                Color.appScrim
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture { withAnimation { viewModel.selectedEntryForEdit = nil } }
                 AIChatEditView(
@@ -228,7 +228,7 @@ struct ContentView: View {
             }
 
             if let training = viewModel.selectedTrainingDetail {
-                Color.black.opacity(0.5)
+                Color.appScrim
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture { withAnimation { viewModel.selectedTrainingDetail = nil } }
                 TrainingDetailOverlay(
@@ -359,7 +359,7 @@ struct ContentView: View {
         .applyStateObservers(self)
         .overlay {
             if viewModel.isShowingSourceDialog {
-                Color.black.opacity(0.8)
+                Color.appScrim
                     .ignoresSafeArea()
                     .onTapGesture { withAnimation(.easeOut(duration: 0.8)) { viewModel.isShowingSourceDialog = false } }
                     .transition(.opacity)
@@ -433,7 +433,11 @@ struct ContentView: View {
     }
 
     private var homeHeader: some View {
-        HStack(spacing: 10) {
+        let pastel = isPastelDayTheme()
+        let headerAccent = pastel ? Color.fitPurple : Color.neonGreen
+        let assistantAccent = pastel ? Color.neonCyan : Color.neonCyan
+
+        return HStack(spacing: 10) {
             statsShortcutButton
 
             Spacer()
@@ -442,31 +446,33 @@ struct ContentView: View {
                 Button(action: { viewModel.changeDate(by: -1) }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(headerAccent)
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.white.opacity(0.07)))
+                        .background(Circle().fill(themeChromeGradient()))
+                        .overlay(Circle().stroke(headerAccent.opacity(pastel ? 0.24 : 0.14), lineWidth: 1))
                 }
 
                 Button(action: { viewModel.isShowingCalendar = true }) {
                     Text(viewModel.formatDate(viewModel.selectedDate))
                         .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(headerAccent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .frame(minWidth: 82)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.appElevated))
-                        .overlay(Capsule().stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
+                        .background(Capsule().fill(themeCardGradient()))
+                        .overlay(Capsule().stroke(headerAccent.opacity(pastel ? 0.22 : 0.18), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
                 Button(action: { viewModel.changeDate(by: 1) }) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(headerAccent)
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.white.opacity(0.07)))
+                        .background(Circle().fill(themeChromeGradient()))
+                        .overlay(Circle().stroke(headerAccent.opacity(pastel ? 0.24 : 0.14), lineWidth: 1))
                 }
                 .opacity(Calendar.current.isDateInToday(viewModel.selectedDate) ? 0 : 1)
                 .disabled(Calendar.current.isDateInToday(viewModel.selectedDate))
@@ -475,7 +481,7 @@ struct ContentView: View {
             Spacer()
 
             HStack(spacing: 10) {
-                HomeIconButton(systemName: "sparkles", color: .neonCyan) {
+                HomeIconButton(systemName: "sparkles", color: assistantAccent) {
                     viewModel.isShowingAIAssistant = true
                 }
                 .accessibilityIdentifier("aiAssistantButton")
@@ -491,16 +497,7 @@ struct ContentView: View {
             ZStack(alignment: .bottomTrailing) {
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.appSurface,
-                                    Color.appElevated
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(themeChromeGradient())
 
                     Circle()
                         .trim(from: 0, to: CGFloat(min(Double(homePerfectStreak) / 7, 1)))
@@ -524,7 +521,7 @@ struct ContentView: View {
                 }
                 .frame(width: 42, height: 42)
                 .overlay(Circle().stroke(Color.fitOrange.opacity(0.22), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.20), radius: 10)
+                .shadow(color: themeShadowColor().opacity(0.85), radius: 12)
 
                 Text("\(homePerfectStreak)/7")
                     .font(.system(size: 8, weight: .heavy))
@@ -542,7 +539,9 @@ struct ContentView: View {
     }
 
     private var dailyCommandCard: some View {
-        VStack(spacing: 11) {
+        let pastel = isPastelDayTheme()
+
+        return VStack(spacing: 11) {
             HStack(spacing: 6) {
                 HomeMetricTile(
                     title: "Steps",
@@ -601,12 +600,15 @@ struct ContentView: View {
         .padding(12)
         .background(HomeStatsPanelBackground(isPerfectPastDay: isPerfectPastDay))
         .overlay(HomeStatsPanelCelebrationOverlay(isPerfectPastDay: isPerfectPastDay))
-        .shadow(color: isPerfectPastDay ? Color.yellow.opacity(0.05) : Color.black.opacity(0.05), radius: isPerfectPastDay ? 12 : 10, x: 0, y: 8)
+        .shadow(color: isPerfectPastDay ? Color.yellow.opacity(pastel ? 0.05 : 0.08) : themeShadowColor().opacity(pastel ? 0.20 : 0.55), radius: isPerfectPastDay ? (pastel ? 8 : 12) : (pastel ? 7 : 10), x: 0, y: pastel ? 4 : 8)
         .padding(.horizontal, 15)
     }
 
     private var modeSelectorSection: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        let pastel = isPastelDayTheme()
+        let iphoneGlass = isIPhoneGlassTheme()
+
+        return VStack(alignment: .leading, spacing: 7) {
             if shouldShowPlanPrompt {
                 Text("What's your plan for today?")
                     .font(.system(size: 11, weight: .heavy))
@@ -617,6 +619,8 @@ struct ContentView: View {
 
             HStack(spacing: 7) {
                 ForEach(DayMode.allCases, id: \.self) { mode in
+                    let accentColor = modeAccentColor(mode, iphoneGlass: iphoneGlass)
+
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
@@ -632,19 +636,86 @@ struct ContentView: View {
                         }
                         .foregroundColor(isSelected ? .appAccentText : .appMuted)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
+                        .padding(.vertical, pastel ? 8 : 7)
                         .background(
                             RoundedRectangle(cornerRadius: 13)
-                                .fill(isSelected ? Color.neonCyan : Color.appSurface)
+                                .fill(
+                                    {
+                                        if iphoneGlass {
+                                            if isSelected {
+                                                return LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.16),
+                                                        accentColor.opacity(0.55),
+                                                        accentColor.opacity(0.30)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            } else {
+                                                return LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.10),
+                                                        Color.appSurface,
+                                                        Color.appElevated
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            }
+                                        } else {
+                                            return isSelected
+                                                ? themeAccentButtonGradient()
+                                                : (pastel
+                                                    ? LinearGradient(colors: [Color.white.opacity(0.96), Color.appSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                                    : themeCardGradient())
+                                        }
+                                    }()
+                                )
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 13)
-                                .stroke(isSelected ? Color.appText.opacity(0.25) : Color.appBorder, lineWidth: 1)
+                                .stroke(
+                                    iphoneGlass
+                                        ? (isSelected ? accentColor.opacity(0.42) : Color.white.opacity(0.10))
+                                        : (isSelected ? (pastel ? Color.fitPurple.opacity(0.28) : Color.neonCyan.opacity(0.18)) : Color.appBorder),
+                                    lineWidth: 1
+                                )
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(pastel ? 4 : 0)
+            .background(
+                Group {
+                    if iphoneGlass {
+                        RoundedRectangle(cornerRadius: 17)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.10),
+                                        Color.appSurface,
+                                        Color.appElevated
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 17)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                    } else if pastel {
+                        RoundedRectangle(cornerRadius: 17)
+                            .fill(Color.white.opacity(0.62))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 17)
+                                    .stroke(Color.appBorder.opacity(0.8), lineWidth: 1)
+                            )
+                    }
+                }
+            )
         }
     }
 
@@ -652,8 +723,21 @@ struct ContentView: View {
         Calendar.current.isDateInToday(viewModel.selectedDate) && setup(for: viewModel.selectedDate) == nil
     }
 
+    private func modeAccentColor(_ mode: DayMode, iphoneGlass: Bool) -> Color {
+        switch mode {
+        case .chill:
+            return .neonCyan
+        case .cardio:
+            return iphoneGlass ? .fitPurple : .fitOrange
+        case .gym, .cardioGym:
+            return iphoneGlass ? .neonGreen : .fitPurple
+        }
+    }
+
     private var timelinePanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let pastel = isPastelDayTheme()
+
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("DIARY")
                     .font(.system(size: 8, weight: .heavy))
@@ -706,26 +790,29 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.appElevated)
+                .fill(themeCardGradient())
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
                         .stroke(Color.appBorder, lineWidth: 1)
                 )
         )
+        .shadow(color: themeShadowColor().opacity(pastel ? 0.14 : 0.5), radius: pastel ? 8 : 12, x: 0, y: pastel ? 3 : 8)
         .padding(.horizontal, 15)
     }
 
     private var emptyDiaryCard: some View {
-        Button(action: { viewModel.isShowingSourceDialog = true }) {
+        let pastel = isPastelDayTheme()
+
+        return Button(action: { viewModel.isShowingSourceDialog = true }) {
             VStack(spacing: 15) {
                 ZStack {
                     Circle()
-                        .fill(Color.neonGreen.opacity(0.12))
+                        .fill((pastel ? Color.neonCyan : Color.neonGreen).opacity(0.12))
                         .frame(width: 78, height: 78)
 
                     Image(systemName: "fork.knife.circle.fill")
                         .font(.system(size: 44))
-                        .foregroundColor(.neonGreen.opacity(0.85))
+                        .foregroundColor((pastel ? Color.neonCyan : Color.neonGreen).opacity(0.85))
                 }
 
                 VStack(spacing: 5) {
@@ -747,19 +834,27 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: [Color.neonGreen.opacity(0.08), Color.white.opacity(0.035)],
+                            colors: pastel
+                                ? [Color.white.opacity(0.98), Color.appSurface, Color.appElevated]
+                                : [Color.neonGreen.opacity(0.10), Color.appSurface.opacity(0.84), Color.appElevated],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
             )
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonGreen.opacity(0.18), lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke((pastel ? Color.neonCyan : Color.neonGreen).opacity(pastel ? 0.22 : 0.18), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
 
     private var bottomDock: some View {
-        HStack(spacing: 0) {
+        let pastel = isPastelDayTheme()
+        let iphoneGlass = isIPhoneGlassTheme()
+
+        return HStack(spacing: 0) {
             HStack(spacing: 12) {
                 HomeDockButton(title: "Food", systemName: "takeoutbag.and.cup.and.straw.fill", color: .neonCyan) {
                     viewModel.isSelectionModeForFridge = false
@@ -779,9 +874,9 @@ struct ContentView: View {
             }) {
                 ZStack {
                     Circle()
-                        .fill(Color.neonGreen)
+                        .fill(themePrimaryButtonGradient())
                         .frame(width: 62, height: 62)
-                        .shadow(color: Color.neonGreen.opacity(0.45), radius: 18, x: 0, y: 8)
+                        .shadow(color: themeShadowColor().opacity(0.95), radius: 20, x: 0, y: 8)
 
                     Image(systemName: "plus")
                         .font(.system(size: 26, weight: .black))
@@ -810,9 +905,46 @@ struct ContentView: View {
         .padding(.bottom, 14)
         .background(
             Rectangle()
-                .fill(Color.appElevated)
+                .fill(
+                    AnyShapeStyle(
+                        iphoneGlass
+                            ? LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.08),
+                                    Color.appSurface.opacity(0.94),
+                                    Color.appElevated
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            : themeCardGradient()
+                    )
+                )
                 .ignoresSafeArea(edges: .bottom)
-                .blur(radius: 0.5)
+                .overlay(
+                    Rectangle()
+                        .fill(
+                            AnyShapeStyle(
+                                iphoneGlass
+                                    ? LinearGradient(
+                                        colors: [Color.white.opacity(0.10), Color.neonCyan.opacity(0.06), Color.clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    : LinearGradient(
+                                        colors: [pastel ? Color.white.opacity(0.30) : Color.clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                            )
+                        )
+                )
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(iphoneGlass ? Color.white.opacity(0.10) : Color.clear)
+                        .frame(height: 1)
+                }
+                .blur(radius: pastel ? 0 : 0.5)
         )
     }
 

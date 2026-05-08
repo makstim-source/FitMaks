@@ -20,7 +20,7 @@ struct RecipeSuggestionsView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(r.recipe_name).font(.headline).foregroundColor(.appText).multilineTextAlignment(.leading)
                                     HStack { Text("\(Int(r.estimated_calories)) kcal").foregroundColor(.neonGreen); Text("•").foregroundColor(.appMuted); Text("\(Int(r.estimated_protein))g protein").foregroundColor(.neonCyan); Text("•").foregroundColor(.appMuted); Text("C \(Int(r.estimated_carbs))g").foregroundColor(.fitOrange); Text("•").foregroundColor(.appMuted); Text("F \(Int(r.estimated_fat))g").foregroundColor(.yellow) }.font(.subheadline).bold()
-                                }.padding().frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4))).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.orange.opacity(0.5), lineWidth: 1))
+                                }.padding().frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 15).fill(Color.appScrim)).overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.orange.opacity(0.5), lineWidth: 1))
                             }
                         }
                     }.padding()

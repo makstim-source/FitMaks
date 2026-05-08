@@ -38,7 +38,7 @@ struct StatsHeroScoreCard: View {
 
                     Text(scoreMessage)
                         .font(.system(size: 19, weight: .heavy))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .lineLimit(2)
                 }
 
@@ -68,7 +68,7 @@ struct StatsHeroScoreCard: View {
                             Text("d")
                                 .font(.system(size: 20, weight: .black))
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .shadow(color: .white.opacity(0.34), radius: 2, x: 0, y: 1)
                     }
                     .frame(width: 104, height: 70, alignment: .trailing)
@@ -83,12 +83,12 @@ struct StatsHeroScoreCard: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.black.opacity(0.12))
+                        .fill(Color.appElevated)
 
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Color.black.opacity(0.86), Color.neonGreen.opacity(0.86)],
+                                colors: [Color.appScrim, Color.neonGreen.opacity(0.86)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -144,7 +144,7 @@ struct StatsWeeklyArena: View {
             HStack {
                 Text("7-Day Streak Board")
                     .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Spacer()
 
@@ -159,8 +159,8 @@ struct StatsWeeklyArena: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 26).fill(Color.black.opacity(0.28)))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
+        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
     }
 }
 
@@ -216,7 +216,7 @@ struct StatsDayBadgeRow: View {
 
                     Text(StatsFormatters.dayNumber(stat.date))
                         .font(.system(size: 20, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                 }
                 .frame(width: 42)
 
@@ -270,11 +270,11 @@ struct StatsDayBadgeRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(stat.isPerfect ? Color.neonGreen.opacity(0.13) : Color.white.opacity(0.045))
+                .fill(stat.isPerfect ? Color.neonGreen.opacity(0.13) : Color.appSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(stat.isPerfect ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(stat.isPerfect ? Color.yellow.opacity(0.38) : Color.appSurface, lineWidth: 1)
         )
     }
 }
@@ -313,11 +313,11 @@ struct StatsDayMetricPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(highlighted ? color.opacity(0.12) : Color.white.opacity(0.045))
+                .fill(highlighted ? color.opacity(0.12) : Color.appSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(highlighted ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
+                .stroke(highlighted ? color.opacity(0.20) : Color.appSurface, lineWidth: 1)
         )
     }
 }
@@ -392,7 +392,7 @@ struct StatsCalorieBalanceRow: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.appBorder)
 
                     Capsule()
                         .fill(statusColor.opacity(hasFood ? 0.95 : 0.22))

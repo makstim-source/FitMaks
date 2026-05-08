@@ -96,7 +96,7 @@ struct SignInView: View {
                             Text("Sign in with Apple")
                                 .font(.system(size: 17, weight: .bold))
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(Capsule().fill(.white))

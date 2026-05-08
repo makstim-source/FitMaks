@@ -54,7 +54,7 @@ struct AIChatEditView: View {
                                 .foregroundColor(.fitOrange)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Capsule().fill(Color.black))
+                                .background(Capsule().fill(Color.appElevated))
                                 .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                         }
                         .buttonStyle(.plain)
@@ -152,8 +152,8 @@ struct AIChatEditView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen, lineWidth: 2))
                             Button(action: { withAnimation { attachedImage = nil } }) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.white)
-                                    .background(Circle().fill(Color.black))
+                                    .foregroundColor(.appText)
+                                    .background(Circle().fill(Color.appElevated))
                             }
                             .offset(x: 8, y: -8)
                         }

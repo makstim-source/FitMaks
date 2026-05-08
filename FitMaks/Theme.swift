@@ -1,23 +1,39 @@
 import SwiftUI
 
 enum AppTheme: String, CaseIterable, Identifiable {
-    case neonPulse
-    case morningAir
-    case midnight
-    case dune
+    case original = "original"
+    case originalV2 = "original_v2"
+    case cleanLight = "clean_light"
+    case performanceDark = "performance_dark"
+    case earthFuel = "earth_fuel"
+    case iphoneGlass = "iphone_glass"
 
     static let storageKey = "selectedThemeID"
-    static let defaultID = AppTheme.neonPulse.rawValue
-    static let areAlternateThemesEnabled = false
+    static let defaultID = AppTheme.original.rawValue
+    static let areAlternateThemesEnabled = true
+    static let selectableThemes: [AppTheme] = [.original, .originalV2, .earthFuel, .iphoneGlass]
 
     var id: String { rawValue }
 
     static func resolvedTheme(for storedID: String) -> AppTheme {
-        guard areAlternateThemesEnabled else {
-            return .neonPulse
-        }
+        guard areAlternateThemesEnabled else { return .original }
 
-        return AppTheme(rawValue: storedID) ?? .neonPulse
+        switch storedID {
+        case "neonPulse", "morningAir", "midnight", "dune":
+            return .original
+        case AppTheme.cleanLight.rawValue, AppTheme.performanceDark.rawValue:
+            return .originalV2
+        default:
+            return AppTheme(rawValue: storedID) ?? .original
+        }
+    }
+
+    static func normalizedSelectableID(for storedID: String) -> String {
+        let theme = resolvedTheme(for: storedID)
+        if selectableThemes.contains(theme) {
+            return theme.rawValue
+        }
+        return AppTheme.originalV2.rawValue
     }
 
     static var current: AppTheme {
@@ -27,7 +43,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var palette: AppPalette {
         switch self {
-        case .neonPulse:
+        case .original:
             return AppPalette(
                 name: "Original",
                 subtitle: "High energy neon",
@@ -39,72 +55,118 @@ enum AppTheme: String, CaseIterable, Identifiable {
                 backgroundStart: Color(red: 7/255, green: 11/255, blue: 15/255),
                 backgroundMid: Color(red: 30/255, green: 30/255, blue: 35/255),
                 backgroundEnd: Color.black.opacity(0.96),
-                surface: Color.white.opacity(0.06),
-                elevated: Color.black.opacity(0.30),
+                surface: Color(red: 28/255, green: 31/255, blue: 37/255).opacity(0.84),
+                elevated: Color(red: 10/255, green: 12/255, blue: 16/255).opacity(0.92),
                 text: .white,
                 muted: .gray,
                 border: Color.white.opacity(0.08),
                 accentText: .black,
+                scrim: Color.black.opacity(0.55),
                 preferredScheme: .dark
             )
-        case .morningAir:
+        case .originalV2:
             return AppPalette(
-                name: "Morning",
-                subtitle: "Warm clean light",
-                description: "Quiet oatmeal, sage and ink-blue. Softer for daytime use without feeling medical.",
-                primary: Color(red: 92/255, green: 156/255, blue: 38/255),
-                secondary: Color(red: 0/255, green: 126/255, blue: 191/255),
-                action: Color(red: 201/255, green: 115/255, blue: 65/255),
-                purple: Color(red: 129/255, green: 92/255, blue: 161/255),
-                backgroundStart: Color(red: 251/255, green: 247/255, blue: 238/255),
-                backgroundMid: Color(red: 239/255, green: 234/255, blue: 220/255),
-                backgroundEnd: Color(red: 226/255, green: 232/255, blue: 225/255),
-                surface: Color.white.opacity(0.78),
-                elevated: Color.white.opacity(0.92),
-                text: Color(red: 28/255, green: 34/255, blue: 36/255),
-                muted: Color(red: 92/255, green: 101/255, blue: 103/255),
-                border: Color(red: 31/255, green: 38/255, blue: 41/255).opacity(0.10),
-                accentText: Color(red: 248/255, green: 246/255, blue: 239/255),
+                name: "Original 2.0",
+                subtitle: "Premium neon sport",
+                description: "Same FitMaks DNA, but more polished: richer depth, cleaner glow, more premium contrast.",
+                primary: Color(red: 190/255, green: 255/255, blue: 70/255),
+                secondary: Color(red: 48/255, green: 191/255, blue: 255/255),
+                action: Color(red: 255/255, green: 148/255, blue: 52/255),
+                purple: Color(red: 201/255, green: 115/255, blue: 255/255),
+                backgroundStart: Color(red: 6/255, green: 14/255, blue: 18/255),
+                backgroundMid: Color(red: 14/255, green: 24/255, blue: 33/255),
+                backgroundEnd: Color(red: 2/255, green: 5/255, blue: 9/255),
+                surface: Color(red: 18/255, green: 39/255, blue: 48/255).opacity(0.88),
+                elevated: Color(red: 7/255, green: 16/255, blue: 22/255).opacity(0.94),
+                text: Color(red: 244/255, green: 247/255, blue: 249/255),
+                muted: Color(red: 154/255, green: 171/255, blue: 178/255),
+                border: Color(red: 86/255, green: 217/255, blue: 255/255).opacity(0.18),
+                accentText: Color(red: 7/255, green: 12/255, blue: 14/255),
+                scrim: Color.black.opacity(0.58),
+                preferredScheme: .dark
+            )
+        case .cleanLight:
+            return AppPalette(
+                name: "Verdant Studio",
+                subtitle: "Sage, slate, sea-glass",
+                description: "A calmer green theme built on graphite, eucalyptus and sea-glass, not neon spinach.",
+                primary: Color(red: 168/255, green: 198/255, blue: 122/255),
+                secondary: Color(red: 112/255, green: 178/255, blue: 182/255),
+                action: Color(red: 223/255, green: 148/255, blue: 104/255),
+                purple: Color(red: 136/255, green: 133/255, blue: 162/255),
+                backgroundStart: Color(red: 8/255, green: 13/255, blue: 16/255),
+                backgroundMid: Color(red: 16/255, green: 23/255, blue: 26/255),
+                backgroundEnd: Color(red: 5/255, green: 8/255, blue: 10/255),
+                surface: Color(red: 28/255, green: 36/255, blue: 37/255).opacity(0.91),
+                elevated: Color(red: 12/255, green: 17/255, blue: 19/255).opacity(0.97),
+                text: Color(red: 241/255, green: 245/255, blue: 241/255),
+                muted: Color(red: 160/255, green: 170/255, blue: 165/255),
+                border: Color(red: 124/255, green: 166/255, blue: 160/255).opacity(0.22),
+                accentText: Color(red: 10/255, green: 14/255, blue: 15/255),
+                scrim: Color.black.opacity(0.58),
+                preferredScheme: .dark
+            )
+        case .performanceDark:
+            return AppPalette(
+                name: "Gilded Night",
+                subtitle: "Ink, brass, midnight blue",
+                description: "A dark premium theme with smoked navy surfaces and brass accents used like jewelry, not paint.",
+                primary: Color(red: 214/255, green: 184/255, blue: 116/255),
+                secondary: Color(red: 121/255, green: 145/255, blue: 182/255),
+                action: Color(red: 183/255, green: 116/255, blue: 84/255),
+                purple: Color(red: 124/255, green: 117/255, blue: 145/255),
+                backgroundStart: Color(red: 6/255, green: 9/255, blue: 14/255),
+                backgroundMid: Color(red: 15/255, green: 18/255, blue: 26/255),
+                backgroundEnd: Color(red: 5/255, green: 6/255, blue: 10/255),
+                surface: Color(red: 27/255, green: 29/255, blue: 38/255).opacity(0.91),
+                elevated: Color(red: 12/255, green: 14/255, blue: 20/255).opacity(0.97),
+                text: Color(red: 245/255, green: 237/255, blue: 223/255),
+                muted: Color(red: 173/255, green: 163/255, blue: 146/255),
+                border: Color(red: 177/255, green: 155/255, blue: 110/255).opacity(0.20),
+                accentText: Color(red: 17/255, green: 13/255, blue: 10/255),
+                scrim: Color.black.opacity(0.60),
+                preferredScheme: .dark
+            )
+        case .earthFuel:
+            return AppPalette(
+                name: "Pastel Day",
+                subtitle: "Glass daylight",
+                description: "Brighter, cleaner, more phone-like: white glass, electric periwinkle, mint, and coral with crisp contrast.",
+                primary: Color(red: 56/255, green: 178/255, blue: 158/255),
+                secondary: Color(red: 82/255, green: 116/255, blue: 240/255),
+                action: Color(red: 240/255, green: 108/255, blue: 78/255),
+                purple: Color(red: 148/255, green: 112/255, blue: 240/255),
+                backgroundStart: Color(red: 232/255, green: 228/255, blue: 238/255),
+                backgroundMid: Color(red: 226/255, green: 232/255, blue: 244/255),
+                backgroundEnd: Color(red: 228/255, green: 238/255, blue: 240/255),
+                surface: Color.white.opacity(0.92),
+                elevated: Color.white.opacity(0.96),
+                text: Color(red: 36/255, green: 32/255, blue: 58/255),
+                muted: Color(red: 94/255, green: 92/255, blue: 126/255),
+                border: Color(red: 140/255, green: 148/255, blue: 190/255).opacity(0.38),
+                accentText: .white,
+                scrim: Color.black.opacity(0.32),
                 preferredScheme: .light
             )
-        case .midnight:
+        case .iphoneGlass:
             return AppPalette(
-                name: "Midnight",
-                subtitle: "Premium low contrast",
-                description: "Deep graphite with mineral green and quiet blue. Still dark, but less aggressive.",
-                primary: Color(red: 180/255, green: 238/255, blue: 88/255),
-                secondary: Color(red: 43/255, green: 177/255, blue: 242/255),
-                action: Color(red: 223/255, green: 160/255, blue: 107/255),
-                purple: Color(red: 174/255, green: 143/255, blue: 222/255),
-                backgroundStart: Color(red: 12/255, green: 16/255, blue: 20/255),
-                backgroundMid: Color(red: 19/255, green: 24/255, blue: 31/255),
-                backgroundEnd: Color(red: 5/255, green: 7/255, blue: 10/255),
-                surface: Color.white.opacity(0.06),
-                elevated: Color.black.opacity(0.26),
-                text: Color(red: 238/255, green: 242/255, blue: 239/255),
-                muted: Color(red: 132/255, green: 142/255, blue: 146/255),
-                border: Color.white.opacity(0.085),
-                accentText: Color(red: 8/255, green: 12/255, blue: 18/255),
-                preferredScheme: .dark
-            )
-        case .dune:
-            return AppPalette(
-                name: "Dune",
-                subtitle: "Warm editorial",
-                description: "Espresso, amber and muted teal. Cozy evening mode without turning everything orange.",
-                primary: Color(red: 170/255, green: 209/255, blue: 89/255),
-                secondary: Color(red: 71/255, green: 190/255, blue: 196/255),
-                action: Color(red: 214/255, green: 103/255, blue: 70/255),
-                purple: Color(red: 183/255, green: 116/255, blue: 166/255),
-                backgroundStart: Color(red: 24/255, green: 18/255, blue: 15/255),
-                backgroundMid: Color(red: 38/255, green: 29/255, blue: 24/255),
-                backgroundEnd: Color(red: 12/255, green: 9/255, blue: 8/255),
-                surface: Color.white.opacity(0.065),
-                elevated: Color.black.opacity(0.28),
-                text: Color(red: 249/255, green: 236/255, blue: 216/255),
-                muted: Color(red: 170/255, green: 151/255, blue: 128/255),
-                border: Color.white.opacity(0.095),
-                accentText: Color(red: 24/255, green: 15/255, blue: 8/255),
+                name: "iPhone Glass",
+                subtitle: "Dark liquid glass",
+                description: "Cold graphite glass, sapphire chrome, aqua highlights, and crisp Apple-like contrast on a dark stage.",
+                primary: Color(red: 120/255, green: 240/255, blue: 219/255),
+                secondary: Color(red: 114/255, green: 157/255, blue: 255/255),
+                action: Color(red: 255/255, green: 142/255, blue: 111/255),
+                purple: Color(red: 190/255, green: 145/255, blue: 255/255),
+                backgroundStart: Color(red: 6/255, green: 10/255, blue: 16/255),
+                backgroundMid: Color(red: 12/255, green: 18/255, blue: 28/255),
+                backgroundEnd: Color(red: 2/255, green: 4/255, blue: 9/255),
+                surface: Color(red: 24/255, green: 34/255, blue: 52/255).opacity(0.90),
+                elevated: Color(red: 11/255, green: 17/255, blue: 27/255).opacity(0.95),
+                text: Color(red: 243/255, green: 247/255, blue: 255/255),
+                muted: Color(red: 149/255, green: 164/255, blue: 194/255),
+                border: Color.white.opacity(0.15),
+                accentText: Color(red: 15/255, green: 18/255, blue: 28/255),
+                scrim: Color.black.opacity(0.48),
                 preferredScheme: .dark
             )
         }
@@ -128,7 +190,158 @@ struct AppPalette {
     let muted: Color
     let border: Color
     let accentText: Color
+    let scrim: Color
     let preferredScheme: ColorScheme
+}
+
+func themeCardGradient(_ theme: AppTheme = .current) -> LinearGradient {
+    switch theme {
+    case .original:
+        return LinearGradient(
+            colors: [Color.appSurface, Color.appElevated],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case .originalV2:
+        return LinearGradient(
+            colors: [
+                theme.palette.surface,
+                theme.palette.secondary.opacity(0.12),
+                theme.palette.elevated
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case .cleanLight:
+        return LinearGradient(
+            colors: [
+                theme.palette.surface,
+                theme.palette.secondary.opacity(0.10),
+                theme.palette.primary.opacity(0.07),
+                theme.palette.elevated
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case .performanceDark:
+        return LinearGradient(
+            colors: [
+                theme.palette.surface,
+                theme.palette.secondary.opacity(0.09),
+                theme.palette.primary.opacity(0.06),
+                theme.palette.elevated
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case .earthFuel:
+        return LinearGradient(
+            colors: [
+                theme.palette.elevated,
+                theme.palette.surface,
+                theme.palette.secondary.opacity(0.06),
+                theme.palette.elevated
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case .iphoneGlass:
+        return LinearGradient(
+            colors: [
+                Color.white.opacity(0.16),
+                theme.palette.surface,
+                theme.palette.secondary.opacity(0.13),
+                theme.palette.elevated
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+func themeChromeGradient(_ theme: AppTheme = .current) -> LinearGradient {
+    switch theme {
+    case .original:
+        return LinearGradient(colors: [Color.appSurface, Color.appElevated], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .originalV2:
+        return LinearGradient(colors: [theme.palette.primary.opacity(0.22), theme.palette.surface, theme.palette.elevated], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .cleanLight:
+        return LinearGradient(colors: [theme.palette.primary.opacity(0.14), theme.palette.secondary.opacity(0.08), theme.palette.elevated], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .performanceDark:
+        return LinearGradient(colors: [theme.palette.primary.opacity(0.10), theme.palette.surface, theme.palette.elevated], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .earthFuel:
+        return LinearGradient(colors: [theme.palette.elevated, theme.palette.secondary.opacity(0.08), theme.palette.surface], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .iphoneGlass:
+        return LinearGradient(colors: [Color.white.opacity(0.14), theme.palette.secondary.opacity(0.18), theme.palette.elevated], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+func themeShadowColor(_ theme: AppTheme = .current) -> Color {
+    switch theme {
+    case .original:
+        return Color.black.opacity(0.22)
+    case .originalV2:
+        return theme.palette.primary.opacity(0.18)
+    case .cleanLight:
+        return theme.palette.secondary.opacity(0.16)
+    case .performanceDark:
+        return theme.palette.primary.opacity(0.14)
+    case .earthFuel:
+        return theme.palette.secondary.opacity(0.28)
+    case .iphoneGlass:
+        return theme.palette.secondary.opacity(0.22)
+    }
+}
+
+func themePrimaryButtonGradient(_ theme: AppTheme = .current) -> LinearGradient {
+    switch theme {
+    case .original:
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.primary.opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .originalV2:
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.action], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .cleanLight:
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.secondary.opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .performanceDark:
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.action], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .earthFuel:
+        return LinearGradient(colors: [theme.palette.secondary, theme.palette.purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .iphoneGlass:
+        return LinearGradient(colors: [theme.palette.secondary, theme.palette.primary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+func themeAccentButtonGradient(_ theme: AppTheme = .current) -> LinearGradient {
+    switch theme {
+    case .original:
+        return LinearGradient(colors: [theme.palette.action, Color(red: 1.0, green: 0.62, blue: 0.18)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .originalV2:
+        return LinearGradient(colors: [theme.palette.secondary, theme.palette.action], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .cleanLight:
+        return LinearGradient(colors: [theme.palette.action, theme.palette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .performanceDark:
+        return LinearGradient(colors: [theme.palette.secondary, theme.palette.primary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .earthFuel:
+        return LinearGradient(colors: [theme.palette.action, theme.palette.primary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .iphoneGlass:
+        return LinearGradient(colors: [theme.palette.purple, theme.palette.action], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+func themeIdentityButtonGradient(_ theme: AppTheme = .current) -> LinearGradient {
+    switch theme {
+    case .original:
+        return LinearGradient(colors: [theme.palette.purple, theme.palette.purple.opacity(0.86)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .originalV2:
+        return LinearGradient(colors: [theme.palette.action, theme.palette.primary.opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .cleanLight:
+        return LinearGradient(colors: [theme.palette.secondary, theme.palette.primary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .performanceDark:
+        return LinearGradient(colors: [theme.palette.action, theme.palette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .earthFuel:
+        return LinearGradient(colors: [theme.palette.purple, theme.palette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    case .iphoneGlass:
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
 }
 
 extension Color {
@@ -146,6 +359,15 @@ extension Color {
     static var appBackgroundStart: Color { AppTheme.current.palette.backgroundStart }
     static var appBackgroundMid: Color { AppTheme.current.palette.backgroundMid }
     static var appBackgroundEnd: Color { AppTheme.current.palette.backgroundEnd }
+    static var appScrim: Color { AppTheme.current.palette.scrim }
+}
+
+func isPastelDayTheme(_ theme: AppTheme = .current) -> Bool {
+    theme == .earthFuel || theme == .iphoneGlass
+}
+
+func isIPhoneGlassTheme(_ theme: AppTheme = .current) -> Bool {
+    theme == .iphoneGlass
 }
 
 struct ThemeSelectionView: View {
@@ -191,7 +413,7 @@ struct ThemeSelectionView: View {
                 .lineSpacing(0)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Original stays as the default. Try a softer light mode, a calmer dark mode, or something more editorial.")
+            Text("Original stays untouched. Original 2.0 is the premium neon remix, Pastel Day is the soft daylight alternative, and iPhone Glass is the colder dark-glass take.")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.appMuted)
                 .lineSpacing(4)
@@ -238,9 +460,10 @@ struct ThemeSelectionView: View {
         .padding(17)
         .background(
             RoundedRectangle(cornerRadius: 26)
-                .fill(Color.appSurface)
+                .fill(themeCardGradient(selectedTheme))
                 .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
         )
+        .shadow(color: themeShadowColor(selectedTheme), radius: 18, x: 0, y: 10)
     }
 
     private var continueButton: some View {
@@ -259,8 +482,8 @@ struct ThemeSelectionView: View {
             .frame(height: 54)
             .background(
                 Capsule()
-                    .fill(Color.neonGreen)
-                    .shadow(color: .neonGreen.opacity(0.35), radius: 18, x: 0, y: 8)
+                    .fill(themePrimaryButtonGradient(selectedTheme))
+                    .shadow(color: themeShadowColor(selectedTheme).opacity(0.85), radius: 18, x: 0, y: 8)
             )
         }
         .buttonStyle(.plain)
@@ -279,7 +502,8 @@ struct ThemeSelectionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 17).fill(Color.appElevated))
+        .background(RoundedRectangle(cornerRadius: 17).fill(themeChromeGradient(selectedTheme)))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private func swatch(_ color: Color) -> some View {
@@ -290,8 +514,9 @@ struct ThemeSelectionView: View {
     }
 
     private func normalizeSelection() {
-        guard AppTheme(rawValue: selectedThemeID) == nil else { return }
-        selectedThemeID = AppTheme.defaultID
+        let normalized = AppTheme.normalizedSelectableID(for: selectedThemeID)
+        guard normalized != selectedThemeID else { return }
+        selectedThemeID = normalized
     }
 }
 
@@ -300,7 +525,7 @@ struct ThemePickerGrid: View {
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ForEach(AppTheme.allCases) { theme in
+            ForEach(AppTheme.selectableThemes) { theme in
                 ThemeChoiceCard(
                     theme: theme,
                     isSelected: selectedThemeID == theme.rawValue
@@ -315,8 +540,9 @@ struct ThemePickerGrid: View {
     }
 
     private func normalizeSelection() {
-        guard AppTheme(rawValue: selectedThemeID) == nil else { return }
-        selectedThemeID = AppTheme.defaultID
+        let normalized = AppTheme.normalizedSelectableID(for: selectedThemeID)
+        guard normalized != selectedThemeID else { return }
+        selectedThemeID = normalized
     }
 }
 
@@ -340,6 +566,10 @@ private struct ThemeChoiceCard: View {
                             )
                         )
                         .frame(height: 102)
+                        .overlay {
+                            ThemePreviewAtmosphere(theme: theme)
+                                .clipShape(RoundedRectangle(cornerRadius: 22))
+                        }
 
                     HStack(spacing: 6) {
                         Capsule().fill(palette.primary).frame(width: 36, height: 8)
@@ -371,14 +601,157 @@ private struct ThemeChoiceCard: View {
             .padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 26)
-                    .fill(isSelected ? Color.neonGreen.opacity(0.13) : Color.appSurface)
+                    .fill(themeCardGradient(theme))
                     .overlay(
                         RoundedRectangle(cornerRadius: 26)
-                            .stroke(isSelected ? Color.neonGreen.opacity(0.55) : Color.appBorder, lineWidth: isSelected ? 1.5 : 1)
+                            .stroke(isSelected ? theme.palette.primary.opacity(0.60) : Color.appBorder, lineWidth: isSelected ? 1.5 : 1)
                     )
             )
+            .shadow(color: isSelected ? themeShadowColor(theme) : Color.clear, radius: 14, x: 0, y: 8)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct ThemePreviewAtmosphere: View {
+    var theme: AppTheme
+
+    private var palette: AppPalette { theme.palette }
+
+    var body: some View {
+        ZStack {
+            switch theme {
+            case .original:
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [palette.secondary.opacity(0.22), .clear],
+                            center: .center,
+                            startRadius: 2,
+                            endRadius: 42
+                        )
+                    )
+                    .frame(width: 92, height: 92)
+                    .offset(x: 38, y: -26)
+
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(palette.primary.opacity(0.16))
+                    .frame(width: 88, height: 34)
+                    .rotationEffect(.degrees(-18))
+                    .offset(x: -18, y: 24)
+            case .originalV2:
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [palette.secondary.opacity(0.24), .clear, palette.primary.opacity(0.16)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .padding(6)
+
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(palette.primary.opacity(0.18))
+                    .frame(width: 96, height: 30)
+                    .rotationEffect(.degrees(22))
+                    .offset(x: -12, y: 18)
+            case .cleanLight:
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [palette.primary.opacity(0.22), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 44
+                        )
+                    )
+                    .frame(width: 88, height: 88)
+                    .offset(x: -30, y: 18)
+
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(palette.secondary.opacity(0.24))
+                    .frame(width: 96, height: 22)
+                    .rotationEffect(.degrees(-12))
+                    .offset(x: 28, y: -12)
+
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(palette.action.opacity(0.16))
+                    .frame(width: 76, height: 18)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: 34, y: 24)
+            case .performanceDark:
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [palette.primary.opacity(0.18), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 40
+                        )
+                    )
+                    .frame(width: 82, height: 82)
+                    .offset(x: -28, y: 18)
+
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(palette.secondary.opacity(0.18))
+                    .frame(width: 90, height: 18)
+                    .offset(x: 26, y: -18)
+
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(palette.action.opacity(0.14))
+                    .frame(width: 72, height: 20)
+                    .rotationEffect(.degrees(-14))
+                    .offset(x: 18, y: 20)
+            case .earthFuel:
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [palette.action.opacity(0.18), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 42
+                        )
+                    )
+                    .frame(width: 82, height: 82)
+                    .offset(x: -30, y: -14)
+
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(palette.secondary.opacity(0.22))
+                    .frame(width: 104, height: 26)
+                    .rotationEffect(.degrees(-10))
+                    .offset(x: 24, y: -8)
+
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(palette.primary.opacity(0.18))
+                    .frame(width: 78, height: 18)
+                    .rotationEffect(.degrees(14))
+                    .offset(x: -2, y: 24)
+            case .iphoneGlass:
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [palette.secondary.opacity(0.28), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 48
+                        )
+                    )
+                    .frame(width: 90, height: 90)
+                    .offset(x: 34, y: -18)
+
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 108, height: 30)
+                    .rotationEffect(.degrees(-10))
+                    .offset(x: -20, y: 18)
+
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(palette.primary.opacity(0.16))
+                    .frame(width: 78, height: 18)
+                    .rotationEffect(.degrees(14))
+                    .offset(x: 28, y: 28)
+            }
+        }
     }
 }
 
@@ -392,19 +765,215 @@ func themeBackground(_ theme: AppTheme = .current) -> some View {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+    .overlay {
+        ZStack {
+        switch theme {
+        case .original:
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.secondary.opacity(0.20), .clear],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 130
+                    )
+                )
+                .frame(width: 260, height: 260)
+                .offset(x: 148, y: -148)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.primary.opacity(0.18), .clear],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 150
+                    )
+                )
+                .frame(width: 300, height: 300)
+                .offset(x: -148, y: 310)
+        case .originalV2:
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            theme.palette.secondary.opacity(0.16),
+                            .clear,
+                            theme.palette.primary.opacity(0.12)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 520, height: 280)
+                .rotationEffect(.degrees(-18))
+                .offset(x: 50, y: -130)
+
+            Ellipse()
+                .fill(theme.palette.primary.opacity(0.12))
+                .frame(width: 360, height: 220)
+                .offset(x: -70, y: -220)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.secondary.opacity(0.16), .clear],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 140
+                    )
+                )
+                .frame(width: 280, height: 280)
+                .offset(x: 150, y: -160)
+
+            RoundedRectangle(cornerRadius: 46)
+                .fill(theme.palette.action.opacity(0.10))
+                .frame(width: 260, height: 84)
+                .rotationEffect(.degrees(14))
+                .offset(x: -170, y: 330)
+        case .cleanLight:
+            Ellipse()
+                .fill(theme.palette.primary.opacity(0.16))
+                .frame(width: 320, height: 220)
+                .offset(x: -140, y: -250)
+
+            RoundedRectangle(cornerRadius: 70)
+                .fill(theme.palette.secondary.opacity(0.14))
+                .frame(width: 280, height: 94)
+                .rotationEffect(.degrees(-15))
+                .offset(x: 170, y: -130)
+
+            RoundedRectangle(cornerRadius: 44)
+                .fill(theme.palette.action.opacity(0.12))
+                .frame(width: 200, height: 62)
+                .rotationEffect(.degrees(15))
+                .offset(x: -32, y: 330)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.secondary.opacity(0.12), .clear],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 130
+                    )
+                )
+                .frame(width: 260, height: 260)
+                .offset(x: 132, y: 300)
+        case .performanceDark:
+            RoundedRectangle(cornerRadius: 220)
+                .fill(theme.palette.secondary.opacity(0.10))
+                .frame(width: 430, height: 130)
+                .offset(x: 120, y: -285)
+
+            RoundedRectangle(cornerRadius: 30)
+                .fill(theme.palette.action.opacity(0.13))
+                .frame(width: 220, height: 52)
+                .offset(x: 174, y: -170)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.primary.opacity(0.14), .clear],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 110
+                    )
+                )
+                .frame(width: 220, height: 220)
+                .offset(x: -168, y: 312)
+
+            RoundedRectangle(cornerRadius: 120)
+                .fill(theme.palette.primary.opacity(0.08))
+                .frame(width: 290, height: 84)
+                .rotationEffect(.degrees(-18))
+                .offset(x: -156, y: 340)
+        case .earthFuel:
+            Ellipse()
+                .fill(theme.palette.action.opacity(0.20))
+                .frame(width: 280, height: 180)
+                .offset(x: -176, y: -264)
+
+            RoundedRectangle(cornerRadius: 44)
+                .fill(theme.palette.secondary.opacity(0.15))
+                .frame(width: 290, height: 94)
+                .rotationEffect(.degrees(-14))
+                .offset(x: 164, y: -128)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.primary.opacity(0.16), .clear],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 108
+                    )
+                )
+                .frame(width: 220, height: 220)
+                .offset(x: 172, y: 292)
+
+            RoundedRectangle(cornerRadius: 54)
+                .fill(theme.palette.purple.opacity(0.12))
+                .frame(width: 250, height: 78)
+                .rotationEffect(.degrees(16))
+                .offset(x: -44, y: 348)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white.opacity(0.44), .clear],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: 82
+                    )
+                )
+                .frame(width: 150, height: 150)
+                .offset(x: 30, y: -24)
+        case .iphoneGlass:
+            RoundedRectangle(cornerRadius: 90)
+                .fill(theme.palette.secondary.opacity(0.18))
+                .frame(width: 340, height: 110)
+                .rotationEffect(.degrees(-13))
+                .offset(x: 156, y: -246)
+
+            Ellipse()
+                .fill(theme.palette.purple.opacity(0.14))
+                .frame(width: 260, height: 180)
+                .offset(x: -182, y: -238)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.primary.opacity(0.16), .clear],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 112
+                    )
+                )
+                .frame(width: 228, height: 228)
+                .offset(x: 174, y: 298)
+
+            RoundedRectangle(cornerRadius: 52)
+                .fill(Color.white.opacity(0.08))
+                .frame(width: 276, height: 82)
+                .rotationEffect(.degrees(14))
+                .offset(x: -60, y: 350)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white.opacity(0.18), .clear],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: 84
+                    )
+                )
+                .frame(width: 150, height: 150)
+                .offset(x: 16, y: -30)
+        }
+        }
+        .allowsHitTesting(false)
+    }
+    .clipped()
     .ignoresSafeArea()
-    .overlay(alignment: .topTrailing) {
-        Circle()
-            .fill(theme.palette.secondary.opacity(0.13))
-            .frame(width: 260, height: 260)
-            .blur(radius: 58)
-            .offset(x: 90, y: -110)
-    }
-    .overlay(alignment: .bottomLeading) {
-        Circle()
-            .fill(theme.palette.primary.opacity(0.12))
-            .frame(width: 300, height: 300)
-            .blur(radius: 65)
-            .offset(x: -125, y: 85)
-    }
 }

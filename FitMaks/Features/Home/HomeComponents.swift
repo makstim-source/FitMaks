@@ -20,30 +20,7 @@ func shortFoodName(_ name: String, maxChars: Int = 22) -> String {
 
 struct HomeBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color.appBackgroundStart,
-                Color.appBackgroundMid,
-                Color.appBackgroundEnd
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
-        .overlay(alignment: .topTrailing) {
-            Circle()
-                .fill(Color.neonCyan.opacity(0.12))
-                .frame(width: 220, height: 220)
-                .blur(radius: 45)
-                .offset(x: 80, y: -95)
-        }
-        .overlay(alignment: .bottomLeading) {
-            Circle()
-                .fill(Color.neonGreen.opacity(0.10))
-                .frame(width: 260, height: 260)
-                .blur(radius: 55)
-                .offset(x: -120, y: 80)
-        }
+        themeBackground()
     }
 }
 
@@ -53,17 +30,27 @@ struct HomeIconButton: View {
     var action: () -> Void
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 16, weight: .black))
                 .foregroundColor(color)
                 .frame(width: 42, height: 42)
                 .background(
-                    Circle()
-                        .fill(Color.appSurface)
-                        .overlay(Circle().stroke(color.opacity(0.16), lineWidth: 1))
+                    Group {
+                        if pastel {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(themeChromeGradient())
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.18), lineWidth: 1))
+                        } else {
+                            Circle()
+                                .fill(themeChromeGradient())
+                                .overlay(Circle().stroke(color.opacity(0.16), lineWidth: 1))
+                        }
+                    }
                 )
-                .shadow(color: color.opacity(0.18), radius: 10)
+                .shadow(color: themeShadowColor().opacity(pastel ? 0.45 : 0.9), radius: pastel ? 7 : 12, y: pastel ? 2 : 4)
         }
         .buttonStyle(.plain)
     }
@@ -83,6 +70,9 @@ struct HomeMetricTile: View {
         let baseProgress = CGFloat(min(max(progress, 0), 1))
         let combinedProgress = CGFloat(min(max(progress + bonusProgress, 0), 1))
         let highlightColor = bonusColor ?? color
+        let pastel = isPastelDayTheme()
+        let ringWidth: CGFloat = pastel ? 5.5 : 7
+        let tileCorner: CGFloat = pastel ? 22 : 18
 
         VStack(spacing: 6) {
             Text(title.uppercased())
@@ -93,26 +83,26 @@ struct HomeMetricTile: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.black.opacity(0.34), lineWidth: 7)
+                    .stroke(pastel ? Color.white.opacity(0.88) : Color.appElevated, lineWidth: ringWidth)
 
                 Circle()
                     .trim(from: 0, to: baseProgress)
                     .stroke(
                         color,
-                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.55), radius: combinedProgress >= 1 ? 13 : 6)
+                    .shadow(color: color.opacity(pastel ? 0.25 : 0.55), radius: combinedProgress >= 1 ? (pastel ? 7 : 13) : (pastel ? 2 : 6))
 
                 if combinedProgress > baseProgress {
                     Circle()
                         .trim(from: baseProgress, to: combinedProgress)
                         .stroke(
                             highlightColor,
-                            style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                            style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: highlightColor.opacity(0.58), radius: combinedProgress >= 1 ? 13 : 7)
+                        .shadow(color: highlightColor.opacity(pastel ? 0.28 : 0.58), radius: combinedProgress >= 1 ? (pastel ? 8 : 13) : (pastel ? 3 : 7))
                 }
 
                 VStack(spacing: 0) {
@@ -137,13 +127,17 @@ struct HomeMetricTile: View {
             }
             .frame(width: 74, height: 74)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, pastel ? 8 : 6)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.09), lineWidth: 1))
+            RoundedRectangle(cornerRadius: tileCorner)
+                .fill(themeCardGradient())
+                .overlay(
+                    RoundedRectangle(cornerRadius: tileCorner)
+                        .stroke(pastel ? Color.appBorder.opacity(0.95) : color.opacity(0.09), lineWidth: 1)
+                )
         )
+        .shadow(color: themeShadowColor().opacity(pastel ? 0.18 : 0.55), radius: pastel ? 7 : 12, x: 0, y: pastel ? 3 : 6)
         .accessibilityIdentifier("metric_\(title)")
     }
 }
@@ -155,40 +149,69 @@ struct HomeDockButton: View {
     var action: () -> Void
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+        let iphoneGlass = isIPhoneGlassTheme()
+
         Button(action: action) {
             VStack(spacing: 6) {
                 ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.appSurface, Color.appElevated],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 44, height: 44)
+                    Group {
+                        if iphoneGlass {
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.12),
+                                            Color.appSurface,
+                                            Color.appElevated
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 50, height: 46)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18)
+                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                )
+                        } else if pastel {
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(themeChromeGradient())
+                                .frame(width: 48, height: 44)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18)
+                                        .stroke(color.opacity(0.22), lineWidth: 1)
+                                )
+                        } else {
+                            Circle()
+                                .fill(themeChromeGradient())
+                                .frame(width: 44, height: 44)
 
-                    Circle()
-                        .stroke(color.opacity(0.22), lineWidth: 1)
-                        .frame(width: 44, height: 44)
+                            Circle()
+                                .stroke(color.opacity(0.22), lineWidth: 1)
+                                .frame(width: 44, height: 44)
+                        }
+                    }
 
                     Image(systemName: systemName)
                         .font(.system(size: 18, weight: .black))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [color.opacity(0.92), color],
+                                colors: iphoneGlass
+                                    ? [Color.white.opacity(0.92), color]
+                                    : [color.opacity(0.92), color],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
                 }
-                .shadow(color: color.opacity(0.22), radius: 10, y: 4)
+                .shadow(color: themeShadowColor().opacity(iphoneGlass ? 0.20 : (pastel ? 0.28 : 0.8)), radius: iphoneGlass ? 8 : (pastel ? 7 : 12), y: iphoneGlass ? 3 : (pastel ? 2 : 4))
 
                 Text(title)
                     .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(.appMuted)
+                    .foregroundColor(iphoneGlass ? Color.appText.opacity(0.82) : .appMuted)
             }
-            .frame(width: 56)
+            .frame(width: pastel ? 60 : 56)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("dock_\(title)")
@@ -210,7 +233,7 @@ struct HomeMacroSummaryPill: View {
             if !systemName.isEmpty {
                 ZStack {
                     Circle()
-                        .stroke(Color.black.opacity(0.34), lineWidth: 2)
+                        .stroke(Color.appElevated, lineWidth: 2)
                     Circle()
                         .trim(from: 0, to: clamped)
                         .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
@@ -251,9 +274,10 @@ struct HomeMacroSummaryPill: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.appSurface.opacity(0.92))
+                .fill(themeCardGradient())
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(0.16), lineWidth: 1))
         )
+        .shadow(color: themeShadowColor().opacity(0.45), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -314,6 +338,8 @@ struct HomeCarbControlCard: View {
     }
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label("CARBS", systemImage: "leaf.fill")
@@ -328,7 +354,7 @@ struct HomeCarbControlCard: View {
                     .foregroundColor(.appAccentText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(accentColor))
+                    .background(Capsule().fill(pastel ? accentColor.opacity(0.78) : accentColor))
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 8) {
@@ -355,7 +381,7 @@ struct HomeCarbControlCard: View {
 
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.appBorder)
 
                     Capsule()
                         .fill(Color.neonGreen.opacity(0.20))
@@ -378,24 +404,25 @@ struct HomeCarbControlCard: View {
                         .frame(width: max(6, width * fillProgress))
 
                     Circle()
-                        .fill(Color.white.opacity(0.5))
+                        .fill(Color.appText.opacity(0.5))
                         .frame(width: 6, height: 6)
                         .offset(x: max(0, min(width - 6, width * markerProgress - 3)))
                 }
             }
-            .frame(height: 3)
+            .frame(height: pastel ? 4 : 3)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, pastel ? 10 : 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.appSurface.opacity(0.82))
+            RoundedRectangle(cornerRadius: pastel ? 18 : 14)
+                .fill(themeCardGradient())
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(accentColor.opacity(0.13), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: pastel ? 18 : 14)
+                        .stroke(pastel ? Color.appBorder.opacity(0.95) : accentColor.opacity(0.13), lineWidth: 1)
                 )
         )
+        .shadow(color: themeShadowColor().opacity(pastel ? 0.12 : 0.38), radius: pastel ? 6 : 8, x: 0, y: pastel ? 2 : 4)
     }
 }
 
@@ -452,6 +479,8 @@ struct HomeFatControlCard: View {
     }
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label("FAT", systemImage: "circle.inset.filled")
@@ -466,7 +495,7 @@ struct HomeFatControlCard: View {
                     .foregroundColor(statusLabel == "In range" ? .black : .appAccentText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(accentColor))
+                    .background(Capsule().fill(pastel ? accentColor.opacity(0.78) : accentColor))
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 8) {
@@ -488,7 +517,7 @@ struct HomeFatControlCard: View {
 
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.appBorder)
 
                     Capsule()
                         .fill(Color.yellow.opacity(0.18))
@@ -502,19 +531,20 @@ struct HomeFatControlCard: View {
                         .offset(x: max(0, min(width - 6, width * currentProgress - 3)))
                 }
             }
-            .frame(height: 3)
+            .frame(height: pastel ? 4 : 3)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, pastel ? 10 : 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.appSurface.opacity(0.82))
+            RoundedRectangle(cornerRadius: pastel ? 18 : 14)
+                .fill(themeCardGradient())
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(accentColor.opacity(0.13), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: pastel ? 18 : 14)
+                        .stroke(pastel ? Color.appBorder.opacity(0.95) : accentColor.opacity(0.13), lineWidth: 1)
                 )
         )
+        .shadow(color: themeShadowColor().opacity(pastel ? 0.12 : 0.38), radius: pastel ? 6 : 8, x: 0, y: pastel ? 2 : 4)
     }
 }
 
@@ -522,13 +552,15 @@ struct HomeStatsPanelBackground: View {
     var isPerfectPastDay: Bool
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+
         if isPerfectPastDay {
             RoundedRectangle(cornerRadius: 20)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.neonGreen.opacity(0.16),
-                            Color.neonGreen.opacity(0.06),
+                            Color.neonGreen.opacity(pastel ? 0.08 : 0.14),
+                            Color.neonCyan.opacity(pastel ? 0.04 : 0.05),
                             Color.appElevated
                         ],
                         startPoint: .topLeading,
@@ -540,8 +572,8 @@ struct HomeStatsPanelBackground: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color.neonGreen.opacity(0.34),
-                                    Color.neonGreen.opacity(0.12),
+                                    Color.neonGreen.opacity(pastel ? 0.18 : 0.30),
+                                    Color.neonCyan.opacity(pastel ? 0.06 : 0.10),
                                     .clear
                                 ],
                                 center: .center,
@@ -555,7 +587,11 @@ struct HomeStatsPanelBackground: View {
                 }
         } else {
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.appSurface)
+                .fill(themeCardGradient())
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(pastel ? Color.appBorder.opacity(0.9) : Color.clear, lineWidth: pastel ? 1 : 0)
+                )
         }
     }
 }
@@ -564,6 +600,8 @@ struct HomeStatsPanelCelebrationOverlay: View {
     var isPerfectPastDay: Bool
 
     var body: some View {
+        let pastel = isPastelDayTheme()
+
         ZStack(alignment: .top) {
             if isPerfectPastDay {
                 HStack(spacing: 5) {
@@ -582,8 +620,8 @@ struct HomeStatsPanelCelebrationOverlay: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.neonGreen.opacity(0.99),
-                                    Color.yellow.opacity(0.90)
+                                    pastel ? Color.fitOrange.opacity(0.88) : Color.neonGreen.opacity(0.99),
+                                    pastel ? Color.fitPurple.opacity(0.78) : Color.fitOrange.opacity(0.90)
                                 ],
                                 startPoint: .leading,
                                 endPoint: .trailing
@@ -591,11 +629,11 @@ struct HomeStatsPanelCelebrationOverlay: View {
                         )
                         .overlay(
                             Capsule()
-                                .stroke(Color.neonGreen.opacity(0.22), lineWidth: 0.8)
+                                .stroke((pastel ? Color.fitPurple : Color.neonGreen).opacity(0.22), lineWidth: 0.8)
                         )
                 )
-                .shadow(color: Color.neonGreen.opacity(0.46), radius: 12, x: 0, y: 0)
-                .shadow(color: Color.neonGreen.opacity(0.24), radius: 24, x: 0, y: 0)
+                .shadow(color: (pastel ? Color.fitPurple : Color.neonGreen).opacity(pastel ? 0.24 : 0.46), radius: 12, x: 0, y: 0)
+                .shadow(color: (pastel ? Color.fitPurple : Color.neonGreen).opacity(pastel ? 0.10 : 0.24), radius: 24, x: 0, y: 0)
                 .offset(y: -8)
             }
         }

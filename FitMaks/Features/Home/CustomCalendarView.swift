@@ -313,7 +313,7 @@ private struct CalendarDayCell: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(0.95),
+                            Color.appText,
                             color.opacity(0.98),
                             color.opacity(0.72)
                         ],
@@ -323,13 +323,13 @@ private struct CalendarDayCell: View {
                     )
                 )
                 .frame(width: 22, height: 22)
-                .overlay(Circle().stroke(Color.white.opacity(0.42), lineWidth: 1))
+                .overlay(Circle().stroke(Color.appText.opacity(0.42), lineWidth: 1))
                 .shadow(color: color.opacity(isPerfectDay ? 0.95 : 0.72), radius: isPerfectDay ? 10 : 7, x: 0, y: 0)
 
             if isText {
                 Text(symbol)
                     .font(.system(size: 8, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .offset(y: -0.5)
             } else {
                 Image(systemName: symbol)
@@ -367,7 +367,7 @@ private struct CalendarDayCell: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(0.95),
+                            Color.appText,
                             Color.neonGreen.opacity(0.95),
                             Color.yellow.opacity(0.85)
                         ],
@@ -389,7 +389,7 @@ private struct CalendarDayCell: View {
                 .frame(width: 50, height: 50)
 
             Circle()
-                .stroke(Color.white.opacity(0.9), lineWidth: 1)
+                .stroke(Color.appText.opacity(0.9), lineWidth: 1)
                 .frame(width: 37, height: 37)
         }
     }

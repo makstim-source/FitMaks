@@ -303,7 +303,7 @@ struct MyFoodView: View {
                 .foregroundColor(.gray)
         }
         .frame(width: 54, height: 48)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.055)))
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.14), lineWidth: 1))
     }
 
@@ -425,7 +425,7 @@ struct MyFoodView: View {
                     Text(title)
                         .font(.title3)
                         .fontWeight(.black)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
 
                     Text(subtitle)
                         .font(.subheadline)
@@ -438,7 +438,7 @@ struct MyFoodView: View {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 28)
-                    .fill(Color.white.opacity(0.045))
+                    .fill(Color.appSurface)
                     .overlay(RoundedRectangle(cornerRadius: 28).stroke(color.opacity(0.14), lineWidth: 1))
             )
             .padding(.horizontal, 18)
@@ -461,13 +461,13 @@ struct MyFoodView: View {
                     } else {
                         Image(systemName: systemName)
                             .font(.system(size: 13, weight: .black))
-                            .foregroundColor(.black)
+                            .foregroundColor(.appAccentText)
                     }
                 }
 
                 Text(title)
                     .font(.system(size: 11, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -477,7 +477,7 @@ struct MyFoodView: View {
             .frame(maxWidth: .infinity)
             .background(
                 Capsule()
-                    .fill(Color.black.opacity(0.34))
+                    .fill(Color.appElevated)
                     .overlay(Capsule().stroke(color.opacity(0.22), lineWidth: 1))
             )
         }
@@ -508,7 +508,7 @@ struct MyFoodView: View {
                 Text(recipe.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .minimumScaleFactor(0.85)
@@ -544,7 +544,7 @@ struct MyFoodView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white.opacity(0.055))
+                .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.orange.opacity(0.14), lineWidth: 1))
         )
     }
@@ -562,7 +562,7 @@ struct MyFoodView: View {
                     Text("\(shoppingItems.filter { !$0.isCompleted }.count) open items")
                         .font(.headline)
                         .fontWeight(.black)
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                 }
 
                 Spacer()
@@ -586,9 +586,9 @@ struct MyFoodView: View {
                 TextField("Add item...", text: $newShopItem)
                     .padding(.horizontal, 14)
                     .frame(height: 46)
-                    .background(Capsule().fill(Color.black.opacity(0.34)))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
-                    .foregroundColor(.white)
+                    .background(Capsule().fill(Color.appElevated))
+                    .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
+                    .foregroundColor(.appText)
 
                 Button(action: {
                     guard !newShopItem.isEmpty else { return }
@@ -597,7 +597,7 @@ struct MyFoodView: View {
                 }) {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(width: 46, height: 46)
                         .background(Circle().fill(Color.neonGreen))
                         .shadow(color: Color.neonGreen.opacity(0.35), radius: 10)
@@ -626,8 +626,8 @@ struct MyFoodView: View {
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 18)
-                                .fill(item.isCompleted ? Color.white.opacity(0.035) : Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.07), lineWidth: 1))
+                                .fill(item.isCompleted ? Color.appSurface.opacity(0.5) : Color.appSurface)
+                                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
                         )
                         .swipeToDelete { withAnimation { modelContext.delete(item) } }
                     }
@@ -641,7 +641,7 @@ struct MyFoodView: View {
     @ViewBuilder
     private var editOverlay: some View {
         if let fav = selectedFavoriteForEdit {
-            Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedFavoriteForEdit = nil } }
+            Color.appScrim.edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedFavoriteForEdit = nil } }
             FavoriteChatEditView(
                 favorite: fav,
                 onDelete: { deleteFavorite(fav); withAnimation { selectedFavoriteForEdit = nil } },
@@ -651,7 +651,7 @@ struct MyFoodView: View {
             .transition(.scale(scale: 0.9).combined(with: .opacity))
         }
         if let meal = selectedMealForEdit {
-            Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedMealForEdit = nil } }
+            Color.appScrim.edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedMealForEdit = nil } }
             MealChatEditView(
                 recipe: meal,
                 onDelete: { deleteMeal(meal); withAnimation { selectedMealForEdit = nil } },
@@ -680,7 +680,7 @@ struct MyFoodView: View {
                         Circle().fill(Color.orange).frame(width: 26, height: 26)
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.black)
+                            .foregroundColor(.appAccentText)
                     }
                 }
 
@@ -699,7 +699,7 @@ struct MyFoodView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(fav.name)
                         .font(.subheadline).fontWeight(.heavy)
-                        .foregroundColor(.white).lineLimit(1)
+                        .foregroundColor(.appText).lineLimit(1)
                     HStack(spacing: 8) {
                         Label("\(Int(fav.calories)) kcal", systemImage: "flame.fill")
                         Label("\(Int(fav.protein))g", systemImage: "drop.fill")
@@ -710,7 +710,7 @@ struct MyFoodView: View {
             .padding(11)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.white.opacity(0.055))
+                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.appSurface)
                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange.opacity(0.3) : Color.neonCyan.opacity(0.14), lineWidth: 1))
             )
         }
@@ -733,7 +733,7 @@ struct MyFoodView: View {
                         Circle().fill(Color.orange).frame(width: 26, height: 26)
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.black)
+                            .foregroundColor(.appAccentText)
                     }
                 }
 
@@ -752,7 +752,7 @@ struct MyFoodView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recipe.name)
                         .font(.subheadline).fontWeight(.heavy)
-                        .foregroundColor(.white).lineLimit(1)
+                        .foregroundColor(.appText).lineLimit(1)
                     HStack(spacing: 6) {
                         Label("\(Int(recipe.calories))", systemImage: "flame.fill")
                             .foregroundColor(.neonGreen)
@@ -771,7 +771,7 @@ struct MyFoodView: View {
             .padding(11)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.white.opacity(0.055))
+                    .fill(isSelected ? Color.orange.opacity(0.10) : Color.appSurface)
                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange.opacity(0.3) : Color.orange.opacity(0.14), lineWidth: 1))
             )
         }
@@ -844,7 +844,7 @@ struct MyFoodView: View {
                 } label: {
                     Text("Next")
                         .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 8)
                         .background(Capsule().fill(Color.orange))
@@ -930,7 +930,7 @@ struct MyFoodView: View {
                 Text(fav.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
 
@@ -970,7 +970,7 @@ struct MyFoodView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white.opacity(0.055))
+                .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
         )
         .contentShape(Rectangle())
@@ -989,7 +989,7 @@ struct MyFoodView: View {
                 .frame(width: 30, height: 30)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.appBorder)
                         .overlay(Circle().stroke(color.opacity(0.22), lineWidth: 1))
                 )
         }
@@ -1005,7 +1005,7 @@ struct MyFoodView: View {
                     .tint(color)
                 Text(active.first?.statusTitle ?? "Analyzing with AI...")
                     .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                 Spacer()
                 Text("\(active.count)")
                     .font(.system(size: 12, weight: .black))
@@ -1031,14 +1031,14 @@ struct MyFoodView: View {
                     .scaledToFill()
                     .frame(width: 54, height: 54)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(Color.black.opacity(0.18).clipShape(RoundedRectangle(cornerRadius: 16)))
+                    .overlay(Color.appElevated.clipShape(RoundedRectangle(cornerRadius: 16)))
             }
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "FitMaks AI analyzing food..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 

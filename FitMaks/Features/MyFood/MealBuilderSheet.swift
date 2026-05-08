@@ -112,11 +112,11 @@ struct MealBuilderSheet: View {
 
             TextField("e.g. Chicken Rice Bowl", text: $mealName)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Color.appSurface)
                         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.2), lineWidth: 1))
                 )
         }
@@ -161,7 +161,7 @@ struct MealBuilderSheet: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.name)
                         .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .lineLimit(1)
                     HStack(spacing: 6) {
                         Text("\(cal) kcal").foregroundColor(.neonGreen)
@@ -185,7 +185,7 @@ struct MealBuilderSheet: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.15), lineWidth: 1))
         )
     }
@@ -207,7 +207,7 @@ struct MealBuilderSheet: View {
 
             Text(item.useAll ? "\(Int(total))g" : "\(Int(item.customGrams))g")
                 .font(.system(size: 14, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
                 .frame(width: 56)
 
             stepperButton(systemName: "plus", dimmed: item.useAll) {
@@ -243,7 +243,7 @@ struct MealBuilderSheet: View {
 
             Text(item.useAll ? "1 pcs" : portionLabel(item.portionCount))
                 .font(.system(size: 14, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
                 .frame(width: 56)
 
             stepperButton(systemName: "plus", dimmed: false) {
@@ -332,7 +332,7 @@ struct MealBuilderSheet: View {
         } label: {
             Text("Save to Meals")
                 .font(.system(size: 15, weight: .black))
-                .foregroundColor(.black)
+                .foregroundColor(.appAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(Capsule().fill(Color.orange))

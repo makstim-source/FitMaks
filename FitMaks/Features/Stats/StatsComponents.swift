@@ -49,7 +49,7 @@ struct StatsChallengeCard: View {
                 Text(title)
                     .font(.headline)
                     .fontWeight(.heavy)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Text(text)
                     .font(.subheadline)
@@ -66,7 +66,7 @@ struct StatsChallengeCard: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(
                     LinearGradient(
-                        colors: [Color.neonCyan.opacity(0.13), Color.black.opacity(0.28)],
+                        colors: [Color.neonCyan.opacity(0.13), Color.appElevated],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -90,12 +90,12 @@ struct StatsScorePill: View {
                     .foregroundColor(.black.opacity(0.55))
                 Text(value)
                     .font(.system(size: 14, weight: .black))
-                    .foregroundColor(.black)
+                    .foregroundColor(.appAccentText)
             }
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 8)
-        .background(Capsule().fill(Color.black.opacity(0.12)))
+        .background(Capsule().fill(Color.appElevated))
     }
 }
 
@@ -121,7 +121,7 @@ struct StatsMetricCard: View {
 
                 Text(value)
                     .font(.system(size: 28, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
 
                 Text(subtitle)
                     .font(.caption2)
@@ -131,7 +131,7 @@ struct StatsMetricCard: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 24).fill(Color.black.opacity(0.28)))
+        .background(RoundedRectangle(cornerRadius: 24).fill(Color.appElevated))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(color.opacity(0.16), lineWidth: 1))
     }
 }
@@ -146,7 +146,7 @@ struct StatsBadgeChip: View {
             .font(.system(size: 11, weight: .black))
             .foregroundColor(isOn ? .black : .gray)
             .frame(width: 26, height: 22)
-            .background(Capsule().fill(isOn ? color : Color.white.opacity(0.07)))
+            .background(Capsule().fill(isOn ? color : Color.appBorder))
             .shadow(color: isOn ? color.opacity(0.45) : .clear, radius: 7)
     }
 }

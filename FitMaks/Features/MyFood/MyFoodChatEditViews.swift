@@ -24,7 +24,7 @@ struct FavoriteChatEditView: View {
             HStack {
                 Button(action: onDone) { Text("Done").fontWeight(.bold).foregroundColor(.neonCyan) }
                 Spacer()
-                Text("Edit Item").font(.headline).foregroundColor(.white)
+                Text("Edit Item").font(.headline).foregroundColor(.appText)
                 Spacer()
                 HStack(spacing: 15) {
                     Button(action: onMove) { Text("Move to Meals").font(.caption).bold().padding(.horizontal, 10).padding(.vertical, 6).background(Color.orange.opacity(0.2)).foregroundColor(.orange).cornerRadius(8) }
@@ -35,7 +35,7 @@ struct FavoriteChatEditView: View {
             .padding()
             .background(
                 LinearGradient(
-                    colors: [Color.neonCyan.opacity(0.11), Color.black.opacity(0.20)],
+                    colors: [Color.neonCyan.opacity(0.11), Color.appElevated],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -60,10 +60,10 @@ struct FavoriteChatEditView: View {
                 }.onTapGesture { isInputFocused = false }.onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
-                if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.white).background(Circle().fill(Color.black)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(Color.white.opacity(0.07))) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)).foregroundColor(.white); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.black).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(Color.black.opacity(0.24))
+                if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(Color.appBorder)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(Color.black.opacity(0.24))
             }
-        }.background(LinearGradient(colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.black.opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
+        }.background(LinearGradient(colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.appScrim], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
         .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
@@ -94,7 +94,7 @@ struct FavoriteChatEditView: View {
 
             Text(favorite.basisDisplayText)
                 .font(.system(size: 14, weight: .heavy))
-                .foregroundColor(.white)
+                .foregroundColor(.appText)
 
             if isEditingBasis {
                 VStack(spacing: 10) {
@@ -106,7 +106,7 @@ struct FavoriteChatEditView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(basis.title)
                                         .font(.system(size: 14, weight: .black))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.appText)
                                     Text(basisDescription(for: basis))
                                         .font(.system(size: 11, weight: .semibold))
                                         .foregroundColor(.appMuted)
@@ -120,8 +120,8 @@ struct FavoriteChatEditView: View {
                             .padding(12)
                             .background(
                                 RoundedRectangle(cornerRadius: 18)
-                                    .fill(Color.white.opacity(0.05))
-                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(selectedBasis == basis ? Color.neonGreen.opacity(0.22) : Color.white.opacity(0.08), lineWidth: 1))
+                                    .fill(Color.appSurface)
+                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(selectedBasis == basis ? Color.neonGreen.opacity(0.22) : Color.appBorder, lineWidth: 1))
                             )
                         }
                         .buttonStyle(.plain)
@@ -135,10 +135,10 @@ struct FavoriteChatEditView: View {
                             }
                         }
                         .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(.appText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                        .background(Capsule().fill(Color.appBorder))
 
                         Button("Apply") {
                             favorite.updatePortionBasis(selectedBasis)
@@ -152,7 +152,7 @@ struct FavoriteChatEditView: View {
                             }
                         }
                         .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.black)
+                        .foregroundColor(.appAccentText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Capsule().fill(Color.neonGreen))
@@ -166,7 +166,7 @@ struct FavoriteChatEditView: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(
                     LinearGradient(
-                        colors: [Color.neonCyan.opacity(0.10), Color.white.opacity(0.045), Color.black.opacity(0.22)],
+                        colors: [Color.neonCyan.opacity(0.10), Color.appSurface, Color.appElevated],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -206,7 +206,7 @@ struct MealChatEditView: View {
             HStack {
                 Button(action: onDone) { Text("Done").fontWeight(.bold).foregroundColor(.orange) }
                 Spacer()
-                Text("Edit Meal").font(.headline).foregroundColor(.white)
+                Text("Edit Meal").font(.headline).foregroundColor(.appText)
                 Spacer()
                 HStack(spacing: 15) {
                     Button(action: onMove) { Text("Move to Fridge").font(.caption).bold().padding(.horizontal, 10).padding(.vertical, 6).background(Color.neonCyan.opacity(0.2)).foregroundColor(.neonCyan).cornerRadius(8) }
@@ -217,7 +217,7 @@ struct MealChatEditView: View {
             .padding()
             .background(
                 LinearGradient(
-                    colors: [Color.orange.opacity(0.11), Color.black.opacity(0.20)],
+                    colors: [Color.orange.opacity(0.11), Color.appElevated],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -241,10 +241,10 @@ struct MealChatEditView: View {
                 }.onTapGesture { isInputFocused = false }.onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
-                if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.white).background(Circle().fill(Color.black)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(Color.white.opacity(0.07))) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)).foregroundColor(.white); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.black).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(Color.black.opacity(0.24))
+                if let img = attachedImage { HStack { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Spacer() }.padding(.horizontal).padding(.top, 10) }
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(Color.appBorder)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(Color.black.opacity(0.24))
             }
-        }.background(LinearGradient(colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.black.opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.orange.opacity(0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
+        }.background(LinearGradient(colors: [Color(red: 18/255, green: 21/255, blue: 28/255), Color.appScrim], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.orange.opacity(0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
         .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }

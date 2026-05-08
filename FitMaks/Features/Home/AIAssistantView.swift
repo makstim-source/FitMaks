@@ -348,8 +348,8 @@ struct AIAssistantView: View {
 
                         Button(action: { withAnimation { attachedImage = nil } }) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.white)
-                                .background(Circle().fill(Color.black))
+                                .foregroundColor(.appText)
+                                .background(Circle().fill(Color.appElevated))
                         }
                         .offset(x: 8, y: -8)
                     }

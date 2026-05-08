@@ -178,7 +178,7 @@ struct StatsView: View {
                         .foregroundColor(.fitOrange)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.black))
+                        .background(Capsule().fill(Color.appElevated))
                         .shadow(color: .fitOrange.opacity(0.35), radius: 8)
                     }
                     .buttonStyle(.plain)

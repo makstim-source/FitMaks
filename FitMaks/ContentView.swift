@@ -636,7 +636,7 @@ struct ContentView: View {
                         }
                         .foregroundColor(isSelected ? .appText : .appMuted)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, pastel ? 8 : 7)
+                        .padding(.vertical, pastel ? 6 : 5)
                         .background(
                             RoundedRectangle(cornerRadius: 13)
                                 .fill(

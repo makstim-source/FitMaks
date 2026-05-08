@@ -659,6 +659,7 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 6)
             .padding(pastel ? 4 : 0)
             .background(
                 Group {

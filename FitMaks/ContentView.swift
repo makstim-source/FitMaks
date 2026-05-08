@@ -634,49 +634,26 @@ struct ContentView: View {
                             Text(viewModel.modeLabel(mode))
                                 .font(.system(size: 10, weight: .heavy))
                         }
-                        .foregroundColor(isSelected ? (iphoneGlass ? .appText : .appAccentText) : .appMuted)
+                        .foregroundColor(isSelected ? .appText : .appMuted)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, pastel ? 8 : 7)
                         .background(
                             RoundedRectangle(cornerRadius: 13)
                                 .fill(
-                                    {
-                                        if iphoneGlass {
-                                            if isSelected {
-                                                return LinearGradient(
-                                                    colors: [
-                                                        accentColor.opacity(0.28),
-                                                        accentColor.opacity(0.14),
-                                                        Color.appSurface
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            } else {
-                                                return LinearGradient(
-                                                    colors: [Color.appSurface, Color.appElevated],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            }
-                                        } else {
-                                            return isSelected
-                                                ? themeAccentButtonGradient()
-                                                : (pastel
-                                                    ? LinearGradient(colors: [Color.appElevated, Color.appSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                                    : themeCardGradient())
-                                        }
-                                    }()
+                                    isSelected
+                                        ? LinearGradient(
+                                            colors: [accentColor.opacity(0.28), accentColor.opacity(0.12), Color.appSurface],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                        : (pastel
+                                            ? LinearGradient(colors: [Color.appElevated, Color.appSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            : LinearGradient(colors: [Color.appSurface, Color.appElevated], startPoint: .topLeading, endPoint: .bottomTrailing))
                                 )
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 13)
-                                .stroke(
-                                    iphoneGlass
-                                        ? (isSelected ? accentColor.opacity(0.38) : Color.appBorder)
-                                        : (isSelected ? (pastel ? Color.appBorder : Color.neonCyan.opacity(0.18)) : Color.appBorder),
-                                    lineWidth: 1
-                                )
+                                .stroke(isSelected ? accentColor.opacity(0.35) : Color.appBorder, lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -724,9 +701,9 @@ struct ContentView: View {
         case .chill:
             return .neonCyan
         case .cardio:
-            return iphoneGlass ? .fitPurple : .fitOrange
+            return .fitOrange
         case .gym, .cardioGym:
-            return iphoneGlass ? .neonGreen : .fitPurple
+            return .fitPurple
         }
     }
 

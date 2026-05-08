@@ -634,7 +634,7 @@ struct ContentView: View {
                             Text(viewModel.modeLabel(mode))
                                 .font(.system(size: 10, weight: .heavy))
                         }
-                        .foregroundColor(isSelected ? .appAccentText : .appMuted)
+                        .foregroundColor(isSelected ? (iphoneGlass ? .appText : .appAccentText) : .appMuted)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, pastel ? 8 : 7)
                         .background(
@@ -645,20 +645,16 @@ struct ContentView: View {
                                             if isSelected {
                                                 return LinearGradient(
                                                     colors: [
-                                                        Color.white.opacity(0.16),
-                                                        accentColor.opacity(0.55),
-                                                        accentColor.opacity(0.30)
+                                                        accentColor.opacity(0.28),
+                                                        accentColor.opacity(0.14),
+                                                        Color.appSurface
                                                     ],
                                                     startPoint: .topLeading,
                                                     endPoint: .bottomTrailing
                                                 )
                                             } else {
                                                 return LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.10),
-                                                        Color.appSurface,
-                                                        Color.appElevated
-                                                    ],
+                                                    colors: [Color.appSurface, Color.appElevated],
                                                     startPoint: .topLeading,
                                                     endPoint: .bottomTrailing
                                                 )
@@ -667,7 +663,7 @@ struct ContentView: View {
                                             return isSelected
                                                 ? themeAccentButtonGradient()
                                                 : (pastel
-                                                    ? LinearGradient(colors: [Color.white.opacity(0.96), Color.appSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                                    ? LinearGradient(colors: [Color.appElevated, Color.appSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
                                                     : themeCardGradient())
                                         }
                                     }()
@@ -677,8 +673,8 @@ struct ContentView: View {
                             RoundedRectangle(cornerRadius: 13)
                                 .stroke(
                                     iphoneGlass
-                                        ? (isSelected ? accentColor.opacity(0.42) : Color.white.opacity(0.10))
-                                        : (isSelected ? (pastel ? Color.fitPurple.opacity(0.28) : Color.neonCyan.opacity(0.18)) : Color.appBorder),
+                                        ? (isSelected ? accentColor.opacity(0.38) : Color.appBorder)
+                                        : (isSelected ? (pastel ? Color.appBorder : Color.neonCyan.opacity(0.18)) : Color.appBorder),
                                     lineWidth: 1
                                 )
                         )
@@ -694,9 +690,9 @@ struct ContentView: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.10),
                                         Color.appSurface,
-                                        Color.appElevated
+                                        Color.appElevated,
+                                        Color.appSurface
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -704,11 +700,11 @@ struct ContentView: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 17)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    .stroke(Color.appBorder, lineWidth: 1)
                             )
                     } else if pastel {
                         RoundedRectangle(cornerRadius: 17)
-                            .fill(Color.white.opacity(0.62))
+                            .fill(Color.appSurface.opacity(0.6))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 17)
                                     .stroke(Color.appBorder.opacity(0.8), lineWidth: 1)
@@ -802,17 +798,19 @@ struct ContentView: View {
 
     private var emptyDiaryCard: some View {
         let pastel = isPastelDayTheme()
+        let glass = isIPhoneGlassTheme()
+        let accent = glass ? Color.neonGreen : (pastel ? Color.neonCyan : Color.neonGreen)
 
         return Button(action: { viewModel.isShowingSourceDialog = true }) {
             VStack(spacing: 15) {
                 ZStack {
                     Circle()
-                        .fill((pastel ? Color.neonCyan : Color.neonGreen).opacity(0.12))
+                        .fill(accent.opacity(0.12))
                         .frame(width: 78, height: 78)
 
                     Image(systemName: "fork.knife.circle.fill")
                         .font(.system(size: 44))
-                        .foregroundColor((pastel ? Color.neonCyan : Color.neonGreen).opacity(0.85))
+                        .foregroundColor(accent.opacity(0.85))
                 }
 
                 VStack(spacing: 5) {
@@ -834,9 +832,11 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: pastel
-                                ? [Color.white.opacity(0.98), Color.appSurface, Color.appElevated]
-                                : [Color.neonGreen.opacity(0.10), Color.appSurface.opacity(0.84), Color.appElevated],
+                            colors: glass
+                                ? [Color.neonGreen.opacity(0.08), Color.appSurface, Color.appElevated]
+                                : (pastel
+                                    ? [Color.appElevated, Color.appSurface, Color.appElevated]
+                                    : [Color.neonGreen.opacity(0.10), Color.appSurface.opacity(0.84), Color.appElevated]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -844,7 +844,7 @@ struct ContentView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke((pastel ? Color.neonCyan : Color.neonGreen).opacity(pastel ? 0.22 : 0.18), lineWidth: 1)
+                    .stroke(accent.opacity(glass ? 0.18 : (pastel ? 0.16 : 0.18)), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

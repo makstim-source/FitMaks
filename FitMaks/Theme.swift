@@ -130,22 +130,22 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .earthFuel:
             return AppPalette(
                 name: "Pastel Day",
-                subtitle: "Glass daylight",
-                description: "Brighter, cleaner, more phone-like: white glass, electric periwinkle, mint, and coral with crisp contrast.",
-                primary: Color(red: 56/255, green: 178/255, blue: 158/255),
-                secondary: Color(red: 82/255, green: 116/255, blue: 240/255),
-                action: Color(red: 240/255, green: 108/255, blue: 78/255),
-                purple: Color(red: 148/255, green: 112/255, blue: 240/255),
-                backgroundStart: Color(red: 232/255, green: 228/255, blue: 238/255),
-                backgroundMid: Color(red: 226/255, green: 232/255, blue: 244/255),
-                backgroundEnd: Color(red: 228/255, green: 238/255, blue: 240/255),
-                surface: Color.white.opacity(0.92),
-                elevated: Color.white.opacity(0.96),
-                text: Color(red: 36/255, green: 32/255, blue: 58/255),
-                muted: Color(red: 94/255, green: 92/255, blue: 126/255),
-                border: Color(red: 140/255, green: 148/255, blue: 190/255).opacity(0.38),
+                subtitle: "Warm & quiet",
+                description: "Sage, dusty rose, and oatmeal. Calm enough for a yoga studio, readable enough for a gym.",
+                primary: Color(red: 126/255, green: 156/255, blue: 120/255),
+                secondary: Color(red: 132/255, green: 146/255, blue: 172/255),
+                action: Color(red: 192/255, green: 136/255, blue: 112/255),
+                purple: Color(red: 168/255, green: 132/255, blue: 152/255),
+                backgroundStart: Color(red: 240/255, green: 236/255, blue: 230/255),
+                backgroundMid: Color(red: 236/255, green: 233/255, blue: 226/255),
+                backgroundEnd: Color(red: 234/255, green: 230/255, blue: 224/255),
+                surface: Color(red: 252/255, green: 249/255, blue: 244/255).opacity(0.94),
+                elevated: Color(red: 254/255, green: 252/255, blue: 248/255).opacity(0.97),
+                text: Color(red: 52/255, green: 42/255, blue: 38/255),
+                muted: Color(red: 132/255, green: 118/255, blue: 110/255),
+                border: Color(red: 168/255, green: 152/255, blue: 138/255).opacity(0.30),
                 accentText: .white,
-                scrim: Color.black.opacity(0.32),
+                scrim: Color.black.opacity(0.30),
                 preferredScheme: .light
             )
         case .iphoneGlass:
@@ -304,7 +304,7 @@ func themePrimaryButtonGradient(_ theme: AppTheme = .current) -> LinearGradient 
     case .performanceDark:
         return LinearGradient(colors: [theme.palette.primary, theme.palette.action], startPoint: .topLeading, endPoint: .bottomTrailing)
     case .earthFuel:
-        return LinearGradient(colors: [theme.palette.secondary, theme.palette.purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+        return LinearGradient(colors: [theme.palette.primary, theme.palette.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
     case .iphoneGlass:
         return LinearGradient(colors: [theme.palette.secondary, theme.palette.primary], startPoint: .topLeading, endPoint: .bottomTrailing)
     }

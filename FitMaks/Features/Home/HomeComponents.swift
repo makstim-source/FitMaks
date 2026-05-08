@@ -71,6 +71,7 @@ struct HomeMetricTile: View {
         let combinedProgress = CGFloat(min(max(progress + bonusProgress, 0), 1))
         let highlightColor = bonusColor ?? color
         let pastel = isPastelDayTheme()
+        let glass = isIPhoneGlassTheme()
         let ringWidth: CGFloat = pastel ? 5.5 : 7
         let tileCorner: CGFloat = pastel ? 22 : 18
 
@@ -83,7 +84,7 @@ struct HomeMetricTile: View {
 
             ZStack {
                 Circle()
-                    .stroke(pastel ? Color.white.opacity(0.88) : Color.appElevated, lineWidth: ringWidth)
+                    .stroke(glass ? Color.appBorder : (pastel ? Color.appBorder.opacity(0.5) : Color.appElevated), lineWidth: ringWidth)
 
                 Circle()
                     .trim(from: 0, to: baseProgress)
@@ -92,7 +93,7 @@ struct HomeMetricTile: View {
                         style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(pastel ? 0.25 : 0.55), radius: combinedProgress >= 1 ? (pastel ? 7 : 13) : (pastel ? 2 : 6))
+                    .shadow(color: color.opacity(glass ? 0.55 : (pastel ? 0.25 : 0.55)), radius: combinedProgress >= 1 ? (glass ? 13 : (pastel ? 7 : 13)) : (glass ? 6 : (pastel ? 2 : 6)))
 
                 if combinedProgress > baseProgress {
                     Circle()
@@ -102,7 +103,7 @@ struct HomeMetricTile: View {
                             style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: highlightColor.opacity(pastel ? 0.28 : 0.58), radius: combinedProgress >= 1 ? (pastel ? 8 : 13) : (pastel ? 3 : 7))
+                        .shadow(color: highlightColor.opacity(glass ? 0.58 : (pastel ? 0.28 : 0.58)), radius: combinedProgress >= 1 ? (glass ? 13 : (pastel ? 8 : 13)) : (glass ? 7 : (pastel ? 3 : 7)))
                 }
 
                 VStack(spacing: 0) {

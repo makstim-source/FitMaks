@@ -132,7 +132,15 @@ struct HomeMetricTile: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: tileCorner)
-                .fill(themeCardGradient())
+                .fill(
+                    pastel
+                        ? themeCardGradient()
+                        : LinearGradient(
+                            colors: [Color.appSurface, Color.white.opacity(0.06), Color.appSurface],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: tileCorner)
                         .stroke(pastel ? Color.appBorder.opacity(0.95) : color.opacity(0.09), lineWidth: 1)
@@ -563,10 +571,18 @@ struct HomeStatsPanelBackground: View {
                 }
         } else {
             RoundedRectangle(cornerRadius: 20)
-                .fill(themeCardGradient())
+                .fill(
+                    pastel
+                        ? themeCardGradient()
+                        : LinearGradient(
+                            colors: [Color.appElevated, Color.appSurface.opacity(0.5), Color.appElevated],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(pastel ? Color.appBorder.opacity(0.9) : Color.clear, lineWidth: pastel ? 1 : 0)
+                        .stroke(pastel ? Color.appBorder.opacity(0.9) : Color.white.opacity(0.04), lineWidth: 1)
                 )
         }
     }

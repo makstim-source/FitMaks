@@ -772,26 +772,38 @@ func themeBackground(_ theme: AppTheme = .current) -> some View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [theme.palette.secondary.opacity(0.20), .clear],
+                        colors: [theme.palette.secondary.opacity(0.28), theme.palette.secondary.opacity(0.08), .clear],
                         center: .center,
-                        startRadius: 6,
-                        endRadius: 130
+                        startRadius: 8,
+                        endRadius: 160
                     )
                 )
-                .frame(width: 260, height: 260)
+                .frame(width: 320, height: 320)
                 .offset(x: 148, y: -148)
 
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [theme.palette.primary.opacity(0.18), .clear],
+                        colors: [theme.palette.primary.opacity(0.24), theme.palette.primary.opacity(0.06), .clear],
                         center: .center,
-                        startRadius: 6,
-                        endRadius: 150
+                        startRadius: 8,
+                        endRadius: 180
                     )
                 )
-                .frame(width: 300, height: 300)
+                .frame(width: 360, height: 360)
                 .offset(x: -148, y: 310)
+
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [theme.palette.secondary.opacity(0.12), theme.palette.primary.opacity(0.06), .clear],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 120
+                    )
+                )
+                .frame(width: 240, height: 160)
+                .offset(x: -60, y: 80)
         case .originalV2:
             Rectangle()
                 .fill(

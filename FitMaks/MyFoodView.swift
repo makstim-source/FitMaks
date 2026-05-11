@@ -818,19 +818,11 @@ struct MyFoodView: View {
                 Spacer()
 
                 if !items.isEmpty {
-                    HStack(spacing: 6) {
-                        Text("\(items.count) item\(items.count == 1 ? "" : "s")")
-                        Text("·").foregroundColor(.appMuted)
-                        Text("\(Int(totalCal)) cal")
-                        Text("·").foregroundColor(.appMuted)
-                        Text("\(Int(totalProt))g")
-                        Text("·").foregroundColor(.appMuted)
-                        Text("C \(Int(totalCarbs))")
-                        Text("·").foregroundColor(.appMuted)
-                        Text("F \(Int(totalFat))")
-                    }
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.orange)
+                    Text("\(items.count) · \(Int(totalCal))cal · \(Int(totalProt))p · \(Int(totalCarbs))c · \(Int(totalFat))f")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.orange)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 } else {
                     Text("Select items")
                         .font(.system(size: 12, weight: .bold))

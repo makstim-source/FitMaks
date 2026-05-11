@@ -156,8 +156,13 @@ struct IngredientBreakdownCard: View {
                 let parsedItems = fillMissingMacros(parseIngredientBreakdown(ingredients), totalCarbs: carbs, totalFat: fat)
                 let showCF = parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
 
+                let showWeight = parsedItems.contains { !$0.weight.isEmpty && $0.weight != "0" && $0.weight != "0g" }
+
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)
+                    if showWeight {
+                        Text("Wt").frame(width: 42, alignment: .trailing)
+                    }
                     Text("Kcal").frame(width: 42, alignment: .trailing)
                     Text("P").frame(width: 30, alignment: .trailing)
                     if showCF {
@@ -172,6 +177,10 @@ struct IngredientBreakdownCard: View {
                     HStack {
                         Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(2)
+                        if showWeight {
+                            Text(item.weight).frame(width: 42, alignment: .trailing)
+                                .foregroundColor(.appMuted)
+                        }
                         Text(item.kcal).frame(width: 42, alignment: .trailing)
                             .foregroundColor(.neonGreen)
                         Text(item.prot).frame(width: 30, alignment: .trailing)

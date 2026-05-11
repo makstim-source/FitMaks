@@ -190,18 +190,29 @@ struct MealBuilderSheet: View {
         )
     }
 
+    private func smartStep(for grams: Double) -> Double {
+        switch grams {
+        case ..<30: return 5
+        case ..<100: return 10
+        case ..<300: return 25
+        default: return 50
+        }
+    }
+
     private func gramControls(comp: Binding<MealBuilderComponent>) -> some View {
         let item = comp.wrappedValue
         let total = item.totalWeightGrams ?? 0
-        let step: Double = total <= 150 ? 25 : 50
+        let currentGrams = item.useAll ? total : item.customGrams
+        let step = smartStep(for: currentGrams)
 
         return HStack(spacing: 6) {
             stepperButton(systemName: "minus", dimmed: item.useAll) {
+                let s = smartStep(for: comp.wrappedValue.useAll ? (comp.wrappedValue.totalWeightGrams ?? 0) : comp.wrappedValue.customGrams)
                 if comp.wrappedValue.useAll {
                     comp.wrappedValue.useAll = false
-                    comp.wrappedValue.customGrams = max(step, total - step)
+                    comp.wrappedValue.customGrams = max(s, total - s)
                 } else {
-                    comp.wrappedValue.customGrams = max(step, comp.wrappedValue.customGrams - step)
+                    comp.wrappedValue.customGrams = max(s, comp.wrappedValue.customGrams - s)
                 }
             }
 
@@ -211,11 +222,12 @@ struct MealBuilderSheet: View {
                 .frame(width: 56)
 
             stepperButton(systemName: "plus", dimmed: item.useAll) {
+                let s = smartStep(for: comp.wrappedValue.useAll ? (comp.wrappedValue.totalWeightGrams ?? 0) : comp.wrappedValue.customGrams)
                 if comp.wrappedValue.useAll {
                     comp.wrappedValue.useAll = false
-                    comp.wrappedValue.customGrams = total + step
+                    comp.wrappedValue.customGrams = total + s
                 } else {
-                    let next = comp.wrappedValue.customGrams + step
+                    let next = comp.wrappedValue.customGrams + s
                     if next >= total && next <= total + 1 {
                         comp.wrappedValue.useAll = true
                     } else {

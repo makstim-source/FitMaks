@@ -210,9 +210,12 @@ private struct OnboardingView: View {
         ActivityOption(key: "Active", title: "Athlete mode", subtitle: "5+ hard days")
     ]
 
-    private var pageCount: Int { introPages.count + 2 }
+    @State private var disclaimerAccepted = false
+
+    private var pageCount: Int { introPages.count + 3 }
     private var bodySetupPageIndex: Int { introPages.count }
     private var goalSetupPageIndex: Int { introPages.count + 1 }
+    private var disclaimerPageIndex: Int { introPages.count + 2 }
     private var currentColor: Color {
         if page < introPages.count {
             return introPages[page].color
@@ -278,6 +281,8 @@ private struct OnboardingView: View {
                     }
 
                     Button(action: primaryAction) {
+                        let disabled = page == disclaimerPageIndex && !disclaimerAccepted
+
                         HStack {
                             Text(page == pageCount - 1 ? "Start tracking" : "Next")
                                 .font(.system(size: 17, weight: .black))
@@ -290,8 +295,8 @@ private struct OnboardingView: View {
                         .frame(height: 52)
                         .background(
                             Capsule()
-                                .fill(currentColor)
-                                .shadow(color: currentColor.opacity(0.45), radius: 18, x: 0, y: 8)
+                                .fill(currentColor.opacity(disabled ? 0.35 : 1))
+                                .shadow(color: currentColor.opacity(disabled ? 0 : 0.45), radius: 18, x: 0, y: 8)
                         )
                     }
                     .buttonStyle(.plain)
@@ -337,8 +342,10 @@ private struct OnboardingView: View {
             onboardingPage(introPages[index])
         } else if index == bodySetupPageIndex {
             bodySetupPage
-        } else {
+        } else if index == goalSetupPageIndex {
             goalSetupPage
+        } else {
+            disclaimerPage
         }
     }
 
@@ -405,6 +412,7 @@ private struct OnboardingView: View {
 
     private func primaryAction() {
         if page == pageCount - 1 {
+            guard disclaimerAccepted else { return }
             useCustomGoals = false
             onComplete()
         } else {
@@ -486,6 +494,96 @@ private struct OnboardingView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
+        }
+    }
+
+    private var disclaimerPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                setupHeader(
+                    eyebrow: "IMPORTANT",
+                    title: "Before you start.",
+                    subtitle: "Please read and accept the following.",
+                    systemName: "heart.text.clipboard",
+                    color: .fitOrange
+                )
+
+                VStack(alignment: .leading, spacing: 14) {
+                    disclaimerItem(
+                        icon: "stethoscope",
+                        title: "Not medical advice",
+                        text: "FitMaks provides AI-powered nutritional estimates for informational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment."
+                    )
+
+                    disclaimerItem(
+                        icon: "brain.head.profile",
+                        title: "AI estimates may be inaccurate",
+                        text: "Calorie and macro calculations are approximate. Always verify important nutritional data with product labels or a registered dietitian."
+                    )
+
+                    disclaimerItem(
+                        icon: "person.badge.shield.checkmark",
+                        title: "Consult a professional",
+                        text: "Before starting any diet or fitness program, consult your doctor or qualified healthcare provider, especially if you have medical conditions."
+                    )
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 22)
+                        .fill(Color.appSurface)
+                        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+                )
+
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        disclaimerAccepted.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: disclaimerAccepted ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(disclaimerAccepted ? .neonGreen : .appMuted)
+
+                        Text("I understand and accept")
+                            .font(.system(size: 15, weight: .heavy))
+                            .foregroundColor(.appText)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(disclaimerAccepted ? Color.neonGreen.opacity(0.10) : Color.appElevated)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(disclaimerAccepted ? Color.neonGreen.opacity(0.35) : Color.appBorder, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private func disclaimerItem(icon: String, title: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.fitOrange)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(.appText)
+
+                Text(text)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.appMuted)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

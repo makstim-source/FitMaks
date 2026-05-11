@@ -51,10 +51,10 @@ struct ProfileView: View {
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting, little walking"),
-        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching, daily walks"),
-        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking, errands, light tasks"),
-        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse, farm")
+        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting"),
+        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching, walks"),
+        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking + errands"),
+        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse")
     ]
 
     private var bmr: Double {
@@ -613,6 +613,7 @@ struct ProfileView: View {
     }
 
     private var weightTrackerCard: some View {
+        let light = isLightAppTheme()
         let chartMetrics = selectedChartBodyMetrics
 
         return VStack(alignment: .leading, spacing: 16) {
@@ -620,7 +621,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Label("BODY TRACKER", systemImage: "chart.xyaxis.line")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(light ? .appAccentText.opacity(0.78) : .neonGreen)
                         .tracking(0.8)
 
                     Text(latestBodyMetric.map { "\(String(format: "%.1f", $0.weightKg)) kg" } ?? "Log your weight")
@@ -706,7 +707,7 @@ struct ProfileView: View {
             if isAnalyzingBodyScan || isImportingHealthMetrics {
                 HStack(spacing: 10) {
                     ProgressView()
-                        .tint(.neonGreen)
+                        .tint(light ? selectedBodyChartMetric.color : .neonGreen)
 
                     Text(isImportingHealthMetrics ? "Importing Apple Health history..." : "Reading scale data...")
                         .font(.caption)
@@ -723,9 +724,9 @@ struct ProfileView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 28)
-                .stroke(Color.neonGreen.opacity(0.18), lineWidth: 1)
+                .stroke(light ? Color.appBorder.opacity(0.75) : Color.neonGreen.opacity(0.18), lineWidth: 1)
         )
-        .shadow(color: Color.neonGreen.opacity(0.10), radius: 22, x: 0, y: 10)
+        .shadow(color: light ? Color.black.opacity(0.04) : Color.neonGreen.opacity(0.10), radius: 22, x: 0, y: 10)
     }
 
     private var emptyWeightState: some View {

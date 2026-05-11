@@ -99,6 +99,21 @@ struct FitMaksShareFoodSnapshot: Identifiable {
     let image: UIImage?
 }
 
+struct FitMaksShareWeeklySnapshot: Identifiable {
+    let id = UUID()
+    let dateRange: String
+    let score: Int
+    let scoreLabel: String
+    let perfectDays: Int
+    let avgCalories: String
+    let avgProtein: String
+    let avgCarbs: String
+    let avgFat: String
+    let totalSteps: String
+    let dayResults: [(emoji: String, isPerfect: Bool)]
+    let scoreColor: Color
+}
+
 struct FitMaksShareWorkoutSnapshot: Identifiable {
     let id = UUID()
     let name: String
@@ -126,6 +141,7 @@ enum FitMaksSharePayload: Identifiable {
     case weight(FitMaksShareWeightSnapshot)
     case food(FitMaksShareFoodSnapshot)
     case workout(FitMaksShareWorkoutSnapshot)
+    case weeklyReport(FitMaksShareWeeklySnapshot)
 
     var id: UUID {
         switch self {
@@ -136,6 +152,7 @@ enum FitMaksSharePayload: Identifiable {
         case .weight(let snapshot): return snapshot.id
         case .food(let snapshot): return snapshot.id
         case .workout(let snapshot): return snapshot.id
+        case .weeklyReport(let snapshot): return snapshot.id
         }
     }
 
@@ -155,6 +172,8 @@ enum FitMaksSharePayload: Identifiable {
             return "Food Highlight"
         case .workout:
             return "Workout Highlight"
+        case .weeklyReport:
+            return "Weekly Report"
         }
     }
 
@@ -174,6 +193,8 @@ enum FitMaksSharePayload: Identifiable {
             return .neonGreen
         case .workout:
             return .neonCyan
+        case .weeklyReport(let snapshot):
+            return snapshot.scoreColor
         }
     }
 
@@ -193,6 +214,8 @@ enum FitMaksSharePayload: Identifiable {
             return "food"
         case .workout:
             return "workout"
+        case .weeklyReport:
+            return "weeklyReport"
         }
     }
 
@@ -212,6 +235,8 @@ enum FitMaksSharePayload: Identifiable {
             return "Food"
         case .workout:
             return "Workout"
+        case .weeklyReport:
+            return "Weekly"
         }
     }
 }
@@ -260,6 +285,8 @@ struct FitMaksLiveView: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         NavigationView {
             ZStack {
                 LinearGradient(
@@ -335,17 +362,17 @@ struct FitMaksLiveView: View {
 
                                         Text("Add photo")
                                             .font(.system(size: 18, weight: .black))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(light ? .appAccentText : .white)
 
                                         Text("Pick a background and make it story-ready.")
                                             .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(.white.opacity(0.74))
+                                            .foregroundColor(light ? .appMuted : .white.opacity(0.74))
                                     }
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 22)
                                     .background(
                                         RoundedRectangle(cornerRadius: 26)
-                                            .fill(Color.black.opacity(0.34))
+                                            .fill(light ? Color.appElevated.opacity(0.96) : Color.black.opacity(0.34))
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 26)
                                                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
@@ -410,7 +437,7 @@ struct FitMaksLiveView: View {
                     }
                     .aspectRatio(9.0 / 16.0, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 30))
-                    .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 30).stroke(light ? Color.appBorder.opacity(0.72) : Color.white.opacity(0.08), lineWidth: 1))
                     .shadow(color: payload.accentColor.opacity(0.22), radius: 26, x: 0, y: 14)
                     .padding(.horizontal, 16)
 
@@ -739,7 +766,7 @@ struct FitMaksLiveView: View {
         switch payload {
         case .today, .weight, .achievement, .food, .workout:
             return 0.26
-        case .streak:
+        case .streak, .weeklyReport:
             return 0.24
         case .streakBoard:
             return 0.38
@@ -830,6 +857,8 @@ private struct FitMaksLiveCanvas: View {
     var backgroundScale: CGFloat = 1
     var contentOffsetY: CGFloat = 0
     var body: some View {
+        let light = isLightAppTheme()
+
         ZStack {
             backgroundLayer
 
@@ -843,11 +872,13 @@ private struct FitMaksLiveCanvas: View {
             .offset(y: contentOffsetY)
         }
         .clipped()
-        .background(Color.black)
+        .background(light ? Color.appBackgroundStart : Color.black)
     }
 
     @ViewBuilder
     private var backgroundLayer: some View {
+        let light = isLightAppTheme()
+
         if let backgroundImage {
             Image(uiImage: backgroundImage)
                 .resizable()
@@ -859,9 +890,9 @@ private struct FitMaksLiveCanvas: View {
                 .overlay(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(0.06),
-                            Color.black.opacity(0.14),
-                            Color.black.opacity(0.34)
+                            light ? Color.white.opacity(0.04) : Color.black.opacity(0.06),
+                            light ? Color.appBackgroundStart.opacity(0.10) : Color.black.opacity(0.14),
+                            light ? Color.appBackgroundMid.opacity(0.24) : Color.black.opacity(0.34)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -886,7 +917,7 @@ private struct FitMaksLiveCanvas: View {
                     .offset(x: 260, y: -280)
 
                 Circle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(light ? Color.appSurface.opacity(0.7) : Color.white.opacity(0.08))
                     .frame(width: 420, height: 420)
                     .blur(radius: 36)
                     .offset(x: -240, y: 340)
@@ -896,6 +927,8 @@ private struct FitMaksLiveCanvas: View {
 
     @ViewBuilder
     private var payloadCard: some View {
+        let light = isLightAppTheme()
+
         Group {
             switch payload {
             case .today(let snapshot):
@@ -912,15 +945,17 @@ private struct FitMaksLiveCanvas: View {
                 FitMaksLiveFoodCard(snapshot: snapshot)
             case .workout(let snapshot):
                 FitMaksLiveWorkoutCard(snapshot: snapshot)
+            case .weeklyReport(let snapshot):
+                FitMaksLiveWeeklyCard(snapshot: snapshot)
             }
         }
         .overlay(alignment: .bottomTrailing) {
             Text("FitMaks App")
                 .font(.system(size: 14, weight: .black))
-                .foregroundColor(.white.opacity(0.42))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.42))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color.black.opacity(0.18)))
+                .background(Capsule().fill(light ? Color.appSurface.opacity(0.92) : Color.black.opacity(0.18)))
                 .padding(16)
         }
     }
@@ -930,6 +965,8 @@ private struct FitMaksLiveExportCard: View {
     let payload: FitMaksSharePayload
 
     var body: some View {
+        let light = isLightAppTheme()
+
         Group {
             switch payload {
             case .today(let snapshot):
@@ -946,15 +983,17 @@ private struct FitMaksLiveExportCard: View {
                 FitMaksLiveFoodCard(snapshot: snapshot)
             case .workout(let snapshot):
                 FitMaksLiveWorkoutCard(snapshot: snapshot)
+            case .weeklyReport(let snapshot):
+                FitMaksLiveWeeklyCard(snapshot: snapshot)
             }
         }
         .overlay(alignment: .bottomTrailing) {
             Text("FitMaks App")
                 .font(.system(size: 14, weight: .black))
-                .foregroundColor(.white.opacity(0.42))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.42))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color.black.opacity(0.18)))
+                .background(Capsule().fill(light ? Color.appSurface.opacity(0.92) : Color.black.opacity(0.18)))
                 .padding(16)
         }
         .padding(24)
@@ -966,6 +1005,8 @@ private struct FitMaksLiveTodayCard: View {
     let snapshot: FitMaksShareTodaySnapshot
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 26) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -979,7 +1020,7 @@ private struct FitMaksLiveTodayCard: View {
 
                     Text(snapshot.headline)
                         .font(.system(size: 68, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
                         .lineLimit(2)
                 }
 
@@ -987,17 +1028,17 @@ private struct FitMaksLiveTodayCard: View {
 
                 VStack(spacing: 12) {
                     Circle()
-                        .fill(Color.white.opacity(0.06))
+                        .fill(light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.06))
                         .frame(width: 88, height: 88)
                         .overlay(
                             Image(systemName: snapshot.modeSymbolName)
                                 .font(.system(size: 36, weight: .black))
-                                .foregroundColor(.white)
+                                .foregroundColor(light ? .appAccentText : .white)
                         )
 
                     Text(snapshot.modeLabel)
                         .font(.system(size: 22, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.82))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.82))
                         .multilineTextAlignment(.center)
                 }
                 .frame(width: 128)
@@ -1009,7 +1050,7 @@ private struct FitMaksLiveTodayCard: View {
                     VStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .stroke(Color.white.opacity(0.10), lineWidth: 10)
+                                .stroke(light ? Color.appBorder.opacity(0.75) : Color.white.opacity(0.10), lineWidth: 10)
                                 .frame(width: 168, height: 168)
 
                             Circle()
@@ -1030,14 +1071,14 @@ private struct FitMaksLiveTodayCard: View {
                                 Text(metric.value)
                                     .font(.system(size: 44, weight: .black))
                                     .monospacedDigit()
-                                    .foregroundColor(.white)
+                                    .foregroundColor(light ? .appAccentText : .white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                                     .frame(height: 48)
 
                                 Text(metric.subtitle.isEmpty ? " " : metric.subtitle)
                                     .font(.system(size: 24, weight: .heavy))
-                                    .foregroundColor(.white.opacity(metric.subtitle.isEmpty ? 0 : 0.68))
+                                    .foregroundColor(light ? .appMuted.opacity(metric.subtitle.isEmpty ? 0 : 1) : .white.opacity(metric.subtitle.isEmpty ? 0 : 0.68))
                                     .multilineTextAlignment(.center)
                                     .frame(height: 22)
                             }
@@ -1082,6 +1123,8 @@ private struct FitMaksLiveStreakCard: View {
     let snapshot: FitMaksShareStreakSnapshot
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 26) {
             Text("STREAK MODE")
                 .font(.system(size: 22, weight: .heavy))
@@ -1092,12 +1135,12 @@ private struct FitMaksLiveStreakCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Protect the streak.")
                         .font(.system(size: 72, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
                         .lineLimit(2)
 
                     Text("Current flame \(snapshot.current)/\(snapshot.target).")
                         .font(.system(size: 28, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.74))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.74))
                 }
 
                 Spacer()
@@ -1105,18 +1148,18 @@ private struct FitMaksLiveStreakCard: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(snapshot.current)")
                         .font(.system(size: 120, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
 
                     Text("days")
                         .font(.system(size: 28, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.72))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.72))
                 }
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.14))
+                        .fill(light ? Color.appSurface.opacity(0.95) : Color.white.opacity(0.14))
 
                     Capsule()
                         .fill(
@@ -1146,6 +1189,8 @@ private struct FitMaksLiveAchievementCard: View {
     private var isInProgress: Bool { snapshot.hasStarted && !snapshot.isUnlocked }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -1162,7 +1207,7 @@ private struct FitMaksLiveAchievementCard: View {
 
                     Text(snapshot.title)
                         .font(.system(size: 62, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
                         .lineLimit(3)
                 }
 
@@ -1185,7 +1230,7 @@ private struct FitMaksLiveAchievementCard: View {
                         .frame(width: 146, height: 146)
 
                     Circle()
-                        .fill(Color.white.opacity(0.09))
+                        .fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.09))
                         .frame(width: 118, height: 118)
 
                     Circle()
@@ -1202,7 +1247,7 @@ private struct FitMaksLiveAchievementCard: View {
             HStack(alignment: .center, spacing: 10) {
                 Text(snapshot.subtitle)
                     .font(.system(size: 30, weight: .heavy))
-                    .foregroundColor(.white.opacity(0.76))
+                    .foregroundColor(light ? .appMuted : .white.opacity(0.76))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
 
@@ -1211,7 +1256,7 @@ private struct FitMaksLiveAchievementCard: View {
                 if isInProgress {
                     Text(snapshot.progressText)
                         .font(.system(size: 24, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(snapshot.color.opacity(0.22)))
@@ -1222,7 +1267,7 @@ private struct FitMaksLiveAchievementCard: View {
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.white.opacity(0.12))
+                            .fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.12))
                         Capsule()
                             .fill(
                                 LinearGradient(
@@ -1240,14 +1285,14 @@ private struct FitMaksLiveAchievementCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Goal: \(snapshot.detail)")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.70))
+                    .foregroundColor(light ? .appMuted : .white.opacity(0.70))
                     .lineSpacing(4)
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(light ? Color.appSurface.opacity(0.88) : Color.white.opacity(0.05))
                     .overlay(
                         RoundedRectangle(cornerRadius: 24)
                             .stroke(snapshot.color.opacity(0.16), lineWidth: 1)
@@ -1263,19 +1308,28 @@ private struct FitMaksLiveStreakBoardCard: View {
     let snapshot: FitMaksShareStreakBoardSnapshot
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 16) {
             livePosterTag("Streak mode", color: .fitOrange)
 
             Text("7-Day Streak Board")
                 .font(.system(size: 42, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(light ? .appAccentText : .white)
 
             Text("Deficit, protein, and steps across your latest seven days.")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.white.opacity(0.62))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.62))
 
             VStack(spacing: 12) {
                 ForEach(snapshot.rows) { row in
+                    let rowBackground = row.isPerfect
+                        ? (light ? Color.neonGreen.opacity(0.09) : Color.neonGreen.opacity(0.14))
+                        : (light ? Color.appSurface.opacity(0.88) : Color.white.opacity(0.05))
+                    let rowStroke = row.isPerfect
+                        ? (light ? Color.yellow.opacity(0.22) : Color.yellow.opacity(0.34))
+                        : (light ? Color.appBorder.opacity(0.7) : Color.white.opacity(0.08))
+
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 10) {
                             VStack(spacing: 2) {
@@ -1285,14 +1339,14 @@ private struct FitMaksLiveStreakBoardCard: View {
 
                                 Text(row.dayNumber)
                                     .font(.system(size: 24, weight: .black))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(light ? .appAccentText : .white)
                             }
                             .frame(width: 48)
 
                             Text(row.modeEmoji)
                                 .font(.title3)
                                 .frame(width: 34, height: 34)
-                                .background(Circle().fill(Color.white.opacity(0.05)))
+                                .background(Circle().fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.05)))
 
                             HStack(spacing: 6) {
                                 liveBoardChip("C", isOn: row.calorieWin, color: .neonGreen)
@@ -1320,11 +1374,11 @@ private struct FitMaksLiveStreakBoardCard: View {
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(row.isPerfect ? Color.neonGreen.opacity(0.14) : Color.white.opacity(0.05))
+                            .fill(rowBackground)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(row.isPerfect ? Color.yellow.opacity(0.34) : Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(rowStroke, lineWidth: 1)
                     )
                 }
             }
@@ -1339,6 +1393,8 @@ private struct FitMaksLiveWeightCard: View {
     let snapshot: FitMaksShareWeightSnapshot
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 24) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -1349,11 +1405,11 @@ private struct FitMaksLiveWeightCard: View {
 
                     Text(snapshot.title)
                         .font(.system(size: 64, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(light ? .appAccentText : .white)
 
                     Text(snapshot.subtitle)
                         .font(.system(size: 28, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.74))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.74))
                 }
 
                 Spacer()
@@ -1372,7 +1428,7 @@ private struct FitMaksLiveWeightCard: View {
                         ForEach(snapshot.xAxisLabels, id: \.self) { label in
                             Text(label)
                                 .font(.system(size: 18, weight: .heavy))
-                                .foregroundColor(.white.opacity(0.54))
+                                .foregroundColor(light ? .appMuted : .white.opacity(0.54))
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -1383,7 +1439,7 @@ private struct FitMaksLiveWeightCard: View {
 
             HStack(spacing: 14) {
                 liveStatPill(title: "From", value: snapshot.leadingValue, accent: snapshot.accentColor)
-                liveStatPill(title: "To", value: snapshot.trailingValue, accent: .white)
+                liveStatPill(title: "To", value: snapshot.trailingValue, accent: light ? .appAccentText : .white)
             }
         }
         .padding(34)
@@ -1405,12 +1461,14 @@ private struct FitMaksLiveFoodCard: View {
     let snapshot: FitMaksShareFoodSnapshot
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 22) {
             shareImageHeader(image: snapshot.image, fallbackColor: .neonGreen, systemName: "fork.knife")
 
             Text(snapshot.name)
                 .font(.system(size: 58, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(light ? .appAccentText : .white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.78)
 
@@ -1432,6 +1490,8 @@ private struct FitMaksLiveWorkoutCard: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 14) {
                 livePosterTag(isStrengthCard ? "Strength" : "Cardio", color: snapshot.accentColor)
@@ -1450,13 +1510,13 @@ private struct FitMaksLiveWorkoutCard: View {
 
             Text(snapshot.name)
                 .font(.system(size: 62, weight: .black))
-                .foregroundColor(.white)
+                .foregroundColor(light ? .appAccentText : .white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
 
             Text(shortenedWorkoutSubtitle)
                 .font(.system(size: 30, weight: .heavy))
-                .foregroundColor(.white.opacity(0.72))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.72))
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
 
@@ -1525,6 +1585,8 @@ private struct FitMaksLiveSparkline: View {
     var valueFormatter: ((Double) -> String)? = nil
 
     var body: some View {
+        let light = isLightAppTheme()
+
         GeometryReader { proxy in
             let normalized = normalizedPoints(in: proxy.size)
             let minValue = points.min() ?? 0
@@ -1532,7 +1594,7 @@ private struct FitMaksLiveSparkline: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(light ? Color.appSurface.opacity(0.88) : Color.white.opacity(0.04))
 
                 if let valueFormatter, points.count >= 2 {
                     sparklineScale(maxValue: maxValue, minValue: minValue, formatter: valueFormatter)
@@ -1547,7 +1609,7 @@ private struct FitMaksLiveSparkline: View {
                 }
                 .stroke(
                     LinearGradient(
-                        colors: [accentColor, .white.opacity(0.9)],
+                        colors: [accentColor, light ? accentColor.opacity(0.55) : .white.opacity(0.9)],
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
@@ -1556,7 +1618,7 @@ private struct FitMaksLiveSparkline: View {
 
                 ForEach(Array(normalized.enumerated()), id: \.offset) { index, point in
                     Circle()
-                        .fill(index == normalized.count - 1 ? accentColor : Color.white.opacity(0.75))
+                        .fill(index == normalized.count - 1 ? accentColor : (light ? Color.appMuted.opacity(0.5) : Color.white.opacity(0.75)))
                         .frame(width: index == normalized.count - 1 ? 24 : 14, height: index == normalized.count - 1 ? 24 : 14)
                         .position(point)
                 }
@@ -1565,6 +1627,7 @@ private struct FitMaksLiveSparkline: View {
     }
 
     private func sparklineScale(maxValue: Double, minValue: Double, formatter: @escaping (Double) -> String) -> some View {
+        let light = isLightAppTheme()
         let midValue = (maxValue + minValue) / 2
 
         return ZStack {
@@ -1578,11 +1641,11 @@ private struct FitMaksLiveSparkline: View {
             .padding(.vertical, 18)
 
             VStack(spacing: 0) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(light ? Color.appBorder.opacity(0.8) : Color.white.opacity(0.08)).frame(height: 1)
                 Spacer()
-                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                Rectangle().fill(light ? Color.appBorder.opacity(0.65) : Color.white.opacity(0.06)).frame(height: 1)
                 Spacer()
-                Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1)
+                Rectangle().fill(light ? Color.appBorder.opacity(0.55) : Color.white.opacity(0.05)).frame(height: 1)
             }
             .padding(.vertical, 22)
             .padding(.leading, 74)
@@ -1591,10 +1654,11 @@ private struct FitMaksLiveSparkline: View {
     }
 
     private func sparklineGuideRow(label: String) -> some View {
-        HStack(spacing: 10) {
+        let light = isLightAppTheme()
+        return HStack(spacing: 10) {
             Text(label)
                 .font(.system(size: 16, weight: .heavy))
-                .foregroundColor(.white.opacity(0.46))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.46))
                 .frame(width: 46, alignment: .leading)
             Spacer()
         }
@@ -1619,14 +1683,89 @@ private struct FitMaksLiveSparkline: View {
     }
 }
 
+private struct FitMaksLiveWeeklyCard: View {
+    let snapshot: FitMaksShareWeeklySnapshot
+
+    var body: some View {
+        let light = isLightAppTheme()
+
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 8) {
+                livePosterTag("WEEKLY REPORT", color: snapshot.scoreColor)
+                livePosterTag(snapshot.dateRange.uppercased(), color: .appMuted)
+            }
+
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(snapshot.score)%")
+                        .font(.system(size: 88, weight: .black))
+                        .foregroundColor(snapshot.scoreColor)
+
+                    Text(snapshot.scoreLabel)
+                        .font(.system(size: 28, weight: .heavy))
+                        .foregroundColor(light ? .appAccentText : .white)
+
+                    Text("\(snapshot.perfectDays)/7 perfect days")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.7))
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                ForEach(Array(snapshot.dayResults.enumerated()), id: \.offset) { _, day in
+                    ZStack {
+                        Circle()
+                            .fill(day.isPerfect ? snapshot.scoreColor.opacity(0.22) : (light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.07)))
+                            .overlay(
+                                Circle()
+                                    .stroke(day.isPerfect ? snapshot.scoreColor.opacity(0.5) : (light ? Color.appBorder.opacity(0.6) : Color.white.opacity(0.1)), lineWidth: 2)
+                            )
+
+                        if day.isPerfect {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 18, weight: .black))
+                                .foregroundColor(snapshot.scoreColor)
+                        } else {
+                            Text(day.emoji)
+                                .font(.system(size: 22))
+                        }
+                    }
+                    .frame(width: 54, height: 54)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            HStack(spacing: 14) {
+                liveStatPill(title: "Calories", value: snapshot.avgCalories, accent: .neonGreen)
+                liveStatPill(title: "Protein", value: snapshot.avgProtein, accent: .neonCyan)
+            }
+
+            HStack(spacing: 14) {
+                liveStatPill(title: "Carbs", value: snapshot.avgCarbs, accent: .fitOrange)
+                liveStatPill(title: "Fat", value: snapshot.avgFat, accent: .purple)
+            }
+
+            liveStatPill(title: "Total Steps", value: snapshot.totalSteps, accent: .fitOrange)
+        }
+        .padding(34)
+        .background(liveCardBackground)
+    }
+}
+
 private var liveCardBackground: some View {
-    RoundedRectangle(cornerRadius: 34)
-        .fill(Color.black.opacity(0.42))
-        .overlay(RoundedRectangle(cornerRadius: 34).stroke(Color.white.opacity(0.08), lineWidth: 1))
+    let light = isLightAppTheme()
+
+    return RoundedRectangle(cornerRadius: 34)
+        .fill(light ? Color.appElevated.opacity(0.98) : Color.black.opacity(0.42))
+        .overlay(RoundedRectangle(cornerRadius: 34).stroke(light ? Color.appBorder.opacity(0.7) : Color.white.opacity(0.08), lineWidth: 1))
 }
 
 private func liveStatPill(title: String, value: String, accent: Color) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
+    let light = isLightAppTheme()
+
+    return VStack(alignment: .leading, spacing: 6) {
         Text(title.uppercased())
             .font(.system(size: 22, weight: .heavy))
             .foregroundColor(accent)
@@ -1634,18 +1773,24 @@ private func liveStatPill(title: String, value: String, accent: Color) -> some V
 
         Text(value)
             .font(.system(size: 34, weight: .black))
-            .foregroundColor(.white)
+            .foregroundColor(light ? .appAccentText : .white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
     .padding(.horizontal, 18)
     .padding(.vertical, 16)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(RoundedRectangle(cornerRadius: 24).fill(Color.white.opacity(0.06)))
+    .background(RoundedRectangle(cornerRadius: 24).fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.06)))
+    .overlay(
+        RoundedRectangle(cornerRadius: 24)
+            .stroke(light ? Color.appBorder.opacity(0.65) : Color.clear, lineWidth: 1)
+    )
 }
 
 private func shareImageHeader(image: UIImage?, fallbackColor: Color, systemName: String) -> some View {
-    ZStack {
+    let light = isLightAppTheme()
+
+    return ZStack {
         if let image {
             Image(uiImage: image)
                 .resizable()
@@ -1662,7 +1807,7 @@ private func shareImageHeader(image: UIImage?, fallbackColor: Color, systemName:
     .frame(maxWidth: .infinity)
     .frame(height: 320)
     .clipShape(RoundedRectangle(cornerRadius: 28))
-    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.white.opacity(0.08), lineWidth: 1))
+    .overlay(RoundedRectangle(cornerRadius: 28).stroke(light ? Color.appBorder.opacity(0.72) : Color.white.opacity(0.08), lineWidth: 1))
 }
 
 private func livePosterTag(_ text: String, color: Color) -> some View {
@@ -1677,32 +1822,40 @@ private func livePosterTag(_ text: String, color: Color) -> some View {
 }
 
 private func liveBoardChip(_ text: String, isOn: Bool, color: Color) -> some View {
-    Text(text)
+    let light = isLightAppTheme()
+
+    return Text(text)
         .font(.system(size: 14, weight: .black))
-        .foregroundColor(isOn ? .black : .gray)
+        .foregroundColor(isOn ? .black : (light ? .appMuted : .gray))
         .frame(width: 32, height: 26)
-        .background(Capsule().fill(isOn ? color : Color.white.opacity(0.07)))
+        .background(Capsule().fill(isOn ? color : (light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.07))))
         .shadow(color: isOn ? color.opacity(0.45) : .clear, radius: 7)
+        .overlay(
+            Capsule()
+                .stroke(light && !isOn ? Color.appBorder.opacity(0.65) : Color.clear, lineWidth: 1)
+        )
 }
 
 private func liveBoardMetricPill(title: String, value: String, color: Color, isOn: Bool) -> some View {
-    VStack(alignment: .leading, spacing: 3) {
+    let light = isLightAppTheme()
+
+    return VStack(alignment: .leading, spacing: 3) {
         Text(title.uppercased())
             .font(.system(size: 10, weight: .heavy))
-            .foregroundColor(isOn ? color : .gray)
+            .foregroundColor(isOn ? color : (light ? .appMuted : .gray))
             .tracking(0.5)
 
         Text(value)
             .font(.system(size: 18, weight: .black))
-            .foregroundColor(.white)
+            .foregroundColor(light ? .appAccentText : .white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 8)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(RoundedRectangle(cornerRadius: 14).fill(color.opacity(isOn ? 0.16 : 0.08)))
-    .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(isOn ? 0.26 : 0.08), lineWidth: 1))
+    .background(RoundedRectangle(cornerRadius: 14).fill(light ? (isOn ? color.opacity(0.10) : Color.appSurface.opacity(0.92)) : color.opacity(isOn ? 0.16 : 0.08)))
+    .overlay(RoundedRectangle(cornerRadius: 14).stroke(light ? (isOn ? color.opacity(0.18) : Color.appBorder.opacity(0.65)) : color.opacity(isOn ? 0.26 : 0.08), lineWidth: 1))
 }
 
 private struct FitMaksPostGestureCaptureView: UIViewRepresentable {
@@ -1879,7 +2032,7 @@ private extension FitMaksSharePayload {
         switch self {
         case .today, .food:
             return true
-        case .streak, .streakBoard, .achievement, .weight, .workout:
+        case .streak, .streakBoard, .achievement, .weight, .workout, .weeklyReport:
             return false
         }
     }

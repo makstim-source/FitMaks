@@ -155,7 +155,7 @@ struct ContentView: View {
     var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
-    var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats) }
+    var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
     var shouldShowWeeklyBanner: Bool {
         guard let report = previousWeekReport else { return false }
         return lastViewedWeeklyReportID != report.weekID
@@ -280,9 +280,25 @@ struct ContentView: View {
         }
         .sheet(isPresented: $viewModel.isShowingWeeklyReport) {
             if let report = previousWeekReport {
-                WeeklyReportSheet(report: report)
-                    .onAppear { lastViewedWeeklyReportID = report.weekID }
-                    .presentationDetents([.large])
+                WeeklyReportSheet(report: report) {
+                    viewModel.isShowingWeeklyReport = false
+                    let snapshot = FitMaksShareWeeklySnapshot(
+                        dateRange: report.dateRangeLabel,
+                        score: report.weeklyScore,
+                        scoreLabel: "\(report.scoreEmoji) \(report.scoreLabel)",
+                        perfectDays: report.perfectDays,
+                        avgCalories: "\(Int(report.avgCalories)) kcal",
+                        avgProtein: "\(Int(report.avgProtein))g",
+                        avgCarbs: "\(Int(report.avgCarbs))g",
+                        avgFat: "\(Int(report.avgFat))g",
+                        totalSteps: Int(report.totalSteps).formatted(),
+                        dayResults: report.days.map { (emoji: $0.mode.emoji, isPerfect: $0.isPerfect) },
+                        scoreColor: report.scoreColor
+                    )
+                    viewModel.livePayload = .weeklyReport(snapshot)
+                }
+                .onAppear { lastViewedWeeklyReportID = report.weekID }
+                .presentationDetents([.large])
             }
         }
         .sheet(isPresented: $viewModel.isShowingStats) {

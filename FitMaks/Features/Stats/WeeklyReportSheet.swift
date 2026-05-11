@@ -7,6 +7,9 @@ struct WeeklyReportData: Identifiable {
     let weekStart: Date
     let weekEnd: Date
     let days: [DayProgress]
+    let totalCarbs: Double
+    let totalFat: Double
+    let totalMeals: Int
 
     var perfectDays: Int { days.filter(\.isPerfect).count }
     var calorieWins: Int { days.filter(\.calorieWin).count }
@@ -42,6 +45,16 @@ struct WeeklyReportData: Identifiable {
 
     var totalSteps: Double {
         days.map(\.effectiveSteps).reduce(0, +)
+    }
+
+    var avgCarbs: Double {
+        guard !days.isEmpty else { return 0 }
+        return totalCarbs / Double(days.count)
+    }
+
+    var avgFat: Double {
+        guard !days.isEmpty else { return 0 }
+        return totalFat / Double(days.count)
     }
 
     var modeBreakdown: [(mode: DayMode, count: Int)] {
@@ -92,7 +105,7 @@ struct WeeklyReportData: Identifiable {
         }
     }
 
-    static func previousWeek(from stats: [DayProgress]) -> WeeklyReportData? {
+    static func previousWeek(from stats: [DayProgress], allFoodEntries: [FoodEntry]) -> WeeklyReportData? {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let weekday = calendar.component(.weekday, from: today)
@@ -107,7 +120,20 @@ struct WeeklyReportData: Identifiable {
         }.sorted { $0.date < $1.date }
 
         guard !weekDays.isEmpty else { return nil }
-        return WeeklyReportData(weekStart: prevMonday, weekEnd: prevSunday, days: weekDays)
+
+        let weekFood = allFoodEntries.filter { entry in
+            let d = calendar.startOfDay(for: entry.date)
+            return d >= prevMonday && d <= prevSunday
+        }
+
+        return WeeklyReportData(
+            weekStart: prevMonday,
+            weekEnd: prevSunday,
+            days: weekDays,
+            totalCarbs: weekFood.reduce(0) { $0 + $1.carbs },
+            totalFat: weekFood.reduce(0) { $0 + $1.fat },
+            totalMeals: weekFood.count
+        )
     }
 }
 
@@ -168,6 +194,7 @@ struct WeeklyReportBanner: View {
 
 struct WeeklyReportSheet: View {
     let report: WeeklyReportData
+    var onShare: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -185,6 +212,9 @@ struct WeeklyReportSheet: View {
                         scoreCard
                         weekGrid
                         statsCards
+                        if let onShare {
+                            shareButton(action: onShare)
+                        }
                     }
                     .padding()
                     .padding(.bottom, 24)
@@ -326,6 +356,24 @@ struct WeeklyReportSheet: View {
 
             HStack(spacing: 10) {
                 metricCard(
+                    title: "AVG CARBS",
+                    value: "\(Int(report.avgCarbs))g",
+                    target: "",
+                    detail: "\(report.totalMeals) meals logged",
+                    color: .fitOrange
+                )
+
+                metricCard(
+                    title: "AVG FAT",
+                    value: "\(Int(report.avgFat))g",
+                    target: "",
+                    detail: "per day avg",
+                    color: .purple
+                )
+            }
+
+            HStack(spacing: 10) {
+                metricCard(
                     title: "TOTAL STEPS",
                     value: Int(report.totalSteps).formatted(),
                     target: "",
@@ -408,5 +456,23 @@ struct WeeklyReportSheet: View {
                 .fill(Color.appElevated)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
         )
+    }
+
+    private func shareButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .bold))
+                Text("Share Weekly Report")
+                    .font(.system(size: 14, weight: .black))
+            }
+            .foregroundColor(.black)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                Capsule().fill(report.scoreColor)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

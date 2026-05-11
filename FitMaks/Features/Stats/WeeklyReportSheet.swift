@@ -434,7 +434,7 @@ struct WeeklyReportSheet: View {
                     value: "\(Int(report.avgFat))g",
                     target: "",
                     detail: "per day avg",
-                    color: .purple
+                    color: .fitPurple
                 )
             }
 

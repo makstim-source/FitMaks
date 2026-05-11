@@ -362,7 +362,7 @@ struct FitMaksLiveView: View {
 
                                         Text("Add photo")
                                             .font(.system(size: 18, weight: .black))
-                                            .foregroundColor(light ? .appAccentText : .white)
+                                            .foregroundColor(light ? .appText : .white)
 
                                         Text("Pick a background and make it story-ready.")
                                             .font(.system(size: 13, weight: .semibold))
@@ -1020,7 +1020,7 @@ private struct FitMaksLiveTodayCard: View {
 
                     Text(snapshot.headline)
                         .font(.system(size: 68, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
                         .lineLimit(2)
                 }
 
@@ -1033,7 +1033,7 @@ private struct FitMaksLiveTodayCard: View {
                         .overlay(
                             Image(systemName: snapshot.modeSymbolName)
                                 .font(.system(size: 36, weight: .black))
-                                .foregroundColor(light ? .appAccentText : .white)
+                                .foregroundColor(light ? .appText : .white)
                         )
 
                     Text(snapshot.modeLabel)
@@ -1071,7 +1071,7 @@ private struct FitMaksLiveTodayCard: View {
                                 Text(metric.value)
                                     .font(.system(size: 44, weight: .black))
                                     .monospacedDigit()
-                                    .foregroundColor(light ? .appAccentText : .white)
+                                    .foregroundColor(light ? .appText : .white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                                     .frame(height: 48)
@@ -1135,7 +1135,7 @@ private struct FitMaksLiveStreakCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Protect the streak.")
                         .font(.system(size: 72, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
                         .lineLimit(2)
 
                     Text("Current flame \(snapshot.current)/\(snapshot.target).")
@@ -1148,7 +1148,7 @@ private struct FitMaksLiveStreakCard: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(snapshot.current)")
                         .font(.system(size: 120, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
 
                     Text("days")
                         .font(.system(size: 28, weight: .heavy))
@@ -1207,7 +1207,7 @@ private struct FitMaksLiveAchievementCard: View {
 
                     Text(snapshot.title)
                         .font(.system(size: 62, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
                         .lineLimit(3)
                 }
 
@@ -1256,7 +1256,7 @@ private struct FitMaksLiveAchievementCard: View {
                 if isInProgress {
                     Text(snapshot.progressText)
                         .font(.system(size: 24, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(snapshot.color.opacity(0.22)))
@@ -1315,7 +1315,7 @@ private struct FitMaksLiveStreakBoardCard: View {
 
             Text("7-Day Streak Board")
                 .font(.system(size: 42, weight: .black))
-                .foregroundColor(light ? .appAccentText : .white)
+                .foregroundColor(light ? .appText : .white)
 
             Text("Deficit, protein, and steps across your latest seven days.")
                 .font(.system(size: 22, weight: .semibold))
@@ -1339,7 +1339,7 @@ private struct FitMaksLiveStreakBoardCard: View {
 
                                 Text(row.dayNumber)
                                     .font(.system(size: 24, weight: .black))
-                                    .foregroundColor(light ? .appAccentText : .white)
+                                    .foregroundColor(light ? .appText : .white)
                             }
                             .frame(width: 48)
 
@@ -1405,7 +1405,7 @@ private struct FitMaksLiveWeightCard: View {
 
                     Text(snapshot.title)
                         .font(.system(size: 64, weight: .black))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
 
                     Text(snapshot.subtitle)
                         .font(.system(size: 28, weight: .heavy))
@@ -1439,7 +1439,7 @@ private struct FitMaksLiveWeightCard: View {
 
             HStack(spacing: 14) {
                 liveStatPill(title: "From", value: snapshot.leadingValue, accent: snapshot.accentColor)
-                liveStatPill(title: "To", value: snapshot.trailingValue, accent: light ? .appAccentText : .white)
+                liveStatPill(title: "To", value: snapshot.trailingValue, accent: light ? .appText : .white)
             }
         }
         .padding(34)
@@ -1468,7 +1468,7 @@ private struct FitMaksLiveFoodCard: View {
 
             Text(snapshot.name)
                 .font(.system(size: 58, weight: .black))
-                .foregroundColor(light ? .appAccentText : .white)
+                .foregroundColor(light ? .appText : .white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.78)
 
@@ -1510,7 +1510,7 @@ private struct FitMaksLiveWorkoutCard: View {
 
             Text(snapshot.name)
                 .font(.system(size: 62, weight: .black))
-                .foregroundColor(light ? .appAccentText : .white)
+                .foregroundColor(light ? .appText : .white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
 
@@ -1703,7 +1703,7 @@ private struct FitMaksLiveWeeklyCard: View {
 
                     Text(snapshot.scoreLabel)
                         .font(.system(size: 28, weight: .heavy))
-                        .foregroundColor(light ? .appAccentText : .white)
+                        .foregroundColor(light ? .appText : .white)
 
                     Text("\(snapshot.perfectDays)/7 perfect days")
                         .font(.system(size: 22, weight: .bold))
@@ -1744,7 +1744,7 @@ private struct FitMaksLiveWeeklyCard: View {
 
             HStack(spacing: 14) {
                 liveStatPill(title: "Carbs", value: snapshot.avgCarbs, accent: .fitOrange)
-                liveStatPill(title: "Fat", value: snapshot.avgFat, accent: .purple)
+                liveStatPill(title: "Fat", value: snapshot.avgFat, accent: .fitPurple)
             }
 
             liveStatPill(title: "Total Steps", value: snapshot.totalSteps, accent: .fitOrange)
@@ -1758,8 +1758,8 @@ private var liveCardBackground: some View {
     let light = isLightAppTheme()
 
     return RoundedRectangle(cornerRadius: 34)
-        .fill(light ? Color.appElevated.opacity(0.98) : Color.black.opacity(0.42))
-        .overlay(RoundedRectangle(cornerRadius: 34).stroke(light ? Color.appBorder.opacity(0.7) : Color.white.opacity(0.08), lineWidth: 1))
+        .fill(light ? Color.appElevated : Color.black.opacity(0.54))
+        .overlay(RoundedRectangle(cornerRadius: 34).stroke(light ? Color.appBorder : Color.white.opacity(0.08), lineWidth: 1))
 }
 
 private func liveStatPill(title: String, value: String, accent: Color) -> some View {
@@ -1773,7 +1773,7 @@ private func liveStatPill(title: String, value: String, accent: Color) -> some V
 
         Text(value)
             .font(.system(size: 34, weight: .black))
-            .foregroundColor(light ? .appAccentText : .white)
+            .foregroundColor(light ? .appText : .white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
@@ -1847,7 +1847,7 @@ private func liveBoardMetricPill(title: String, value: String, color: Color, isO
 
         Text(value)
             .font(.system(size: 18, weight: .black))
-            .foregroundColor(light ? .appAccentText : .white)
+            .foregroundColor(light ? .appText : .white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }

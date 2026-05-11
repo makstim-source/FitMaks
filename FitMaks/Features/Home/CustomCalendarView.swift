@@ -149,11 +149,9 @@ struct CustomCalendarView: View {
             Button {
                 onWeeklyReport?(monday)
             } label: {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.neonGreen)
-                    .frame(width: 24, height: 24)
-                    .background(Circle().fill(Color.neonGreen.opacity(0.15)))
+                Image(systemName: "list.clipboard")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.appMuted)
             }
             .buttonStyle(.plain)
         } else {

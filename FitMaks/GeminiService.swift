@@ -669,18 +669,43 @@ class GeminiService {
                 return
             }
 
-            guard
-                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let candidates = json["candidates"] as? [[String: Any]],
-                let content = candidates.first?["content"] as? [String: Any],
-                let resultParts = content["parts"] as? [[String: Any]],
-                let rawText = resultParts.first?["text"] as? String
-            else {
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
                     completion(nil, apiError.error.message ?? "Invalid Gemini response.")
                 } else {
                     completion(nil, "Invalid Gemini response.")
                 }
+                return
+            }
+
+            if let candidates = json["candidates"] as? [[String: Any]],
+               let first = candidates.first,
+               let reason = first["finishReason"] as? String,
+               first["content"] == nil {
+                if retriesRemaining > 0 {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+                completion(nil, "AI blocked the response (\(reason)). Try rephrasing.")
+                return
+            }
+
+            guard
+                let candidates = json["candidates"] as? [[String: Any]],
+                let content = candidates.first?["content"] as? [String: Any],
+                let resultParts = content["parts"] as? [[String: Any]],
+                let rawText = resultParts.first?["text"] as? String
+            else {
+                if retriesRemaining > 0 {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+                let feedback = (json["promptFeedback"] as? [String: Any])?["blockReason"] as? String
+                completion(nil, feedback != nil ? "AI blocked: \(feedback!). Try rephrasing." : "Invalid Gemini response. Please try again.")
                 return
             }
 

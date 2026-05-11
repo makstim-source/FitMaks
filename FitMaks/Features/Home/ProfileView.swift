@@ -51,10 +51,10 @@ struct ProfileView: View {
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Desk days", subtitle: "Mostly sitting, little walking"),
-        ActivityOption(key: "Light", title: "Daily walks", subtitle: "Walks or 1-2 workouts/week"),
-        ActivityOption(key: "Moderate", title: "Train weekly", subtitle: "3-4 workouts and normal walking"),
-        ActivityOption(key: "Active", title: "Athlete mode", subtitle: "5+ hard days or physical job")
+        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting, little walking"),
+        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching, daily walks"),
+        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking, errands, light tasks"),
+        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse, farm")
     ]
 
     private var bmr: Double {

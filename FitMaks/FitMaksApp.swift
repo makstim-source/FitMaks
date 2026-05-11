@@ -204,10 +204,10 @@ private struct OnboardingView: View {
     ]
 
     private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Desk days", subtitle: "Mostly sitting"),
-        ActivityOption(key: "Light", title: "Daily walks", subtitle: "1-2 workouts"),
-        ActivityOption(key: "Moderate", title: "Train weekly", subtitle: "3-4 workouts"),
-        ActivityOption(key: "Active", title: "Athlete mode", subtitle: "5+ hard days")
+        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting"),
+        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching"),
+        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking + errands"),
+        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse")
     ]
 
     @State private var disclaimerAccepted = false

@@ -9,13 +9,15 @@ enum NutritionCalculator {
         activityLevel: String,
         goal: String
     ) -> Double {
-        maintenanceCalories(
+        let raw = maintenanceCalories(
             gender: gender,
             age: age,
             weight: weight,
             height: height,
             activityLevel: activityLevel
         ) + calorieAdjustment(for: goal)
+        let floor: Double = gender == "Female" ? 1200 : 1500
+        return max(raw, floor)
     }
 
     static func maintenanceCalories(
@@ -35,9 +37,9 @@ enum NutritionCalculator {
     static func activityMultiplier(for activityLevel: String) -> Double {
         switch activityLevel {
         case "Light":
-            return 1.3
+            return 1.35
         case "Moderate":
-            return 1.45
+            return 1.5
         case "Active":
             return 1.6
         default:

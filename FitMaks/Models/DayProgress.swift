@@ -102,7 +102,7 @@ enum DayProgressEngine {
         let bonuses = bonuses(
             for: mode,
             trainingCalories: trainingCalories,
-            activityLevel: activityLevel
+            baseProtein: baseProtein
         )
 
         return DayTargets(
@@ -236,9 +236,8 @@ enum DayProgressEngine {
     private static func bonuses(
         for mode: DayMode,
         trainingCalories: Double = 0,
-        activityLevel: String = "Moderate"
+        baseProtein: Double = 0
     ) -> (calories: Double, protein: Double, steps: Double) {
-        let activityScale = activityBonusScale(for: activityLevel)
         let creditedTrainingCalories = trainingCalories > 0
             ? trainingCalories * workoutCalorieCreditRatio
             : 0
@@ -247,39 +246,14 @@ enum DayProgressEngine {
         case .chill:
             return (0, 0, 0)
         case .cardio:
-            let fallback = 500.0
-            let calorieBonus = max(
-                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
-                0
-            )
-            return (calorieBonus, 15, 0)
+            let calorieBonus = trainingCalories > 0 ? creditedTrainingCalories : 500.0
+            return (calorieBonus, baseProtein * 0.05, 0)
         case .gym:
-            let fallback = 300.0
-            let calorieBonus = max(
-                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
-                0
-            )
-            return (calorieBonus, 25, gymStepBonus)
+            let calorieBonus = trainingCalories > 0 ? creditedTrainingCalories : 300.0
+            return (calorieBonus, baseProtein * 0.10, gymStepBonus)
         case .cardioGym:
-            let fallback = 600.0
-            let calorieBonus = max(
-                (trainingCalories > 0 ? creditedTrainingCalories : fallback) * activityScale,
-                0
-            )
-            return (calorieBonus, 40, gymStepBonus)
-        }
-    }
-
-    private static func activityBonusScale(for activityLevel: String) -> Double {
-        switch activityLevel {
-        case "Light":
-            return 0.85
-        case "Moderate":
-            return 0.65
-        case "Active":
-            return 0.45
-        default:
-            return 1.0
+            let calorieBonus = trainingCalories > 0 ? creditedTrainingCalories : 600.0
+            return (calorieBonus, baseProtein * 0.12, gymStepBonus)
         }
     }
 }

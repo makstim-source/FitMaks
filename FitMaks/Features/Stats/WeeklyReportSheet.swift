@@ -135,6 +135,72 @@ struct WeeklyReportData: Identifiable {
             totalMeals: weekFood.count
         )
     }
+
+    static func forWeekContaining(
+        date: Date,
+        allFoodEntries: [FoodEntry],
+        allTrainingEntries: [TrainingEntry],
+        setupIndex: [String: DailySetup],
+        baseCaloriesGoal: Double,
+        baseProteinGoal: Double,
+        stepsIndex: [String: Double],
+        activityLevel: String
+    ) -> WeeklyReportData? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let weekday = calendar.component(.weekday, from: date)
+        let daysSinceMonday = (weekday + 5) % 7
+        guard let monday = calendar.date(byAdding: .day, value: -daysSinceMonday, to: calendar.startOfDay(for: date)) else { return nil }
+        let sunday = calendar.date(byAdding: .day, value: 6, to: monday)!
+
+        guard sunday < today else { return nil }
+
+        let stepTarget = DayProgressEngine.defaultStepTarget
+        var days: [DayProgress] = []
+
+        for offset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: monday) else { continue }
+            let dateID = DateFormatter.yyyyMMdd.string(from: day)
+            let setup = setupIndex[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: day) }
+            let dayTrainingCalories = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: day) }
+                .reduce(0) { $0 + $1.caloriesBurned }
+            let dayUploadedSteps = allTrainingEntries
+                .filter { calendar.isDate($0.date, inSameDayAs: day) }
+                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+
+            days.append(DayProgressEngine.progress(
+                date: day,
+                foodEntries: dayFood,
+                trainingCalories: dayTrainingCalories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: day, fallback: baseCaloriesGoal) ?? baseCaloriesGoal,
+                baseProtein: setup?.resolvedBaseProtein(for: day, fallback: baseProteinGoal) ?? baseProteinGoal,
+                steps: stepsIndex[dateID] ?? 0,
+                uploadedSteps: dayUploadedSteps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            ))
+        }
+
+        guard days.contains(where: { $0.consumed > 0 || $0.effectiveSteps > 0 }) else { return nil }
+
+        let weekFood = allFoodEntries.filter { entry in
+            let d = calendar.startOfDay(for: entry.date)
+            return d >= monday && d <= sunday
+        }
+
+        return WeeklyReportData(
+            weekStart: monday,
+            weekEnd: sunday,
+            days: days,
+            totalCarbs: weekFood.reduce(0) { $0 + $1.carbs },
+            totalFat: weekFood.reduce(0) { $0 + $1.fat },
+            totalMeals: weekFood.count
+        )
+    }
 }
 
 // MARK: - Banner

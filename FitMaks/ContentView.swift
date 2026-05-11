@@ -156,9 +156,25 @@ struct ContentView: View {
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
     var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
-    var shouldShowWeeklyBanner: Bool {
-        guard let report = previousWeekReport else { return false }
-        return lastViewedWeeklyReportID != report.weekID
+    var selectedWeekReport: WeeklyReportData? {
+        let calendar = Calendar.current
+        let selected = viewModel.selectedDate
+        if calendar.isDateInToday(selected) || calendar.isDateInTomorrow(selected) { return nil }
+        return WeeklyReportData.forWeekContaining(
+            date: selected,
+            allFoodEntries: allFoodEntries,
+            allTrainingEntries: allTrainingEntries,
+            setupIndex: viewModel.setupIndex,
+            baseCaloriesGoal: baseCaloriesGoal,
+            baseProteinGoal: baseProteinGoal,
+            stepsIndex: viewModel.homeWeeklySteps,
+            activityLevel: activityLevel
+        )
+    }
+    var activeWeeklyReport: WeeklyReportData? {
+        if let selected = selectedWeekReport { return selected }
+        if let previous = previousWeekReport, lastViewedWeeklyReportID != previous.weekID { return previous }
+        return nil
     }
 
     var unlockedAchievementSignature: String {
@@ -192,7 +208,7 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
-                if shouldShowWeeklyBanner, let report = previousWeekReport {
+                if let report = activeWeeklyReport {
                     WeeklyReportBanner(report: report) {
                         viewModel.isShowingWeeklyReport = true
                     }
@@ -279,7 +295,7 @@ struct ContentView: View {
             )
         }
         .sheet(isPresented: $viewModel.isShowingWeeklyReport) {
-            if let report = previousWeekReport {
+            if let report = activeWeeklyReport {
                 WeeklyReportSheet(report: report) {
                     viewModel.isShowingWeeklyReport = false
                     let snapshot = FitMaksShareWeeklySnapshot(
@@ -297,7 +313,11 @@ struct ContentView: View {
                     )
                     viewModel.livePayload = .weeklyReport(snapshot)
                 }
-                .onAppear { lastViewedWeeklyReportID = report.weekID }
+                .onAppear {
+                    if let prev = previousWeekReport, report.weekID == prev.weekID {
+                        lastViewedWeeklyReportID = report.weekID
+                    }
+                }
                 .presentationDetents([.large])
             }
         }

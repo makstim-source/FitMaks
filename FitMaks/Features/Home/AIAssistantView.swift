@@ -79,7 +79,7 @@ struct AIAssistantView: View {
                     chatComposer
                 }
             }
-            .navigationTitle(Calendar.current.isDateInToday(selectedDate) ? "AI Coach ✨" : "Past Day Review 📅")
+            .navigationTitle(aiNavTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -118,7 +118,7 @@ struct AIAssistantView: View {
     private var coachPulseCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label(Calendar.current.isDateInToday(selectedDate) ? "TODAY'S PULSE" : "DAY REVIEW", systemImage: "sparkles")
+                Label(aiPulseLabel, systemImage: "sparkles")
                     .font(.system(size: 11, weight: .heavy))
                     .foregroundColor(.neonCyan)
                     .tracking(0.9)
@@ -199,8 +199,30 @@ struct AIAssistantView: View {
         .shadow(color: Color.neonCyan.opacity(0.12), radius: 18, x: 0, y: 10)
     }
 
+    private var aiNavTitle: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(selectedDate) { return "AI Coach ✨" }
+        if cal.isDateInTomorrow(selectedDate) { return "Plan Tomorrow 📋" }
+        return "Past Day Review 📅"
+    }
+
+    private var aiPulseLabel: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(selectedDate) { return "TODAY'S PULSE" }
+        if cal.isDateInTomorrow(selectedDate) { return "TOMORROW'S PLAN" }
+        return "DAY REVIEW"
+    }
+
     private var coachHeadline: String {
-        if Calendar.current.isDateInToday(selectedDate) {
+        let cal = Calendar.current
+        if cal.isDateInTomorrow(selectedDate) {
+            if consumedCalories > 0 {
+                return "Meals pre-logged. Fine-tune the plan."
+            }
+            return "Plan ahead, win before it starts."
+        }
+
+        if cal.isDateInToday(selectedDate) {
             if consumedProtein >= AppRules.completionMinimum(for: targetProtein)
                 && consumedCalories <= AppRules.caloriePerfectLimit(for: targetCalories)
                 && consumedCalories > 0 {
@@ -418,7 +440,8 @@ struct AIAssistantView: View {
         let timeString = formatter.string(from: Date())
 
         let calendar = Calendar.current
-        let isPastDay = !calendar.isDateInToday(selectedDate)
+        let isTomorrow = calendar.isDateInTomorrow(selectedDate)
+        let isPastDay = !calendar.isDateInToday(selectedDate) && !isTomorrow
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .none
@@ -427,6 +450,8 @@ struct AIAssistantView: View {
         let selectedDateRelation: String
         if calendar.isDateInToday(selectedDate) {
             selectedDateRelation = "today"
+        } else if isTomorrow {
+            selectedDateRelation = "tomorrow (planning ahead — the user is pre-logging meals and choosing a training mode for the next day)"
         } else if calendar.isDateInYesterday(selectedDate) {
             selectedDateRelation = "yesterday"
         } else {

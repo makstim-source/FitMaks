@@ -863,12 +863,16 @@ struct ContentView: View {
                 }
 
                 VStack(spacing: 5) {
-                    Text("Start this day")
+                    Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
+                         ? "Plan tomorrow"
+                         : "Start this day")
                         .font(.headline)
                         .fontWeight(.black)
                         .foregroundColor(.appText)
 
-                    Text("Add food, scan a label, or drop a workout screenshot.")
+                    Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
+                         ? "Pre-log meals and set your training mode."
+                         : "Add food, scan a label, or drop a workout screenshot.")
                         .font(.subheadline)
                         .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)

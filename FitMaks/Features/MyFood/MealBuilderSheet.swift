@@ -354,7 +354,21 @@ struct MealBuilderSheet: View {
     }
 
     private var defaultMealName: String {
-        let names = components.prefix(3).map(\.name)
-        return names.joined(separator: " + ")
+        let shorts = components.prefix(3).map { shortIngredientName($0.name) }
+        return shorts.joined(separator: " & ")
+    }
+
+    private func shortIngredientName(_ name: String) -> String {
+        let stripped = name
+            .replacingOccurrences(of: "👨‍🍳 ", with: "")
+            .replacingOccurrences(of: "❄️ ", with: "")
+        let words = stripped.split(separator: " ").map(String.init)
+        let meaningful = words.filter { w in
+            let low = w.lowercased()
+            let noise = ["boil-in-bag", "boil", "bag", "finest", "ohut", "with", "and", "in", "the", "+", "&", "от", "с", "и", "в"]
+            return !noise.contains(low) && w.count > 1
+        }
+        let result = meaningful.prefix(2).joined(separator: " ")
+        return result.isEmpty ? stripped : result
     }
 }

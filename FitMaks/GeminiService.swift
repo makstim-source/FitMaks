@@ -212,6 +212,12 @@ class GeminiService {
         let prompt = """
         Analyze food as a deterministic nutrition estimator. Consistency is more important than creativity.
 
+        NAMING RULES:
+        - food_name MUST be a short, appetizing dish description (2-4 words), NOT a brand or product name.
+        - Good: "Herb Chicken & Rice", "Grilled Salmon Bowl", "Томатная паста с пенне". Bad: "Kanan Ohut Fileeleike Yrtti-Valkosipuli", "Risella Boil-in-Bag Basmati Rice".
+        - Use the generic food name, not the packaging brand. "Basmati Rice" not "Risella Basmati Rice".
+        - Ingredient names in the breakdown should also be generic (e.g. "Chicken breast" not "Kanan Sisäfilee").
+
         ESTIMATION RULES:
         - Estimate the visible edible portion only.
         - Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
@@ -252,7 +258,8 @@ class GeminiService {
         Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
         Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
         The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
-        If the user names a specific brand or product, search for its real nutrition data online.
+        If the user names a specific brand or product, search for its real nutrition data online but use a generic dish name, not the brand name.
+        NAMING RULE: food_name must be a short appetizing description (2-4 words), not a brand or product label. Use generic names like "Herb Chicken & Rice" not "Kanan Ohut Fileeleike".
         LANGUAGE RULE: Detect the language the user wrote in. Write food_name, ingredient names, and ai_response_text in that same language.
 
         Return ONLY a single JSON object.
@@ -286,6 +293,12 @@ class GeminiService {
         - One dish/product photographed from multiple angles.
         - Several different dishes/products.
         - A product photo plus a nutrition label photo for the same product.
+
+        NAMING RULES:
+        - food_name MUST be a short, appetizing dish description (2-4 words), NOT a brand or product name.
+        - Good: "Herb Chicken & Rice", "Grilled Salmon Bowl", "Томатная паста с пенне". Bad: "Kanan Ohut Fileeleike Yrtti-Valkosipuli", "Risella Boil-in-Bag Basmati Rice".
+        - Use the generic food name, not the packaging brand. "Basmati Rice" not "Risella Basmati Rice".
+        - Ingredient names in the breakdown should also be generic (e.g. "Chicken breast" not "Kanan Sisäfilee").
 
         GROUPING RULES:
         - Return one JSON item per distinct edible dish/product.

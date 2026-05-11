@@ -142,7 +142,7 @@ struct AIChatEditView: View {
                 .padding(.bottom, 10)
 
                 if let img = attachedImage {
-                    HStack {
+                    HStack(spacing: 12) {
                         ZStack(alignment: .topTrailing) {
                             Image(uiImage: img)
                                 .resizable()
@@ -157,6 +157,19 @@ struct AIChatEditView: View {
                             }
                             .offset(x: 8, y: -8)
                         }
+
+                        Button {
+                            setAsDishPhoto(img)
+                        } label: {
+                            Label("Set as photo", systemImage: "photo.badge.checkmark")
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundColor(.appAccentText)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(Color.neonGreen))
+                        }
+                        .buttonStyle(.plain)
+
                         Spacer()
                     }
                     .padding(.horizontal)
@@ -293,6 +306,16 @@ struct AIChatEditView: View {
                     saveConfirmationText = nil
                 }
             }
+        }
+    }
+
+    private func setAsDishPhoto(_ image: UIImage) {
+        let prepared = image.preparedForAppStorage()
+        if let data = prepared.jpegData(compressionQuality: 0.72) {
+            ImageCache.shared.invalidate(for: entry.id.uuidString)
+            entry.imageData = data
+            withAnimation { attachedImage = nil }
+            showSaveConfirmation("Photo updated")
         }
     }
 

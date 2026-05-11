@@ -315,6 +315,8 @@ struct AIChatEditView: View {
             ImageCache.shared.invalidate(for: entry.id.uuidString)
             entry.imageData = data
             withAnimation { attachedImage = nil }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            messages.append(ChatMessage(text: "📸 Dish photo updated!", isUser: false, shouldTypewrite: true))
             showSaveConfirmation("Photo updated")
         }
     }

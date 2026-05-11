@@ -156,12 +156,13 @@ struct ContentView: View {
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
     var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
-    var selectedWeekReport: WeeklyReportData? {
-        let calendar = Calendar.current
-        let selected = viewModel.selectedDate
-        if calendar.isDateInToday(selected) || calendar.isDateInTomorrow(selected) { return nil }
-        return WeeklyReportData.forWeekContaining(
-            date: selected,
+    var shouldShowWeeklyBanner: Bool {
+        guard let report = previousWeekReport else { return false }
+        return lastViewedWeeklyReportID != report.weekID
+    }
+    func weekReport(for date: Date) -> WeeklyReportData? {
+        WeeklyReportData.forWeekContaining(
+            date: date,
             allFoodEntries: allFoodEntries,
             allTrainingEntries: allTrainingEntries,
             setupIndex: viewModel.setupIndex,
@@ -172,9 +173,10 @@ struct ContentView: View {
         )
     }
     var activeWeeklyReport: WeeklyReportData? {
-        if let selected = selectedWeekReport { return selected }
-        if let previous = previousWeekReport, lastViewedWeeklyReportID != previous.weekID { return previous }
-        return nil
+        if let calDate = viewModel.calendarReportDate {
+            return weekReport(for: calDate)
+        }
+        return previousWeekReport
     }
 
     var unlockedAchievementSignature: String {
@@ -208,8 +210,9 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
-                if let report = activeWeeklyReport {
+                if shouldShowWeeklyBanner, let report = previousWeekReport {
                     WeeklyReportBanner(report: report) {
+                        viewModel.calendarReportDate = nil
                         viewModel.isShowingWeeklyReport = true
                     }
                     .padding(.horizontal, 15)
@@ -294,7 +297,9 @@ struct ContentView: View {
                 postOptions: universalPostOptions()
             )
         }
-        .sheet(isPresented: $viewModel.isShowingWeeklyReport) {
+        .sheet(isPresented: $viewModel.isShowingWeeklyReport, onDismiss: {
+            viewModel.calendarReportDate = nil
+        }) {
             if let report = activeWeeklyReport {
                 WeeklyReportSheet(report: report) {
                     viewModel.isShowingWeeklyReport = false
@@ -474,7 +479,14 @@ struct ContentView: View {
                 baseCalories: baseCaloriesGoal,
                 baseProtein: baseProteinGoal,
                 targetSteps: targetSteps,
-                allSetups: allDailySetups
+                allSetups: allDailySetups,
+                onWeeklyReport: { monday in
+                    viewModel.isShowingCalendar = false
+                    viewModel.calendarReportDate = monday
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        viewModel.isShowingWeeklyReport = true
+                    }
+                }
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)

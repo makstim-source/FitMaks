@@ -10,12 +10,11 @@ struct CustomCalendarView: View {
     var baseProtein: Double
     var targetSteps: Double
     var allSetups: [DailySetup]
+    var onWeeklyReport: ((Date) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var currentMonthOffset: Int = 0
     @State private var stepsByDay: [String: Double] = [:]
-
-    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -46,7 +45,7 @@ struct CustomCalendarView: View {
                 .padding(.horizontal)
                 .padding(.top, 25)
 
-                HStack {
+                HStack(spacing: 0) {
                     ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { day in
                         Text(day)
                             .font(.caption)
@@ -54,61 +53,22 @@ struct CustomCalendarView: View {
                             .foregroundColor(.appMuted)
                             .frame(maxWidth: .infinity)
                     }
+                    Color.clear.frame(width: 28)
                 }
 
-                LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(Array(extractDates().enumerated()), id: \.offset) { _, date in
-                        if let date {
-                            let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                            let dayAfterTomorrow = Calendar.current.date(byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
-                            let isFuture = date >= dayAfterTomorrow
-                            let dailyEntries = allEntries.filter {
-                                Calendar.current.isDate($0.date, inSameDayAs: date)
+                let weeks = extractWeeks()
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 0) {
+                        ForEach(0..<7, id: \.self) { index in
+                            if let date = week[index] {
+                                calendarCell(for: date)
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Color.clear.frame(maxWidth: .infinity).frame(height: 76)
                             }
-                            let trainingCalories = allTrainingEntries
-                                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-                                .reduce(0) { $0 + $1.caloriesBurned }
-                            let uploadedTrainingSteps = allTrainingEntries
-                                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-                                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
-                            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-                            let steps = stepsByDay[dateID] ?? 0
-                            let setup = calendarSetupIndex[dateID]
-                            let mode = DayMode.fromStoredValue(setup?.mode)
-                            let progress = DayProgressEngine.progress(
-                                date: date,
-                                foodEntries: dailyEntries,
-                                trainingCalories: trainingCalories,
-                                mode: mode,
-                                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
-                                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
-                                steps: steps,
-                                uploadedSteps: uploadedTrainingSteps,
-                                activityLevel: activityLevel,
-                                stepTarget: targetSteps
-                            )
-                            let calorieGoalMet = progress.calorieWin
-                            let proteinGoalMet = progress.proteinWin
-                            let stepsGoalMet = progress.stepWin
-                            let isPerfectDay = progress.isPerfectPastDay()
-
-                            CalendarDayCell(
-                                date: date,
-                                isSelected: isSelected,
-                                isFuture: isFuture,
-                                hasEntries: !dailyEntries.isEmpty,
-                                calorieGoalMet: calorieGoalMet,
-                                proteinGoalMet: proteinGoalMet,
-                                stepsGoalMet: stepsGoalMet,
-                                isPerfectDay: isPerfectDay,
-                                mode: mode
-                            ) {
-                                selectedDate = date
-                                dismiss()
-                            }
-                        } else {
-                            Color.clear.frame(width: 40, height: 76)
                         }
+                        weekReportButton(for: week)
+                            .frame(width: 28)
                     }
                 }
 
@@ -125,6 +85,94 @@ struct CustomCalendarView: View {
         .onChange(of: currentMonthOffset) { _, _ in
             loadStepsForVisibleMonth()
         }
+    }
+
+    @ViewBuilder
+    private func calendarCell(for date: Date) -> some View {
+        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+        let dayAfterTomorrow = Calendar.current.date(byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
+        let isFuture = date >= dayAfterTomorrow
+        let dailyEntries = allEntries.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: date)
+        }
+        let trainingCalories = allTrainingEntries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + $1.caloriesBurned }
+        let uploadedTrainingSteps = allTrainingEntries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+        let dateID = DateFormatter.yyyyMMdd.string(from: date)
+        let steps = stepsByDay[dateID] ?? 0
+        let setup = calendarSetupIndex[dateID]
+        let mode = DayMode.fromStoredValue(setup?.mode)
+        let progress = DayProgressEngine.progress(
+            date: date,
+            foodEntries: dailyEntries,
+            trainingCalories: trainingCalories,
+            mode: mode,
+            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+            steps: steps,
+            uploadedSteps: uploadedTrainingSteps,
+            activityLevel: activityLevel,
+            stepTarget: targetSteps
+        )
+
+        CalendarDayCell(
+            date: date,
+            isSelected: isSelected,
+            isFuture: isFuture,
+            hasEntries: !dailyEntries.isEmpty,
+            calorieGoalMet: progress.calorieWin,
+            proteinGoalMet: progress.proteinWin,
+            stepsGoalMet: progress.stepWin,
+            isPerfectDay: progress.isPerfectPastDay(),
+            mode: mode
+        ) {
+            selectedDate = date
+            dismiss()
+        }
+    }
+
+    @ViewBuilder
+    private func weekReportButton(for week: [Date?]) -> some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dates = week.compactMap { $0 }
+        let allPast = !dates.isEmpty && dates.allSatisfy { calendar.startOfDay(for: $0) < today }
+        let hasAnyData = allPast && dates.contains { date in
+            allEntries.contains { calendar.isDate($0.date, inSameDayAs: date) }
+            || allTrainingEntries.contains { calendar.isDate($0.date, inSameDayAs: date) }
+        }
+
+        if hasAnyData, let monday = dates.first, onWeeklyReport != nil {
+            Button {
+                onWeeklyReport?(monday)
+            } label: {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.neonGreen)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.neonGreen.opacity(0.15)))
+            }
+            .buttonStyle(.plain)
+        } else {
+            Color.clear.frame(width: 24, height: 24)
+        }
+    }
+
+    private func extractWeeks() -> [[Date?]] {
+        let flat = extractDates()
+        var weeks: [[Date?]] = []
+        var i = 0
+        while i < flat.count {
+            let end = min(i + 7, flat.count)
+            var week = Array(flat[i..<end])
+            while week.count < 7 { week.append(nil) }
+            weeks.append(week)
+            i += 7
+        }
+        return weeks
     }
 
     private func monthYearString(for offset: Int) -> String {

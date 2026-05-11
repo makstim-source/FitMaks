@@ -60,7 +60,8 @@ struct CustomCalendarView: View {
                     ForEach(Array(extractDates().enumerated()), id: \.offset) { _, date in
                         if let date {
                             let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                            let isFuture = date > Date()
+                            let dayAfterTomorrow = Calendar.current.date(byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
+                            let isFuture = date >= dayAfterTomorrow
                             let dailyEntries = allEntries.filter {
                                 Calendar.current.isDate($0.date, inSameDayAs: date)
                             }
@@ -228,6 +229,10 @@ private struct CalendarDayCell: View {
     var mode: DayMode
     var onTap: () -> Void
 
+    private var lightTheme: Bool {
+        isLightAppTheme()
+    }
+
     private var dayNumber: Int {
         Calendar.current.component(.day, from: date)
     }
@@ -257,7 +262,7 @@ private struct CalendarDayCell: View {
             .scaleEffect(isPerfectDay ? 1.06 : 1)
             .overlay(
                 Circle()
-                    .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
+                    .stroke(lightTheme ? Color.appAccentText.opacity(0.74) : Color.white, lineWidth: isSelected ? 2 : 0)
                     .frame(width: 52, height: 52)
             )
             .shadow(color: perfectGlowColor, radius: isPerfectDay ? 12 : 0, x: 0, y: 0)

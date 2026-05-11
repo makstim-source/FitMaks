@@ -78,20 +78,26 @@ extension HomeViewModel {
     }
 
     func changeDate(by days: Int) {
-        if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate),
-           newDate <= Date() {
+        let calendar = Calendar.current
+        let dayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: Date()))!
+        if let newDate = calendar.date(byAdding: .day, value: days, to: selectedDate),
+           newDate < dayAfterTomorrow {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             selectedDate = newDate
         }
     }
 
     func formatDate(_ date: Date) -> String {
-        if Calendar.current.isDateInToday(date) {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
             return "Today"
+        }
+        if calendar.isDateInTomorrow(date) {
+            return "Tomorrow"
         }
 
         let formatter = DateFormatter()
-        formatter.dateFormat = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
+        formatter.dateFormat = calendar.isDate(date, equalTo: Date(), toGranularity: .year)
             ? "MMM d"
             : "MMM d, yyyy"
         return formatter.string(from: date)

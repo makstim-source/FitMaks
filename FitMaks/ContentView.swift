@@ -474,8 +474,8 @@ struct ContentView: View {
                         .background(Circle().fill(themeChromeGradient()))
                         .overlay(Circle().stroke(headerAccent.opacity(pastel ? 0.24 : 0.14), lineWidth: 1))
                 }
-                .opacity(Calendar.current.isDateInToday(viewModel.selectedDate) ? 0 : 1)
-                .disabled(Calendar.current.isDateInToday(viewModel.selectedDate))
+                .opacity(Calendar.current.isDateInTomorrow(viewModel.selectedDate) ? 0 : 1)
+                .disabled(Calendar.current.isDateInTomorrow(viewModel.selectedDate))
             }
 
             Spacer()
@@ -610,7 +610,9 @@ struct ContentView: View {
 
         return VStack(alignment: .leading, spacing: 7) {
             if shouldShowPlanPrompt {
-                Text("What's your plan for today?")
+                Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
+                     ? "Plan tomorrow's mode"
+                     : "What's your plan for today?")
                     .font(.system(size: 11, weight: .heavy))
                     .foregroundColor(.appMuted)
                     .padding(.horizontal, 2)
@@ -694,7 +696,9 @@ struct ContentView: View {
     }
 
     private var shouldShowPlanPrompt: Bool {
-        Calendar.current.isDateInToday(viewModel.selectedDate) && setup(for: viewModel.selectedDate) == nil
+        let cal = Calendar.current
+        let date = viewModel.selectedDate
+        return (cal.isDateInToday(date) || cal.isDateInTomorrow(date)) && setup(for: date) == nil
     }
 
     private func modeAccentColor(_ mode: DayMode, iphoneGlass: Bool) -> Color {

@@ -36,6 +36,7 @@ final class HomeViewModel {
     var pendingAchievementBanners: [StatsAchievement] = []
     var isShowingAIAssistant = false
     var isShowingGoalBreakdown = false
+    var isShowingWeeklyReport = false
     var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
     var aiErrorMessage: String?
     var pendingAIReview: AIResultReview?

@@ -1,0 +1,412 @@
+import SwiftUI
+
+// MARK: - Data
+
+struct WeeklyReportData: Identifiable {
+    let id = UUID()
+    let weekStart: Date
+    let weekEnd: Date
+    let days: [DayProgress]
+
+    var perfectDays: Int { days.filter(\.isPerfect).count }
+    var calorieWins: Int { days.filter(\.calorieWin).count }
+    var proteinWins: Int { days.filter(\.proteinWin).count }
+    var stepWins: Int { days.filter(\.stepWin).count }
+    var completedChecks: Int { calorieWins + proteinWins + stepWins }
+    var totalChecks: Int { days.count * 3 }
+
+    var weeklyScore: Int {
+        guard totalChecks > 0 else { return 0 }
+        return Int((Double(completedChecks) / Double(totalChecks) * 100).rounded())
+    }
+
+    var avgCalories: Double {
+        guard !days.isEmpty else { return 0 }
+        return days.map(\.consumed).reduce(0, +) / Double(days.count)
+    }
+
+    var avgCalorieTarget: Double {
+        guard !days.isEmpty else { return 0 }
+        return days.map(\.target).reduce(0, +) / Double(days.count)
+    }
+
+    var avgProtein: Double {
+        guard !days.isEmpty else { return 0 }
+        return days.map(\.protein).reduce(0, +) / Double(days.count)
+    }
+
+    var avgProteinTarget: Double {
+        guard !days.isEmpty else { return 0 }
+        return days.map(\.proteinTarget).reduce(0, +) / Double(days.count)
+    }
+
+    var totalSteps: Double {
+        days.map(\.effectiveSteps).reduce(0, +)
+    }
+
+    var modeBreakdown: [(mode: DayMode, count: Int)] {
+        var counts: [DayMode: Int] = [:]
+        for day in days { counts[day.mode, default: 0] += 1 }
+        return DayMode.allCases.compactMap { mode in
+            guard let count = counts[mode], count > 0 else { return nil }
+            return (mode, count)
+        }
+    }
+
+    var dateRangeLabel: String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return "\(f.string(from: weekStart)) — \(f.string(from: weekEnd))"
+    }
+
+    var weekID: String {
+        DateFormatter.yyyyMMdd.string(from: weekStart)
+    }
+
+    var scoreColor: Color {
+        switch weeklyScore {
+        case 80...100: return .neonGreen
+        case 60..<80: return .neonCyan
+        case 40..<60: return .fitOrange
+        default: return .red
+        }
+    }
+
+    var scoreEmoji: String {
+        switch weeklyScore {
+        case 90...100: return "🏆"
+        case 75..<90: return "💪"
+        case 50..<75: return "👍"
+        case 25..<50: return "🔄"
+        default: return "🌱"
+        }
+    }
+
+    var scoreLabel: String {
+        switch weeklyScore {
+        case 90...100: return "Outstanding"
+        case 75..<90: return "Great week"
+        case 50..<75: return "Solid effort"
+        case 25..<50: return "Room to grow"
+        default: return "Fresh start"
+        }
+    }
+
+    static func previousWeek(from stats: [DayProgress]) -> WeeklyReportData? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let weekday = calendar.component(.weekday, from: today)
+        let daysSinceMonday = (weekday + 5) % 7
+        let thisMonday = calendar.date(byAdding: .day, value: -daysSinceMonday, to: today)!
+        let prevMonday = calendar.date(byAdding: .day, value: -7, to: thisMonday)!
+        let prevSunday = calendar.date(byAdding: .day, value: 6, to: prevMonday)!
+
+        let weekDays = stats.filter { day in
+            let d = calendar.startOfDay(for: day.date)
+            return d >= prevMonday && d <= prevSunday
+        }.sorted { $0.date < $1.date }
+
+        guard !weekDays.isEmpty else { return nil }
+        return WeeklyReportData(weekStart: prevMonday, weekEnd: prevSunday, days: weekDays)
+    }
+}
+
+// MARK: - Banner
+
+struct WeeklyReportBanner: View {
+    let report: WeeklyReportData
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(report.scoreColor.opacity(0.18))
+                    Text(report.scoreEmoji)
+                        .font(.system(size: 20))
+                }
+                .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Weekly Report")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text("\(report.dateRangeLabel) · \(report.weeklyScore)% score")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.appMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(report.scoreColor)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [report.scoreColor.opacity(0.10), Color.appSurface],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(report.scoreColor.opacity(0.22), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Sheet
+
+struct WeeklyReportSheet: View {
+    let report: WeeklyReportData
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 18) {
+                        scoreCard
+                        weekGrid
+                        statsCards
+                    }
+                    .padding()
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Weekly Report")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.neonGreen)
+                        .bold()
+                }
+            }
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    // MARK: - Score
+
+    private var scoreCard: some View {
+        VStack(spacing: 14) {
+            Text("WEEKLY REPORT")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(report.scoreColor)
+                .tracking(1.2)
+
+            Text(report.dateRangeLabel)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.appMuted)
+
+            Text("\(report.weeklyScore)%")
+                .font(.system(size: 56, weight: .black))
+                .foregroundColor(report.scoreColor)
+
+            Text("\(report.scoreEmoji) \(report.scoreLabel)")
+                .font(.system(size: 16, weight: .heavy))
+                .foregroundColor(.appText)
+
+            Text("\(report.perfectDays)/7 perfect days")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.appMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(Color.appElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(report.scoreColor.opacity(0.22), lineWidth: 1)
+                )
+        )
+        .shadow(color: report.scoreColor.opacity(0.12), radius: 18, x: 0, y: 8)
+    }
+
+    // MARK: - Week Grid
+
+    private var weekGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("DAY BY DAY")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            HStack(spacing: 6) {
+                ForEach(report.days, id: \.date) { day in
+                    dayColumn(day)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.appSurface)
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.appBorder, lineWidth: 1))
+        )
+    }
+
+    private func dayColumn(_ day: DayProgress) -> some View {
+        let dayName = day.date.formatted(.dateTime.weekday(.abbreviated))
+
+        return VStack(spacing: 6) {
+            Text(dayName)
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+
+            ZStack {
+                Circle()
+                    .fill(day.isPerfect ? Color.neonGreen.opacity(0.18) : Color.appElevated)
+                    .overlay(
+                        Circle()
+                            .stroke(day.isPerfect ? Color.neonGreen.opacity(0.5) : Color.appBorder, lineWidth: 1)
+                    )
+
+                if day.isPerfect {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundColor(.neonGreen)
+                } else {
+                    VStack(spacing: 2) {
+                        HStack(spacing: 2) {
+                            Circle().fill(day.calorieWin ? Color.neonGreen : Color.appBorder).frame(width: 5, height: 5)
+                            Circle().fill(day.proteinWin ? Color.neonCyan : Color.appBorder).frame(width: 5, height: 5)
+                        }
+                        Circle().fill(day.stepWin ? Color.fitOrange : Color.appBorder).frame(width: 5, height: 5)
+                    }
+                }
+            }
+            .frame(width: 38, height: 38)
+
+            Text(day.mode.emoji)
+                .font(.system(size: 14))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Stats Cards
+
+    private var statsCards: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                metricCard(
+                    title: "AVG CALORIES",
+                    value: "\(Int(report.avgCalories))",
+                    target: "/ \(Int(report.avgCalorieTarget)) kcal",
+                    detail: "\(report.calorieWins)/7 on target",
+                    color: .neonGreen
+                )
+
+                metricCard(
+                    title: "AVG PROTEIN",
+                    value: "\(Int(report.avgProtein))g",
+                    target: "/ \(Int(report.avgProteinTarget))g",
+                    detail: "\(report.proteinWins)/7 on target",
+                    color: .neonCyan
+                )
+            }
+
+            HStack(spacing: 10) {
+                metricCard(
+                    title: "TOTAL STEPS",
+                    value: Int(report.totalSteps).formatted(),
+                    target: "",
+                    detail: "\(report.stepWins)/7 hit target",
+                    color: .fitOrange
+                )
+
+                modeCard
+            }
+        }
+    }
+
+    private func metricCard(title: String, value: String, target: String, detail: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.7)
+
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 22, weight: .black))
+                    .foregroundColor(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if !target.isEmpty {
+                    Text(target)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.appMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+
+            Text(detail)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.appMuted)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.appElevated)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+        )
+    }
+
+    private var modeCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("TRAINING MIX")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.7)
+
+            if report.modeBreakdown.isEmpty {
+                Text("No data")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.appMuted)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(report.modeBreakdown, id: \.mode) { item in
+                        HStack(spacing: 5) {
+                            Text(item.mode.emoji)
+                                .font(.system(size: 13))
+                            Text("\(item.count)x")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundColor(.appText)
+                        }
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.appElevated)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+        )
+    }
+}

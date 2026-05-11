@@ -26,6 +26,7 @@ struct ContentView: View {
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
     @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
+    @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()
 
@@ -154,6 +155,11 @@ struct ContentView: View {
     var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
+    var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats) }
+    var shouldShowWeeklyBanner: Bool {
+        guard let report = previousWeekReport else { return false }
+        return lastViewedWeeklyReportID != report.weekID
+    }
 
     var unlockedAchievementSignature: String {
         homeAchievementCollection.all
@@ -186,6 +192,12 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
+                if shouldShowWeeklyBanner, let report = previousWeekReport {
+                    WeeklyReportBanner(report: report) {
+                        viewModel.isShowingWeeklyReport = true
+                    }
+                    .padding(.horizontal, 15)
+                }
                 timelinePanel
                 bottomDock
             }
@@ -265,6 +277,13 @@ struct ContentView: View {
                 calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein,
                 postOptions: universalPostOptions()
             )
+        }
+        .sheet(isPresented: $viewModel.isShowingWeeklyReport) {
+            if let report = previousWeekReport {
+                WeeklyReportSheet(report: report)
+                    .onAppear { lastViewedWeeklyReportID = report.weekID }
+                    .presentationDetents([.large])
+            }
         }
         .sheet(isPresented: $viewModel.isShowingStats) {
             StatsView(

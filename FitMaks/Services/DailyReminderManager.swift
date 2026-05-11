@@ -51,6 +51,18 @@ final class DailyReminderManager {
 
             let isToday = calendar.isDate(day, inSameDayAs: now)
 
+            if calendar.component(.weekday, from: day) == 2 {
+                scheduleReminder(
+                    identifier: weeklyReportIdentifier(for: day),
+                    title: "Weekly report ready",
+                    body: "Your previous week is summarized. See how you did!",
+                    hour: 9,
+                    minute: 0,
+                    day: day,
+                    now: now
+                )
+            }
+
             if !isToday || !hasFoodToday {
                 scheduleReminder(
                     identifier: breakfastIdentifier(for: day),
@@ -142,7 +154,11 @@ final class DailyReminderManager {
                 return []
             }
 
-            return [breakfastIdentifier(for: day), eveningIdentifier(for: day)]
+            var ids = [breakfastIdentifier(for: day), eveningIdentifier(for: day)]
+            if calendar.component(.weekday, from: day) == 2 {
+                ids.append(weeklyReportIdentifier(for: day))
+            }
+            return ids
         }
     }
 
@@ -152,5 +168,9 @@ final class DailyReminderManager {
 
     private func eveningIdentifier(for date: Date) -> String {
         "fitmaks.evening.\(DateFormatter.yyyyMMdd.string(from: date))"
+    }
+
+    private func weeklyReportIdentifier(for date: Date) -> String {
+        "fitmaks.weekly.\(DateFormatter.yyyyMMdd.string(from: date))"
     }
 }

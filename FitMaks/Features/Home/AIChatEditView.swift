@@ -18,6 +18,7 @@ struct AIChatEditView: View {
     @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isShowingSaveDialog = false
     @State private var saveConfirmationText: String?
+    @State private var healthCommentLoaded = false
     @FocusState private var isInputFocused: Bool
 
     var onShare: (() -> Void)? = nil
@@ -227,6 +228,10 @@ struct AIChatEditView: View {
             if messages.isEmpty {
                 messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true))
             }
+            if !healthCommentLoaded {
+                healthCommentLoaded = true
+                fetchHealthComment()
+            }
         }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
             Button("Camera") {
@@ -344,6 +349,18 @@ struct AIChatEditView: View {
                 messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
+
+    private func fetchHealthComment() {
+        isWaiting = true
+        let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients_breakdown: entry.ingredients, ai_response_text: "")
+        GeminiService.shared.refineAnalysis(image: nil, currentData: current, userComment: "Rate this dish from a healthy eating perspective. 2-3 short sentences: is it a good choice, pros and cons for health and fitness goals. DO NOT change any calorie or macro values — only write your commentary in ai_response_text. Respond in the same language as the food name.", userName: AuthService.shared.displayName) { result, error in
+            isWaiting = false
+            if let res = result {
+                let comment = res.ai_response_text.isEmpty ? "Looks balanced overall." : res.ai_response_text
+                messages.append(ChatMessage(text: comment, isUser: false, shouldTypewrite: true))
             }
         }
     }

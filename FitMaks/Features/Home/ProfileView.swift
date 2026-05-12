@@ -349,6 +349,14 @@ struct ProfileView: View {
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+            } else {
+                Button {
+                    Task { await sub.restorePurchases() }
+                } label: {
+                    Text("Restore Purchases")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(.appMuted)
+                }
             }
         }
         .padding(16)
@@ -1746,6 +1754,8 @@ struct ProfileView: View {
     }
 
     private func analyzeBodyImage(_ image: UIImage) {
+        guard AIUsageLimiter.canScan else { isShowingPaywall = true; selectedBodyImage = nil; return }
+        AIUsageLimiter.recordScan()
         isAnalyzingBodyScan = true
         bodyScanError = nil
 

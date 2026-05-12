@@ -223,6 +223,8 @@ extension HomeViewModel {
     }
 
     func processFridgeQueue(items: [ProcessingItem]) {
+        guard canUseFreeAIScan else { isShowingPaywall = true; return }
+        for _ in items { AIUsageLimiter.recordScan() }
         Task {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {
@@ -257,6 +259,8 @@ extension HomeViewModel {
     }
 
     func processReceiptQueue(items: [ProcessingItem]) {
+        guard canUseFreeAIScan else { isShowingPaywall = true; return }
+        for _ in items { AIUsageLimiter.recordScan() }
         Task {
             await withTaskGroup(of: (UUID, [FoodResult]?, String?).self) { group in
                 for item in items {

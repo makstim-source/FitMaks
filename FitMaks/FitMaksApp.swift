@@ -33,6 +33,13 @@ struct FitMaksApp: App {
         AppTheme.resolvedTheme(for: selectedThemeID)
     }
 
+    private var rootViewIdentity: String {
+        if !hasSeenSignIn || !hasCompletedOnboarding {
+            return "setup-flow"
+        }
+        return selectedTheme.id
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {
@@ -65,7 +72,7 @@ struct FitMaksApp: App {
                         .zIndex(10)
                 }
             }
-            .id(selectedTheme.id)
+            .id(rootViewIdentity)
             .preferredColorScheme(selectedTheme.palette.preferredScheme)
             .task {
                 guard isShowingLaunchSplash else { return }
@@ -169,6 +176,7 @@ private struct OnboardingView: View {
     @AppStorage("userGoal") private var goal: String = "Lose Weight"
     @AppStorage("userActivity") private var activityLevel: String = "Moderate"
     @AppStorage("useCustomGoals") private var useCustomGoals: Bool = false
+    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
     @State private var page = 0
 
@@ -210,15 +218,21 @@ private struct OnboardingView: View {
         ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse")
     ]
 
-    @State private var disclaimerAccepted = false
+    private var selectedTheme: AppTheme {
+        AppTheme.resolvedTheme(for: selectedThemeID)
+    }
 
     private var pageCount: Int { introPages.count + 3 }
     private var bodySetupPageIndex: Int { introPages.count }
     private var goalSetupPageIndex: Int { introPages.count + 1 }
-    private var disclaimerPageIndex: Int { introPages.count + 2 }
+    private var themeSetupPageIndex: Int { introPages.count + 2 }
     private var currentColor: Color {
         if page < introPages.count {
             return introPages[page].color
+        }
+
+        if page == themeSetupPageIndex {
+            return selectedTheme.palette.primary
         }
 
         return page == bodySetupPageIndex ? .fitPurple : .neonGreen
@@ -281,10 +295,8 @@ private struct OnboardingView: View {
                     }
 
                     Button(action: primaryAction) {
-                        let disabled = page == disclaimerPageIndex && !disclaimerAccepted
-
                         HStack {
-                            Text(page == pageCount - 1 ? "Start tracking" : "Next")
+                            Text(primaryButtonTitle)
                                 .font(.system(size: 17, weight: .black))
 
                             Image(systemName: page == pageCount - 1 ? "checkmark" : "arrow.right")
@@ -295,14 +307,16 @@ private struct OnboardingView: View {
                         .frame(height: 52)
                         .background(
                             Capsule()
-                                .fill(currentColor.opacity(disabled ? 0.35 : 1))
-                                .shadow(color: currentColor.opacity(disabled ? 0 : 0.45), radius: 18, x: 0, y: 8)
+                                .fill(currentColor)
+                                .shadow(color: currentColor.opacity(0.45), radius: 18, x: 0, y: 8)
                         )
                     }
                     .buttonStyle(.plain)
 
                     Text(page < introPages.count
                          ? "You can change anything later."
+                         : page == themeSetupPageIndex
+                         ? "This is just the visual mood. You can switch themes later in Profile."
                          : "Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.appMuted)
@@ -314,6 +328,13 @@ private struct OnboardingView: View {
                 .padding(.bottom, 22)
             }
         }
+    }
+
+    private var primaryButtonTitle: String {
+        if page == pageCount - 1 {
+            return "Start with \(selectedTheme.palette.name)"
+        }
+        return "Next"
     }
 
     private var onboardingBackground: some View {
@@ -345,7 +366,7 @@ private struct OnboardingView: View {
         } else if index == goalSetupPageIndex {
             goalSetupPage
         } else {
-            disclaimerPage
+            themeSetupPage
         }
     }
 
@@ -412,13 +433,92 @@ private struct OnboardingView: View {
 
     private func primaryAction() {
         if page == pageCount - 1 {
-            guard disclaimerAccepted else { return }
             useCustomGoals = false
             onComplete()
         } else {
             withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
                 page += 1
             }
+        }
+    }
+
+    private var themeSetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "FINAL TOUCH",
+                    title: "Choose your launch look.",
+                    subtitle: "Pick how FitMaks should feel on day one. You can always change it later.",
+                    systemName: "paintpalette.fill",
+                    color: selectedTheme.palette.primary
+                )
+
+                ThemePickerGrid(selectedThemeID: $selectedThemeID)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(selectedTheme.palette.name)
+                                .font(.system(size: 22, weight: .black))
+                                .foregroundColor(.appText)
+
+                            Text(selectedTheme.palette.subtitle)
+                                .font(.caption)
+                                .fontWeight(.heavy)
+                                .foregroundColor(selectedTheme.palette.primary)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: -5) {
+                            onboardingSwatch(selectedTheme.palette.primary)
+                            onboardingSwatch(selectedTheme.palette.secondary)
+                            onboardingSwatch(selectedTheme.palette.action)
+                        }
+                    }
+
+                    Text(selectedTheme.palette.description)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.appMuted)
+                        .lineSpacing(3)
+
+                    HStack(spacing: 9) {
+                        onboardingThemePreviewMetric(title: "Calories", value: "640", color: .neonGreen)
+                        onboardingThemePreviewMetric(title: "Protein", value: "142g", color: .neonCyan)
+                        onboardingThemePreviewMetric(title: "Streak", value: "3", color: .fitOrange)
+                    }
+                }
+                .padding(17)
+                .background(
+                    RoundedRectangle(cornerRadius: 26)
+                        .fill(themeCardGradient(selectedTheme))
+                        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
+                )
+                .shadow(color: themeShadowColor(selectedTheme), radius: 18, x: 0, y: 10)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("You’re ready.")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text("Your goals are set, your starting data is in, and \(selectedTheme.palette.name) will be your default look.")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.appMuted)
+                        .lineSpacing(3)
+
+                    HStack(spacing: 8) {
+                        themeFinishPill("Goals set", color: .neonGreen)
+                        themeFinishPill("Theme chosen", color: selectedTheme.palette.primary, isSolid: true)
+                        themeFinishPill("Ready to log", color: .fitOrange)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
     }
 
@@ -494,96 +594,6 @@ private struct OnboardingView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
-        }
-    }
-
-    private var disclaimerPage: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                setupHeader(
-                    eyebrow: "IMPORTANT",
-                    title: "Before you start.",
-                    subtitle: "Please read and accept the following.",
-                    systemName: "heart.text.clipboard",
-                    color: .fitOrange
-                )
-
-                VStack(alignment: .leading, spacing: 14) {
-                    disclaimerItem(
-                        icon: "stethoscope",
-                        title: "Not medical advice",
-                        text: "FitMaks provides AI-powered nutritional estimates for informational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment."
-                    )
-
-                    disclaimerItem(
-                        icon: "brain.head.profile",
-                        title: "AI estimates may be inaccurate",
-                        text: "Calorie and macro calculations are approximate. Always verify important nutritional data with product labels or a registered dietitian."
-                    )
-
-                    disclaimerItem(
-                        icon: "person.badge.shield.checkmark",
-                        title: "Consult a professional",
-                        text: "Before starting any diet or fitness program, consult your doctor or qualified healthcare provider, especially if you have medical conditions."
-                    )
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(Color.appSurface)
-                        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-                )
-
-                Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        disclaimerAccepted.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: disclaimerAccepted ? "checkmark.square.fill" : "square")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(disclaimerAccepted ? .neonGreen : .appMuted)
-
-                        Text("I understand and accept")
-                            .font(.system(size: 15, weight: .heavy))
-                            .foregroundColor(.appText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(disclaimerAccepted ? Color.neonGreen.opacity(0.10) : Color.appElevated)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .stroke(disclaimerAccepted ? Color.neonGreen.opacity(0.35) : Color.appBorder, lineWidth: 1)
-                            )
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-        }
-    }
-
-    private func disclaimerItem(icon: String, title: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.fitOrange)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 14, weight: .black))
-                    .foregroundColor(.appText)
-
-                Text(text)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.appMuted)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 
@@ -714,6 +724,46 @@ private struct OnboardingView: View {
         .padding(15)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.22), lineWidth: 1))
+    }
+
+    private func onboardingThemePreviewMetric(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.6)
+
+            Text(value)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 17).fill(themeChromeGradient(selectedTheme)))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private func onboardingSwatch(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 28, height: 28)
+            .overlay(Circle().stroke(Color.appText.opacity(0.22), lineWidth: 1))
+    }
+
+    private func themeFinishPill(_ title: String, color: Color, isSolid: Bool = false) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .heavy))
+            .foregroundColor(isSolid ? .appAccentText : .appText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(color.opacity(isSolid ? 1 : 0.14))
+                    .overlay(
+                        Capsule()
+                            .stroke(color.opacity(0.22), lineWidth: 1)
+                    )
+            )
     }
 }
 

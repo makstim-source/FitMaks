@@ -35,6 +35,8 @@ struct StatsChallengeCard: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
@@ -53,7 +55,7 @@ struct StatsChallengeCard: View {
 
                 Text(text)
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(light ? .appMuted : .gray)
                     .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -82,12 +84,14 @@ struct StatsScorePill: View {
     let icon: String
 
     var body: some View {
+        let light = isLightAppTheme()
+
         HStack(spacing: 7) {
             Image(systemName: icon)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
                     .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(.black.opacity(0.55))
+                    .foregroundColor(light ? .appMuted : .black.opacity(0.55))
                 Text(value)
                     .font(.system(size: 14, weight: .black))
                     .foregroundColor(.appAccentText)
@@ -95,7 +99,11 @@ struct StatsScorePill: View {
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 8)
-        .background(Capsule().fill(Color.appElevated))
+        .background(Capsule().fill(light ? Color.appSurface.opacity(0.92) : Color.appElevated))
+        .overlay(
+            Capsule()
+                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+        )
     }
 }
 
@@ -107,6 +115,8 @@ struct StatsMetricCard: View {
     let color: Color
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: icon)
                 .font(.headline)
@@ -117,7 +127,7 @@ struct StatsMetricCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(light ? .appMuted : .gray)
 
                 Text(value)
                     .font(.system(size: 28, weight: .black))
@@ -125,7 +135,7 @@ struct StatsMetricCard: View {
 
                 Text(subtitle)
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(light ? .appMuted : .gray)
                     .lineLimit(1)
             }
         }
@@ -142,12 +152,18 @@ struct StatsBadgeChip: View {
     let color: Color
 
     var body: some View {
+        let light = isLightAppTheme()
+
         Text(text)
             .font(.system(size: 11, weight: .black))
-            .foregroundColor(isOn ? .black : .gray)
+            .foregroundColor(isOn ? .black : (light ? .appMuted : .gray))
             .frame(width: 26, height: 22)
-            .background(Capsule().fill(isOn ? color : Color.appBorder))
+            .background(Capsule().fill(isOn ? color : (light ? Color.appSurface : Color.appBorder)))
             .shadow(color: isOn ? color.opacity(0.45) : .clear, radius: 7)
+            .overlay(
+                Capsule()
+                    .stroke(light && !isOn ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+            )
     }
 }
 

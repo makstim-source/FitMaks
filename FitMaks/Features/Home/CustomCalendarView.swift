@@ -15,6 +15,16 @@ struct CustomCalendarView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentMonthOffset: Int = 0
     @State private var stepsByDay: [String: Double] = [:]
+    @State private var progressCache: [String: CachedDayInfo] = [:]
+
+    private struct CachedDayInfo {
+        let hasEntries: Bool
+        let calorieWin: Bool
+        let proteinWin: Bool
+        let stepWin: Bool
+        let isPerfect: Bool
+        let mode: DayMode
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -81,9 +91,16 @@ struct CustomCalendarView: View {
             LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                 .edgesIgnoringSafeArea(.all)
         )
-        .onAppear(perform: loadStepsForVisibleMonth)
+        .onAppear {
+            loadStepsForVisibleMonth()
+            rebuildProgressCache()
+        }
         .onChange(of: currentMonthOffset) { _, _ in
             loadStepsForVisibleMonth()
+            rebuildProgressCache()
+        }
+        .onChange(of: stepsByDay) { _, _ in
+            rebuildProgressCache()
         }
     }
 
@@ -92,42 +109,19 @@ struct CustomCalendarView: View {
         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
         let dayAfterTomorrow = Calendar.current.date(byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
         let isFuture = date >= dayAfterTomorrow
-        let dailyEntries = allEntries.filter {
-            Calendar.current.isDate($0.date, inSameDayAs: date)
-        }
-        let trainingCalories = allTrainingEntries
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + $1.caloriesBurned }
-        let uploadedTrainingSteps = allTrainingEntries
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let steps = stepsByDay[dateID] ?? 0
-        let setup = calendarSetupIndex[dateID]
-        let mode = DayMode.fromStoredValue(setup?.mode)
-        let progress = DayProgressEngine.progress(
-            date: date,
-            foodEntries: dailyEntries,
-            trainingCalories: trainingCalories,
-            mode: mode,
-            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
-            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
-            steps: steps,
-            uploadedSteps: uploadedTrainingSteps,
-            activityLevel: activityLevel,
-            stepTarget: targetSteps
-        )
+        let cached = progressCache[dateID]
 
         CalendarDayCell(
             date: date,
             isSelected: isSelected,
             isFuture: isFuture,
-            hasEntries: !dailyEntries.isEmpty,
-            calorieGoalMet: progress.calorieWin,
-            proteinGoalMet: progress.proteinWin,
-            stepsGoalMet: progress.stepWin,
-            isPerfectDay: progress.isPerfectPastDay(),
-            mode: mode
+            hasEntries: cached?.hasEntries ?? false,
+            calorieGoalMet: cached?.calorieWin ?? false,
+            proteinGoalMet: cached?.proteinWin ?? false,
+            stepsGoalMet: cached?.stepWin ?? false,
+            isPerfectDay: cached?.isPerfect ?? false,
+            mode: cached?.mode ?? .chill
         ) {
             selectedDate = date
             dismiss()
@@ -228,6 +222,57 @@ struct CustomCalendarView: View {
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
         let modeString = calendarSetupIndex[dateID]?.mode
         return DayMode.fromStoredValue(modeString)
+    }
+
+    private func rebuildProgressCache() {
+        let calendar = Calendar.current
+        let dates = extractDates().compactMap { $0 }
+        let index = calendarSetupIndex
+
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
+        }
+
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        var newCache: [String: CachedDayInfo] = [:]
+        for date in dates {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let dayFood = foodByDay[dateID] ?? []
+            let training = trainingByDay[dateID] ?? (0, 0)
+            let progress = DayProgressEngine.progress(
+                date: date,
+                foodEntries: dayFood,
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: stepsByDay[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: targetSteps
+            )
+            newCache[dateID] = CachedDayInfo(
+                hasEntries: !dayFood.isEmpty,
+                calorieWin: progress.calorieWin,
+                proteinWin: progress.proteinWin,
+                stepWin: progress.stepWin,
+                isPerfect: progress.isPerfectPastDay(),
+                mode: mode
+            )
+        }
+        progressCache = newCache
     }
 
     private func loadStepsForVisibleMonth() {

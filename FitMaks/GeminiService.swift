@@ -197,9 +197,13 @@ class GeminiService {
     
     private let baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     private let foodCacheQueue = DispatchQueue(label: "FitMaks.foodEstimateCache")
+    private let maxCacheSize = 50
     private var foodImageEstimateCache: [String: FoodResult] = [:]
+    private var foodImageEstimateKeys: [String] = []
     private var foodImageItemsCache: [String: [FoodResult]] = [:]
+    private var foodImageItemsKeys: [String] = []
     private var foodTextEstimateCache: [String: FoodResult] = [:]
+    private var foodTextEstimateKeys: [String] = []
     
     func analyzeImages(images: [UIImage], ignoreCache: Bool = false, completion: @escaping (FoodResult?, String?) -> Void) {
         let cacheKey = foodImageCacheKey(images: images)
@@ -470,7 +474,9 @@ class GeminiService {
 
         foodCacheQueue.async {
             self.foodImageEstimateCache.removeValue(forKey: key)
+            self.foodImageEstimateKeys.removeAll { $0 == key }
             self.foodImageItemsCache.removeValue(forKey: key)
+            self.foodImageItemsKeys.removeAll { $0 == key }
         }
     }
     
@@ -961,7 +967,14 @@ class GeminiService {
 
     private func cacheFoodImageEstimate(_ result: FoodResult, for key: String) {
         foodCacheQueue.async {
+            if self.foodImageEstimateCache[key] == nil {
+                self.foodImageEstimateKeys.append(key)
+            }
             self.foodImageEstimateCache[key] = result
+            while self.foodImageEstimateCache.count > self.maxCacheSize, let oldest = self.foodImageEstimateKeys.first {
+                self.foodImageEstimateKeys.removeFirst()
+                self.foodImageEstimateCache.removeValue(forKey: oldest)
+            }
         }
     }
 
@@ -973,7 +986,14 @@ class GeminiService {
 
     private func cacheFoodImageItems(_ result: [FoodResult], for key: String) {
         foodCacheQueue.async {
+            if self.foodImageItemsCache[key] == nil {
+                self.foodImageItemsKeys.append(key)
+            }
             self.foodImageItemsCache[key] = result
+            while self.foodImageItemsCache.count > self.maxCacheSize, let oldest = self.foodImageItemsKeys.first {
+                self.foodImageItemsKeys.removeFirst()
+                self.foodImageItemsCache.removeValue(forKey: oldest)
+            }
         }
     }
 
@@ -985,7 +1005,14 @@ class GeminiService {
 
     private func cacheFoodTextEstimate(_ result: FoodResult, for key: String) {
         foodCacheQueue.async {
+            if self.foodTextEstimateCache[key] == nil {
+                self.foodTextEstimateKeys.append(key)
+            }
             self.foodTextEstimateCache[key] = result
+            while self.foodTextEstimateCache.count > self.maxCacheSize, let oldest = self.foodTextEstimateKeys.first {
+                self.foodTextEstimateKeys.removeFirst()
+                self.foodTextEstimateCache.removeValue(forKey: oldest)
+            }
         }
     }
 }

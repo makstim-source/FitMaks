@@ -17,38 +17,16 @@ struct StatsView: View {
     @State private var achievementBanner: StatsAchievement?
     @State private var pendingAchievementBanners: [StatsAchievement] = []
     @State private var livePayload: FitMaksSharePayload?
+    @State private var cachedStats: [WeekStat] = []
+    @State private var cachedLast30Stats: [WeekStat] = []
+    @State private var cachedAchievements: StatsAchievementCollection?
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
     typealias WeekStat = DayProgress
 
-    private var setupIndex: [String: DailySetup] {
-        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
-    }
-
-    var stats: [WeekStat] {
-        let calendar = Calendar.current
-        let index = setupIndex
-
-        return (0..<7).map { i in
-            let date = calendar.date(byAdding: .day, value: -i, to: Date()) ?? Date()
-            return stat(for: date, setupIndex: index)
-        }
-    }
-
-    var last30Stats: [WeekStat] {
-        let calendar = Calendar.current
-        let index = setupIndex
-
-        return (0..<30).compactMap { i in
-            let daysBack = 29 - i
-            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
-                return nil
-            }
-
-            return stat(for: date, setupIndex: index)
-        }
-    }
+    var stats: [WeekStat] { cachedStats }
+    var last30Stats: [WeekStat] { cachedLast30Stats }
 
     var calorieWins: Int { stats.filter { $0.calorieWin }.count }
     var proteinWins: Int { stats.filter { $0.proteinWin }.count }
@@ -69,23 +47,10 @@ struct StatsView: View {
         AchievementEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true)
     }
 
-    private var currentSevenDayStats: [WeekStat] {
-        let calendar = Calendar.current
-        let index = setupIndex
-
-        return (0..<7).compactMap { i in
-            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else {
-                return nil
-            }
-
-            return stat(for: date, setupIndex: index)
-        }
-    }
-
     private var achievementCollection: StatsAchievementCollection {
-        AchievementEngine.achievementCollection(
+        cachedAchievements ?? AchievementEngine.achievementCollection(
             last30Stats: last30Stats,
-            recentSevenDayStats: currentSevenDayStats,
+            recentSevenDayStats: stats,
             foodEntries: allFoodEntries
         )
     }
@@ -99,6 +64,8 @@ struct StatsView: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         NavigationView {
             ZStack {
                 LinearGradient(
@@ -178,25 +145,33 @@ struct StatsView: View {
                         .foregroundColor(.fitOrange)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.appElevated))
-                        .shadow(color: .fitOrange.opacity(0.35), radius: 8)
+                        .background(Capsule().fill(light ? Color.appSurface : Color.appElevated))
+                        .overlay(
+                            Capsule()
+                                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+                        )
+                        .shadow(color: light ? Color.black.opacity(0.05) : .fitOrange.opacity(0.35), radius: 8)
                     }
                     .buttonStyle(.plain)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") { dismiss() }
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(light ? .appAccentText : .neonGreen)
                         .bold()
                 }
             }
             .onAppear {
+                rebuildStats()
                 HealthKitManager.shared.fetchWeeklySteps { steps in
                     DispatchQueue.main.async {
                         self.weeklySteps = steps
                     }
                 }
                 refreshAchievementBannerQueue()
+            }
+            .onChange(of: weeklySteps) { _, _ in
+                rebuildStats()
             }
         }
         .fullScreenCover(item: $livePayload) { payload in
@@ -205,30 +180,59 @@ struct StatsView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private func stat(for date: Date, setupIndex: [String: DailySetup]) -> WeekStat {
+    private func rebuildStats() {
         let calendar = Calendar.current
-        let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let setup = setupIndex[dateID]
-        let mode = DayMode.fromStoredValue(setup?.mode)
-        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-        let dayTrainingCalories = allTrainingEntries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + $1.caloriesBurned }
-        let dayUploadedTrainingSteps = allTrainingEntries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+        let index = Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
 
-        return DayProgressEngine.progress(
-            date: date,
-            foodEntries: dayFood,
-            trainingCalories: dayTrainingCalories,
-            mode: mode,
-            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
-            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
-            steps: weeklySteps[dateID] ?? 0,
-            uploadedSteps: dayUploadedTrainingSteps,
-            activityLevel: activityLevel,
-            stepTarget: stepTarget
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allFoodEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
+        }
+
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        func buildStat(for date: Date) -> WeekStat {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let training = trainingByDay[dateID] ?? (0, 0)
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: foodByDay[dateID] ?? [],
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: weeklySteps[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            )
+        }
+
+        let newStats = (0..<7).map { i in
+            buildStat(for: calendar.date(byAdding: .day, value: -i, to: Date()) ?? Date())
+        }
+
+        let newLast30 = (0..<30).compactMap { i -> WeekStat? in
+            guard let date = calendar.date(byAdding: .day, value: -(29 - i), to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        cachedStats = newStats
+        cachedLast30Stats = newLast30
+        cachedAchievements = AchievementEngine.achievementCollection(
+            last30Stats: newLast30,
+            recentSevenDayStats: newStats,
+            foodEntries: allFoodEntries
         )
     }
 
@@ -376,42 +380,17 @@ struct AchievementsView: View {
     @State private var weeklySteps: [String: Double] = [:]
     @State private var selectedAchievement: StatsAchievement?
     @State private var livePayload: FitMaksSharePayload?
+    @State private var cachedLast30Stats: [DayProgress] = []
+    @State private var cachedSevenDayStats: [DayProgress] = []
+    @State private var cachedAchievements: StatsAchievementCollection?
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
-    private var setupIndex: [String: DailySetup] {
-        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
-    }
-
-    private var last30Stats: [DayProgress] {
-        let calendar = Calendar.current
-        let index = setupIndex
-
-        return (0..<30).compactMap { i in
-            let daysBack = 29 - i
-            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
-                return nil
-            }
-
-            return stat(for: date, setupIndex: index)
-        }
-    }
-
-    private var currentSevenDayStats: [DayProgress] {
-        let calendar = Calendar.current
-        let index = setupIndex
-
-        return (0..<7).compactMap { i in
-            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else {
-                return nil
-            }
-
-            return stat(for: date, setupIndex: index)
-        }
-    }
+    private var last30Stats: [DayProgress] { cachedLast30Stats }
+    private var currentSevenDayStats: [DayProgress] { cachedSevenDayStats }
 
     private var achievementCollection: StatsAchievementCollection {
-        AchievementEngine.achievementCollection(
+        cachedAchievements ?? AchievementEngine.achievementCollection(
             last30Stats: last30Stats,
             recentSevenDayStats: currentSevenDayStats,
             foodEntries: allFoodEntries
@@ -445,11 +424,15 @@ struct AchievementsView: View {
                 }
             }
             .onAppear {
+                rebuildStats()
                 HealthKitManager.shared.fetchWeeklySteps { steps in
                     DispatchQueue.main.async {
                         self.weeklySteps = steps
                     }
                 }
+            }
+            .onChange(of: weeklySteps) { _, _ in
+                rebuildStats()
             }
             .sheet(item: $selectedAchievement) { achievement in
                 StatsAchievementDetailSheet(
@@ -482,30 +465,60 @@ struct AchievementsView: View {
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private func stat(for date: Date, setupIndex: [String: DailySetup]) -> DayProgress {
+    private func rebuildStats() {
         let calendar = Calendar.current
-        let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let setup = setupIndex[dateID]
-        let mode = DayMode.fromStoredValue(setup?.mode)
-        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-        let dayTrainingCalories = allTrainingEntries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + $1.caloriesBurned }
-        let dayUploadedTrainingSteps = allTrainingEntries
-            .filter { calendar.isDate($0.date, inSameDayAs: date) }
-            .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+        let index = Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
 
-        return DayProgressEngine.progress(
-            date: date,
-            foodEntries: dayFood,
-            trainingCalories: dayTrainingCalories,
-            mode: mode,
-            baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
-            baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
-            steps: weeklySteps[dateID] ?? 0,
-            uploadedSteps: dayUploadedTrainingSteps,
-            activityLevel: activityLevel,
-            stepTarget: stepTarget
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allFoodEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
+        }
+
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        func buildStat(for date: Date) -> DayProgress {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let training = trainingByDay[dateID] ?? (0, 0)
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: foodByDay[dateID] ?? [],
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: weeklySteps[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            )
+        }
+
+        let newSevenDay = (0..<7).compactMap { i -> DayProgress? in
+            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        let newLast30 = (0..<30).compactMap { i -> DayProgress? in
+            guard let date = calendar.date(byAdding: .day, value: -(29 - i), to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        cachedSevenDayStats = newSevenDay
+        cachedLast30Stats = newLast30
+        cachedAchievements = AchievementEngine.achievementCollection(
+            last30Stats: newLast30,
+            recentSevenDayStats: newSevenDay,
+            foodEntries: allFoodEntries
         )
     }
 

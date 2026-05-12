@@ -90,13 +90,15 @@ enum BodyChartMetric: CaseIterable, Identifiable {
     }
 
     var color: Color {
+        let light = isLightAppTheme()
+
         switch self {
         case .weight:
-            return .neonGreen
+            return light ? Color(red: 0.43, green: 0.53, blue: 0.93) : .neonGreen
         case .fat:
-            return .fitOrange
+            return light ? Color(red: 0.92, green: 0.53, blue: 0.43) : .fitOrange
         case .muscle:
-            return .neonCyan
+            return light ? Color(red: 0.41, green: 0.72, blue: 0.64) : .neonCyan
         }
     }
 

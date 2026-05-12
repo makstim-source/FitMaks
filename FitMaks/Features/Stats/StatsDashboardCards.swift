@@ -28,12 +28,14 @@ struct StatsHeroScoreCard: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("STREAK MODE", systemImage: "flame.fill")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.black.opacity(0.78))
+                        .foregroundColor(light ? .appAccentText.opacity(0.82) : .black.opacity(0.78))
                         .tracking(0.8)
 
                     Text(scoreMessage)
@@ -69,26 +71,28 @@ struct StatsHeroScoreCard: View {
                                 .font(.system(size: 20, weight: .black))
                         }
                         .foregroundColor(.appAccentText)
-                        .shadow(color: .white.opacity(0.34), radius: 2, x: 0, y: 1)
+                        .shadow(color: light ? .white.opacity(0.18) : .white.opacity(0.34), radius: 2, x: 0, y: 1)
                     }
                     .frame(width: 104, height: 70, alignment: .trailing)
 
                     Text("current streak")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundColor(.black.opacity(0.62))
+                        .foregroundColor(light ? .appMuted : .black.opacity(0.62))
                 }
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.appElevated)
+                        .fill(light ? Color.appSurface.opacity(0.95) : Color.appElevated)
 
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Color.appScrim, Color.neonGreen.opacity(0.86)],
+                                colors: light
+                                    ? [Color.fitOrange.opacity(0.72), Color.neonGreen.opacity(0.82)]
+                                    : [Color.appScrim, Color.neonGreen.opacity(0.86)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -102,14 +106,14 @@ struct StatsHeroScoreCard: View {
                 Text("\(Int(cappedStreak))/\(Int(AppRules.weeklyStreakTarget)) weekly flame")
                     .font(.caption2)
                     .fontWeight(.heavy)
-                    .foregroundColor(.black.opacity(0.62))
+                    .foregroundColor(light ? .appMuted : .black.opacity(0.62))
 
                 Spacer()
 
                 Text(AppRules.calorieGraceLabel)
                     .font(.caption2)
                     .fontWeight(.heavy)
-                    .foregroundColor(.black.opacity(0.56))
+                    .foregroundColor(light ? .appMuted : .black.opacity(0.56))
             }
 
             HStack(spacing: 10) {
@@ -122,17 +126,27 @@ struct StatsHeroScoreCard: View {
             RoundedRectangle(cornerRadius: 30)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.neonGreen,
-                            Color.yellow.opacity(0.92),
-                            Color.neonCyan.opacity(0.78)
-                        ],
+                        colors: light
+                            ? [
+                                Color(red: 214/255, green: 226/255, blue: 186/255),
+                                Color(red: 244/255, green: 225/255, blue: 136/255),
+                                Color(red: 213/255, green: 222/255, blue: 242/255)
+                            ]
+                            : [
+                                Color.neonGreen,
+                                Color.yellow.opacity(0.92),
+                                Color.neonCyan.opacity(0.78)
+                            ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
         )
-        .shadow(color: Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+        )
+        .shadow(color: light ? Color.black.opacity(0.06) : Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
     }
 }
 
@@ -140,6 +154,8 @@ struct StatsWeeklyArena: View {
     let stats: [DayProgress]
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("7-Day Streak Board")
@@ -151,7 +167,7 @@ struct StatsWeeklyArena: View {
                 Text("C / P / S")
                     .font(.caption2)
                     .fontWeight(.bold)
-                    .foregroundColor(.gray)
+                    .foregroundColor(light ? .appMuted : .gray)
             }
 
             ForEach(stats, id: \.date) { stat in
@@ -207,12 +223,14 @@ struct StatsDayBadgeRow: View {
     let stat: DayProgress
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 VStack(spacing: 2) {
                     Text(StatsFormatters.dayName(stat.date))
                         .font(.system(size: 10, weight: .heavy))
-                        .foregroundColor(.gray)
+                        .foregroundColor(light ? .appMuted : .gray)
 
                     Text(StatsFormatters.dayNumber(stat.date))
                         .font(.system(size: 20, weight: .black))
@@ -270,11 +288,20 @@ struct StatsDayBadgeRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(stat.isPerfect ? Color.neonGreen.opacity(0.13) : Color.appSurface)
+                .fill(
+                    stat.isPerfect
+                        ? (light ? Color.neonGreen.opacity(0.08) : Color.neonGreen.opacity(0.13))
+                        : Color.appSurface
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(stat.isPerfect ? Color.yellow.opacity(0.38) : Color.appSurface, lineWidth: 1)
+                .stroke(
+                    stat.isPerfect
+                        ? (light ? Color.yellow.opacity(0.24) : Color.yellow.opacity(0.38))
+                        : (light ? Color.appBorder.opacity(0.65) : Color.appSurface),
+                    lineWidth: 1
+                )
         )
     }
 }
@@ -290,15 +317,17 @@ struct StatsDayMetricPill: View {
     private var highlighted: Bool { isOn || forceHighlight }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
                 .font(.system(size: 7, weight: .heavy))
-                .foregroundColor(highlighted ? color : .gray)
+                .foregroundColor(highlighted ? color : (light ? .appMuted : .gray))
                 .tracking(0.5)
 
             Text(value)
                 .font(.system(size: disablesValueAnimation ? 10 : 11, weight: .heavy))
-                .foregroundColor(.white.opacity(highlighted ? 0.92 : 0.58))
+                .foregroundColor(light ? .appText.opacity(highlighted ? 0.92 : 0.62) : .white.opacity(highlighted ? 0.92 : 0.58))
                 .fontDesign(.rounded)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -313,11 +342,11 @@ struct StatsDayMetricPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(highlighted ? color.opacity(0.12) : Color.appSurface)
+                .fill(highlighted ? color.opacity(light ? 0.09 : 0.12) : Color.appSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(highlighted ? color.opacity(0.20) : Color.appSurface, lineWidth: 1)
+                .stroke(highlighted ? color.opacity(light ? 0.16 : 0.20) : (light ? Color.appBorder.opacity(0.65) : Color.appSurface), lineWidth: 1)
         )
     }
 }

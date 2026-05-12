@@ -66,7 +66,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
             )
         case .originalV2:
             return AppPalette(
-                name: "Original 2.0",
+                name: "Neon Core",
                 subtitle: "Premium neon sport",
                 description: "Same FitMaks DNA, but more polished: richer depth, cleaner glow, more premium contrast.",
                 primary: Color(red: 190/255, green: 255/255, blue: 70/255),
@@ -370,6 +370,10 @@ func isIPhoneGlassTheme(_ theme: AppTheme = .current) -> Bool {
     theme == .iphoneGlass
 }
 
+func isLightAppTheme(_ theme: AppTheme = .current) -> Bool {
+    theme.palette.preferredScheme == .light
+}
+
 struct ThemeSelectionView: View {
     var isFirstRun: Bool
     var onContinue: () -> Void
@@ -413,7 +417,7 @@ struct ThemeSelectionView: View {
                 .lineSpacing(0)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Original stays untouched. Original 2.0 is the premium neon remix, Pastel Day is the soft daylight alternative, and iPhone Glass is the colder dark-glass take.")
+            Text("Original stays untouched. Neon Core is the premium neon remix, Pastel Day is the soft daylight alternative, and iPhone Glass is the colder dark-glass take.")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.appMuted)
                 .lineSpacing(4)

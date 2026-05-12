@@ -45,6 +45,8 @@ struct StatsAchievementsCard: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Trophy Case")
@@ -92,10 +94,14 @@ struct StatsAchievementsCard: View {
 
                     Text("\(unlockedChaosCount)/\(collection.chaos.count) unlocked")
                         .font(.caption2.weight(.heavy))
-                        .foregroundColor(.neonGreen)
+                        .foregroundColor(light ? .appAccentText : .neonGreen)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
+                        .background(Capsule().fill(light ? Color.appSurface : Color.neonGreen.opacity(0.12)))
+                        .overlay(
+                            Capsule()
+                                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+                        )
                 }
 
                 Text("Side quests with more personality: chicken era, bounce-back days, gym brain, honest cheat-meal logs, and other crimes against average behavior.")
@@ -168,6 +174,8 @@ struct StatsAchievementUnlockBanner: View {
     var onDismiss: () -> Void
 
     var body: some View {
+        let light = isLightAppTheme()
+
         HStack(spacing: 12) {
             ZStack {
                 Circle()
@@ -215,7 +223,7 @@ struct StatsAchievementUnlockBanner: View {
                     .font(.system(size: 11, weight: .black))
                     .foregroundColor(.appMuted)
                     .frame(width: 28, height: 28)
-                    .background(Circle().fill(Color.appText.opacity(0.06)))
+                    .background(Circle().fill(light ? Color.appSurface : Color.appText.opacity(0.06)))
             }
             .buttonStyle(.plain)
         }
@@ -238,6 +246,8 @@ struct StatsAchievementUnlockPopup: View {
     var onDismiss: () -> Void
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(spacing: 18) {
             ZStack {
                 Circle()
@@ -335,21 +345,30 @@ struct StatsAchievementUnlockPopup: View {
         .background(
             RoundedRectangle(cornerRadius: 28)
                 .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.10, green: 0.11, blue: 0.13),
-                            Color(red: 0.08, green: 0.09, blue: 0.11)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    light
+                        ? LinearGradient(
+                            colors: [
+                                Color.appElevated,
+                                Color.appSurface
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [
+                                Color(red: 0.10, green: 0.11, blue: 0.13),
+                                Color(red: 0.08, green: 0.09, blue: 0.11)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 28)
                         .stroke(achievement.color.opacity(0.34), lineWidth: 1.2)
                 )
         )
-        .shadow(color: .black.opacity(0.22), radius: 30, y: 14)
+        .shadow(color: light ? Color.black.opacity(0.08) : .black.opacity(0.22), radius: 30, y: 14)
     }
 }
 
@@ -419,6 +438,8 @@ struct StatsAchievementTile: View {
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 ZStack {
@@ -454,7 +475,7 @@ struct StatsAchievementTile: View {
                             .foregroundColor(.appText)
                             .offset(x: 18, y: -17)
                             .opacity(0.92)
-                            .shadow(color: .white.opacity(0.75), radius: 7)
+                            .shadow(color: light ? achievement.color.opacity(0.20) : .white.opacity(0.75), radius: 7)
                     }
                 }
                 .frame(width: 42, height: 42)
@@ -524,7 +545,7 @@ struct StatsAchievementTile: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(achievement.color.opacity(achievement.isUnlocked ? 0.55 : 0.12), lineWidth: achievement.isUnlocked ? 1.5 : 1)
         )
-        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(0.18) : .clear, radius: 12, x: 0, y: 7)
+        .shadow(color: achievement.isUnlocked ? achievement.color.opacity(light ? 0.10 : 0.18) : .clear, radius: 12, x: 0, y: 7)
     }
 }
 
@@ -548,6 +569,8 @@ struct StatsAchievementDetailSheet: View {
     var onShare: (() -> Void)? = nil
 
     var body: some View {
+        let light = isLightAppTheme()
+
         ZStack {
             LinearGradient(
                 colors: [
@@ -589,8 +612,12 @@ struct StatsAchievementDetailSheet: View {
                                         .foregroundColor(.fitOrange)
                                         .padding(.horizontal, 9)
                                         .padding(.vertical, 6)
-                                        .background(Capsule().fill(Color.appElevated))
-                                        .shadow(color: .fitOrange.opacity(0.35), radius: 8)
+                                        .background(Capsule().fill(light ? Color.appSurface : Color.appElevated))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+                                        )
+                                        .shadow(color: light ? Color.black.opacity(0.05) : .fitOrange.opacity(0.35), radius: 8)
                                 }
                                 .buttonStyle(.plain)
                             }

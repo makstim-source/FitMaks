@@ -217,6 +217,9 @@ struct ProfileView: View {
                 }
             }
         }
+        .onAppear { rebuildRangeMetricsCache() }
+        .onChange(of: selectedWeightRange) { _, _ in rebuildRangeMetricsCache() }
+        .onChange(of: bodyMetrics) { _, _ in rebuildRangeMetricsCache() }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .sheet(isPresented: $isShowingGoalSettings) {
             goalSettingsSheet
@@ -556,10 +559,7 @@ struct ProfileView: View {
                     useCustomGoals: useCustomGoals,
                     customCalories: customCalories, customProtein: customProtein
                 )
-                rebuildRangeMetricsCache()
             }
-            .onChange(of: selectedWeightRange) { _, _ in rebuildRangeMetricsCache() }
-            .onChange(of: bodyMetrics) { _, _ in rebuildRangeMetricsCache() }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .presentationDetents([.large])

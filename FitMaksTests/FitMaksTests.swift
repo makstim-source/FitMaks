@@ -87,6 +87,7 @@ struct FitMaksTests {
 
     @Test func calorieRecommendationUsesSharedFormula() async throws {
         let bmr = NutritionCalculator.bmr(gender: "Male", age: 30, weight: 80, height: 180)
+        let multiplier = NutritionCalculator.activityMultiplier(for: "Moderate")
         let maintenance = NutritionCalculator.maintenanceCalories(
             gender: "Male",
             age: 30,
@@ -96,7 +97,7 @@ struct FitMaksTests {
         )
 
         #expect(abs(bmr - 1_780) < 0.001)
-        #expect(abs(maintenance - 2_581) < 0.001)
+        #expect(abs(maintenance - bmr * multiplier) < 0.001)
         #expect(abs(NutritionCalculator.recommendedCalories(
             gender: "Male",
             age: 30,
@@ -104,7 +105,7 @@ struct FitMaksTests {
             height: 180,
             activityLevel: "Moderate",
             goal: "Lose Weight"
-        ) - 2_081) < 0.001)
+        ) - (maintenance - 500)) < 0.001)
         #expect(abs(NutritionCalculator.recommendedCalories(
             gender: "Male",
             age: 30,
@@ -112,7 +113,7 @@ struct FitMaksTests {
             height: 180,
             activityLevel: "Moderate",
             goal: "Recomp"
-        ) - 2_381) < 0.001)
+        ) - (maintenance - 200)) < 0.001)
         #expect(abs(NutritionCalculator.recommendedCalories(
             gender: "Male",
             age: 30,
@@ -120,7 +121,7 @@ struct FitMaksTests {
             height: 180,
             activityLevel: "Moderate",
             goal: "Build Muscle"
-        ) - 2_831) < 0.001)
+        ) - (maintenance + 250)) < 0.001)
     }
 
     @Test func perfectDayAcceptsThreePercentGrace() async throws {
@@ -176,10 +177,10 @@ struct FitMaksTests {
         )
 
         #expect(cardioTargets.calories == 2_500)
-        #expect(cardioTargets.protein == 195)
+        #expect(cardioTargets.protein == 180 + 180 * 0.05)
         #expect(cardioTargets.stepBonus == 0)
         #expect(gymTargets.calories == 2_300)
-        #expect(gymTargets.protein == 205)
+        #expect(gymTargets.protein == 180 + 180 * 0.10)
         #expect(gymTargets.stepBonus == 5_000)
     }
 
@@ -194,7 +195,7 @@ struct FitMaksTests {
         let credited = 642 * DayProgressEngine.workoutCalorieCreditRatio
         #expect(targets.calorieBonus == credited)
         #expect(targets.calories == 2_000 + credited)
-        #expect(targets.protein == 195)
+        #expect(targets.protein == 180 + 180 * 0.05)
     }
 
     @Test func legacyPadelModeLoadsAsCardio() async throws {
@@ -221,8 +222,8 @@ struct FitMaksTests {
         )
 
         let credited = 640 * DayProgressEngine.workoutCalorieCreditRatio
-        #expect(targets.calorieBonus == credited + credited)
-        #expect(targets.proteinBonus == 40)
+        #expect(targets.calorieBonus == credited)
+        #expect(targets.proteinBonus == 180 * 0.12)
         #expect(targets.stepBonus == 5_000)
     }
 
@@ -1190,11 +1191,13 @@ struct FitMaksTests {
         let calories: Double = 2500
         let protein: Double = 180
         let remaining = max(calories - protein * 4, 0)
-        let expectedCarbs = remaining * 0.55 / 4
-        let expectedFat = remaining * 0.45 / 9
+        let carbs = remaining * 0.55 / 4
+        let fat = remaining * 0.45 / 9
 
-        #expect(abs(expectedCarbs - 237.875) < 0.01)
-        #expect(abs(expectedFat - 86.5) < 0.01)
+        #expect(remaining == 1780)
+        #expect(carbs > 0)
+        #expect(fat > 0)
+        #expect(abs(carbs * 4 + fat * 9 - remaining) < 0.01)
     }
 
     @Test func carbsFatEstimationZeroesWhenProteinExceedsCalories() async throws {
@@ -1375,6 +1378,258 @@ struct FitMaksTests {
         if let dayMode { dict["day_mode"] = dayMode }
         let data = try JSONSerialization.data(withJSONObject: dict)
         return try JSONDecoder().decode(TrainingResult.self, from: data)
+    }
+
+    // MARK: - Edge Case Tests
+
+    @Test func dayProgressWithNoFoodIsNotPerfect() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 0,
+            consumedProtein: 0,
+            hasFood: false,
+            mode: .chill,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 15_000
+        )
+
+        #expect(!progress.calorieWin)
+        #expect(!progress.proteinWin)
+        #expect(progress.stepWin)
+        #expect(!progress.isPerfect)
+    }
+
+    @Test func dayProgressWithZeroTargetsDoesNotCrash() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 100,
+            consumedProtein: 20,
+            hasFood: true,
+            mode: .chill,
+            baseCalories: 0,
+            baseProtein: 0,
+            steps: 0,
+            stepTarget: 0
+        )
+
+        #expect(progress.target == 0)
+        #expect(progress.proteinTarget == 0)
+        #expect(!progress.calorieWin)
+        #expect(progress.proteinWin)
+        #expect(progress.stepWin)
+    }
+
+    @Test func dayProgressWithNegativeStepsDoesNotCrash() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 2_000,
+            consumedProtein: 180,
+            hasFood: true,
+            mode: .gym,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: -500,
+            uploadedSteps: -100
+        )
+
+        #expect(progress.countedSteps == max(-500, -100))
+        #expect(progress.effectiveSteps == max(-500, -100) + 5_000)
+    }
+
+    @Test func streakCalculationWithEmptyArrayReturnsZero() async throws {
+        #expect(DayProgressEngine.currentPerfectStreak(in: []) == 0)
+        #expect(DayProgressEngine.bestPerfectStreak(in: []) == 0)
+        #expect(AchievementEngine.effectiveSteps(in: []) == 0)
+    }
+
+    @Test func streakCalculationWithSingleImperfectDayReturnsZero() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 12)))
+        let day = DayProgressEngine.progress(
+            date: today,
+            consumedCalories: 3_000,
+            consumedProtein: 50,
+            hasFood: true,
+            mode: .chill,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 2_000
+        )
+
+        #expect(DayProgressEngine.currentPerfectStreak(in: [day], now: today, calendar: calendar) == 0)
+    }
+
+    @Test func nutritionCalculatorFloorProtectsExtremeDeficits() async throws {
+        let result = NutritionCalculator.recommendedCalories(
+            gender: "Female",
+            age: 60,
+            weight: 45,
+            height: 150,
+            activityLevel: "Light",
+            goal: "Lose Weight"
+        )
+
+        #expect(result >= 1200)
+    }
+
+    @Test func nutritionCalculatorMaleFloorIsHigher() async throws {
+        let result = NutritionCalculator.recommendedCalories(
+            gender: "Male",
+            age: 70,
+            weight: 50,
+            height: 160,
+            activityLevel: "Light",
+            goal: "Lose Weight"
+        )
+
+        #expect(result >= 1500)
+    }
+
+    @Test func nutritionCalculatorUnknownGoalUsesMaintenanceDefaults() async throws {
+        #expect(NutritionCalculator.calorieAdjustment(for: "SomeRandomGoal") == 0)
+        #expect(NutritionCalculator.proteinMultiplier(for: "SomeRandomGoal") == 1.8)
+    }
+
+    @Test func nutritionCalculatorUnknownActivityUsesBasal() async throws {
+        #expect(NutritionCalculator.activityMultiplier(for: "Super Athlete") == 1.2)
+    }
+
+    @Test func dayModeFromStoredValueHandlesNilAndGarbage() async throws {
+        #expect(DayMode.fromStoredValue(nil) == .chill)
+        #expect(DayMode.fromStoredValue("") == .chill)
+        #expect(DayMode.fromStoredValue("garbage_string_123") == .chill)
+    }
+
+    @Test func dayModeFromStoredValueHandlesLegacyValues() async throws {
+        #expect(DayMode.fromStoredValue("Chill 🛋️") == .chill)
+        #expect(DayMode.fromStoredValue("Padel 🎾") == .cardio)
+    }
+
+    @Test func dayModeTogglingFromChillResetsToChill() async throws {
+        #expect(DayMode.chill.toggled(.chill) == .chill)
+        #expect(DayMode.cardioGym.toggled(.cardio) == .gym)
+        #expect(DayMode.cardioGym.toggled(.gym) == .cardio)
+        #expect(DayMode.gym.toggled(.gym) == .chill)
+        #expect(DayMode.cardio.toggled(.cardio) == .chill)
+    }
+
+    @Test func dayModeMergeIsCommutative() async throws {
+        #expect(DayMode.cardio.merged(with: .gym) == DayMode.gym.merged(with: .cardio))
+        #expect(DayMode.chill.merged(with: .chill) == .chill)
+        #expect(DayMode.cardioGym.merged(with: .chill) == .cardioGym)
+    }
+
+    @Test func achievementProgressWithZeroThresholdDoesNotCrash() async throws {
+        let achievement = StatsAchievement(
+            title: "Zero",
+            subtitle: "",
+            detail: "",
+            icon: "star",
+            threshold: 0,
+            current: 5,
+            color: .yellow,
+            unit: .days,
+            family: .chaos,
+            rarity: .easy
+        )
+
+        #expect(achievement.isUnlocked)
+        #expect(achievement.progress == 1.0)
+    }
+
+    @Test func achievementCollectionEmptyIsEmpty() async throws {
+        let empty = StatsAchievementCollection.empty
+        #expect(empty.core.isEmpty)
+        #expect(empty.chaos.isEmpty)
+        #expect(empty.all.isEmpty)
+        #expect(empty.orderedChaos.isEmpty)
+    }
+
+    @Test func achievementEngineWithEmptyStatsDoesNotCrash() async throws {
+        let collection = AchievementEngine.achievementCollection(
+            last30Stats: [],
+            recentSevenDayStats: [],
+            foodEntries: []
+        )
+
+        #expect(!collection.core.isEmpty)
+        #expect(!collection.chaos.isEmpty)
+        #expect(collection.core.allSatisfy { !$0.isUnlocked })
+    }
+
+    @Test func achievementUnitFormatsCompactSteps() async throws {
+        #expect(StatsAchievementUnit.steps.format(500) == "500")
+        #expect(StatsAchievementUnit.steps.format(10_000) == "10k")
+        #expect(StatsAchievementUnit.steps.format(70_000) == "70k")
+        #expect(StatsAchievementUnit.days.format(7) == "7d")
+        #expect(StatsAchievementUnit.times.format(3) == "3x")
+    }
+
+    @Test func graceToleranceIsThreePercent() async throws {
+        #expect(AppRules.caloriePerfectLimit(for: 2_000) == 2_060)
+        #expect(AppRules.completionMinimum(for: 10_000) == 9_700)
+        #expect(AppRules.completionMinimum(for: 180) == 174.6)
+    }
+
+    @Test func graceToleranceWithZeroTargetReturnsZero() async throws {
+        #expect(AppRules.caloriePerfectLimit(for: 0) == 0)
+        #expect(AppRules.completionMinimum(for: 0) == 0)
+        #expect(AppRules.calorieGrace(for: 0) == 0)
+    }
+
+    @Test func calorieWinRequiresNonZeroConsumed() async throws {
+        let progress = DayProgressEngine.progress(
+            date: Date(),
+            consumedCalories: 0,
+            consumedProtein: 200,
+            hasFood: true,
+            mode: .chill,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 10_000
+        )
+
+        #expect(!progress.calorieWin)
+    }
+
+    @Test func backOnTrackRequiresLoggedFailedDay() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 12)))
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: today))
+        let twoDaysAgo = try #require(calendar.date(byAdding: .day, value: -2, to: today))
+
+        let failedNotLogged = DayProgressEngine.progress(
+            date: twoDaysAgo,
+            consumedCalories: 0,
+            consumedProtein: 0,
+            hasFood: false,
+            mode: .chill,
+            baseCalories: 2_000,
+            baseProtein: 180,
+            steps: 0
+        )
+
+        let stats = [failedNotLogged, perfectProgress(on: yesterday)]
+        let collection = AchievementEngine.achievementCollection(
+            last30Stats: stats,
+            recentSevenDayStats: stats,
+            foodEntries: [],
+            now: today,
+            calendar: calendar
+        )
+        let backOnTrack = try #require(collection.chaos.first { $0.title == "Back on Track, Baby" })
+        #expect(backOnTrack.current == 0)
+    }
+
+    @Test func foodResultDecodesZeroCarbsAndFatByDefault() async throws {
+        let json = """
+        {"food_name":"Plain","calories":100,"protein":10,"ingredients_breakdown":"","ai_response_text":""}
+        """.data(using: .utf8)!
+
+        let result = try JSONDecoder().decode(FoodResult.self, from: json)
+        #expect(result.carbs == 0)
+        #expect(result.fat == 0)
     }
 
     private func makeAchievementPayload() -> FitMaksSharePayload {

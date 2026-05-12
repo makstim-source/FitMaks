@@ -261,7 +261,7 @@ struct ContentView: View {
                         viewModel.livePayload = foodSharePayload(for: entry)
                     },
                     onDelete: { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); viewModel.deleteFoodEntry(entry); withAnimation { viewModel.selectedEntryForEdit = nil } },
-                    onDone: { withAnimation { viewModel.selectedEntryForEdit = nil } }
+                    onDone: { syncViewModel(); withAnimation { viewModel.selectedEntryForEdit = nil } }
                 )
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
             }

@@ -48,6 +48,7 @@ struct ProfileView: View {
     @State private var isShowingThemeSelection = false
     @State private var goalSnapshot: GoalSnapshot?
     @State private var livePayload: FitMaksSharePayload?
+    @State private var cachedRangeMetrics: [BodyMetricEntry] = []
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -126,15 +127,16 @@ struct ProfileView: View {
         return latest.weightKg - previous.weightKg
     }
 
-    private var selectedRangeBodyMetrics: [BodyMetricEntry] {
+    private var selectedRangeBodyMetrics: [BodyMetricEntry] { cachedRangeMetrics }
+
+    private func rebuildRangeMetricsCache() {
         let calendar = Calendar.current
         let startDate = calendar.date(
             byAdding: .day,
             value: -(selectedWeightRange.days - 1),
             to: calendar.startOfDay(for: Date())
         ) ?? Date()
-
-        return Array(bodyMetrics.filter { $0.date >= startDate }.reversed())
+        cachedRangeMetrics = Array(bodyMetrics.filter { $0.date >= startDate }.reversed())
     }
 
     private var selectedChartBodyMetrics: [BodyMetricEntry] {
@@ -554,7 +556,10 @@ struct ProfileView: View {
                     useCustomGoals: useCustomGoals,
                     customCalories: customCalories, customProtein: customProtein
                 )
+                rebuildRangeMetricsCache()
             }
+            .onChange(of: selectedWeightRange) { _, _ in rebuildRangeMetricsCache() }
+            .onChange(of: bodyMetrics) { _, _ in rebuildRangeMetricsCache() }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .presentationDetents([.large])

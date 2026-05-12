@@ -29,6 +29,7 @@ struct ContentView: View {
     @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()
+    @State private var syncWorkItem: DispatchWorkItem?
 
     // MARK: - Day Mode
 
@@ -201,6 +202,13 @@ struct ContentView: View {
             activityLevel: activityLevel,
             modelContext: modelContext
         )
+    }
+
+    fileprivate func debouncedSync() {
+        syncWorkItem?.cancel()
+        let item = DispatchWorkItem { [self] in syncViewModel() }
+        syncWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
     }
 
     var body: some View {
@@ -801,7 +809,7 @@ struct ContentView: View {
             .padding(.horizontal, 3)
 
             ScrollView(showsIndicators: true) {
-                VStack(spacing: 10) {
+                LazyVStack(spacing: 10) {
                     ForEach(visibleProcessingItems) { item in HomeProcessingRow(item: item) }
 
                     if dailyFeed.isEmpty && viewModel.processingItems.isEmpty {
@@ -1151,9 +1159,9 @@ extension View {
 
     private func applyQueryObservers(_ view: ContentView) -> some View {
         self
-            .onChange(of: view.allDailySetups) { _, _ in view.syncViewModel() }
-            .onChange(of: view.allFoodEntries) { _, _ in view.syncViewModel() }
-            .onChange(of: view.allTrainingEntries) { _, _ in view.syncViewModel() }
+            .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync() }
+            .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync() }
+            .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync() }
     }
 
     private func applyEventObservers(_ view: ContentView) -> some View {

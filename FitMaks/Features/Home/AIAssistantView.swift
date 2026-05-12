@@ -1,6 +1,18 @@
 import SwiftUI
 
 struct AIAssistantView: View {
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f
+    }()
+    private static let dateOnlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
     @Environment(\.dismiss) var dismiss
 
     var selectedDate: Date
@@ -435,17 +447,12 @@ struct AIAssistantView: View {
     func fetchSummary(isInitial: Bool, message: String, image: UIImage?) {
         isWaiting = true
 
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        let timeString = formatter.string(from: Date())
+        let timeString = Self.timeFormatter.string(from: Date())
 
         let calendar = Calendar.current
         let isTomorrow = calendar.isDateInTomorrow(selectedDate)
         let isPastDay = !calendar.isDateInToday(selectedDate) && !isTomorrow
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .none
-        let selectedDateDescription = dateFormatter.string(from: selectedDate)
+        let selectedDateDescription = Self.dateOnlyFormatter.string(from: selectedDate)
 
         let selectedDateRelation: String
         if calendar.isDateInToday(selectedDate) {

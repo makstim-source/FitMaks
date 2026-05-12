@@ -30,6 +30,7 @@ struct ContentView: View {
 
     @State var viewModel = HomeViewModel()
     @State private var syncWorkItem: DispatchWorkItem?
+    @State private var isShowingTomorrowCopyDialog = false
 
     // MARK: - Day Mode
 
@@ -188,6 +189,20 @@ struct ContentView: View {
             .joined(separator: "|")
     }
 
+    var copyablePlanDates: [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        let foodDates = allFoodEntries.map { calendar.startOfDay(for: $0.date) }
+        let setupDates = allDailySetups.compactMap { DateFormatter.yyyyMMdd.date(from: $0.dateID) }
+
+        return Array(Set(foodDates + setupDates))
+            .filter { $0 <= today }
+            .sorted(by: >)
+            .prefix(10)
+            .map { $0 }
+    }
+
     // MARK: - Body
 
     
@@ -321,7 +336,18 @@ struct ContentView: View {
                         avgCarbs: "\(Int(report.avgCarbs))g",
                         avgFat: "\(Int(report.avgFat))g",
                         totalSteps: Int(report.totalSteps).formatted(),
-                        dayResults: report.days.map { (emoji: $0.mode.emoji, isPerfect: $0.isPerfect) },
+                        dayResults: report.days.map {
+                            FitMaksShareWeeklyDay(
+                                label: ShareFormatters.shortWeekdayName(for: $0.date).uppercased(),
+                                dayNumber: "\($0.date.formatted(.dateTime.day()))",
+                                modeEmoji: $0.mode.emoji,
+                                modeLabel: viewModel.modeLabel($0.mode),
+                                isPerfect: $0.isPerfect,
+                                calorieWin: $0.calorieWin,
+                                proteinWin: $0.proteinWin,
+                                stepWin: $0.stepWin
+                            )
+                        },
                         scoreColor: report.scoreColor
                     )
                     viewModel.livePayload = .weeklyReport(snapshot)
@@ -400,6 +426,19 @@ struct ContentView: View {
             )
             .presentationDetents([.medium, .large])
         }
+        .confirmationDialog(
+            "Copy from another day",
+            isPresented: $isShowingTomorrowCopyDialog,
+            titleVisibility: .visible
+        ) {
+            ForEach(copyablePlanDates, id: \.self) { sourceDate in
+                Button(copySourceTitle(for: sourceDate)) {
+                    copyPlanToTomorrow(from: sourceDate)
+                }
+            }
+        } message: {
+            Text("Copy meals and mode into tomorrow.")
+        }
         .alert("AI Error", isPresented: Binding(
             get: { viewModel.aiErrorMessage != nil },
             set: { if !$0 { viewModel.aiErrorMessage = nil } }
@@ -458,6 +497,9 @@ struct ContentView: View {
             FAQSheet()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $viewModel.isShowingPaywall) {
+            PaywallView()
         }
         .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
             TextField("E.g. 200g chicken and rice", text: $viewModel.manualText)
@@ -557,7 +599,11 @@ struct ContentView: View {
 
             HStack(spacing: 10) {
                 HomeIconButton(systemName: "sparkles", color: assistantAccent) {
-                    viewModel.isShowingAIAssistant = true
+                    if SubscriptionManager.shared.isPro {
+                        viewModel.isShowingAIAssistant = true
+                    } else {
+                        viewModel.isShowingPaywall = true
+                    }
                 }
                 .accessibilityIdentifier("aiAssistantButton")
             }
@@ -857,58 +903,83 @@ struct ContentView: View {
         let pastel = isPastelDayTheme()
         let glass = isIPhoneGlassTheme()
         let accent = glass ? Color.neonGreen : (pastel ? Color.neonCyan : Color.neonGreen)
+        let isTomorrow = Calendar.current.isDateInTomorrow(viewModel.selectedDate)
 
-        return Button(action: { viewModel.isShowingSourceDialog = true }) {
-            VStack(spacing: 15) {
-                ZStack {
-                    Circle()
-                        .fill(accent.opacity(0.12))
-                        .frame(width: 78, height: 78)
+        return VStack(spacing: 14) {
+            Button(action: { viewModel.isShowingSourceDialog = true }) {
+                VStack(spacing: 15) {
+                    ZStack {
+                        Circle()
+                            .fill(accent.opacity(0.12))
+                            .frame(width: 78, height: 78)
 
-                    Image(systemName: "fork.knife.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(accent.opacity(0.85))
+                        Image(systemName: "fork.knife.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(accent.opacity(0.85))
+                    }
+
+                    VStack(spacing: 5) {
+                        Text(isTomorrow ? "Plan tomorrow" : "Start this day")
+                            .font(.headline)
+                            .fontWeight(.black)
+                            .foregroundColor(.appText)
+
+                        Text(isTomorrow
+                             ? "Pre-log meals and set your training mode."
+                             : "Add food, scan a label, or drop a workout screenshot.")
+                            .font(.subheadline)
+                            .foregroundColor(.appMuted)
+                            .multilineTextAlignment(.center)
+                    }
                 }
-
-                VStack(spacing: 5) {
-                    Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
-                         ? "Plan tomorrow"
-                         : "Start this day")
-                        .font(.headline)
-                        .fontWeight(.black)
-                        .foregroundColor(.appText)
-
-                    Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
-                         ? "Pre-log meals and set your training mode."
-                         : "Add food, scan a label, or drop a workout screenshot.")
-                        .font(.subheadline)
-                        .foregroundColor(.appMuted)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 46)
-            .padding(.horizontal, 18)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(
-                        LinearGradient(
-                            colors: glass
-                                ? [Color.neonGreen.opacity(0.08), Color.appSurface, Color.appElevated]
-                                : (pastel
-                                    ? [Color.appElevated, Color.appSurface, Color.appElevated]
-                                    : [Color.neonGreen.opacity(0.10), Color.appSurface.opacity(0.84), Color.appElevated]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 46)
+                .padding(.horizontal, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(
+                            LinearGradient(
+                                colors: glass
+                                    ? [Color.neonGreen.opacity(0.08), Color.appSurface, Color.appElevated]
+                                    : (pastel
+                                        ? [Color.appElevated, Color.appSurface, Color.appElevated]
+                                        : [Color.neonGreen.opacity(0.10), Color.appSurface.opacity(0.84), Color.appElevated]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(accent.opacity(glass ? 0.18 : (pastel ? 0.16 : 0.18)), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            if isTomorrow, !copyablePlanDates.isEmpty {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    isShowingTomorrowCopyDialog = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13, weight: .black))
+
+                        Text("Copy from another day")
+                            .font(.system(size: 13, weight: .heavy))
+                    }
+                    .foregroundColor(.appText)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(Color.appSurface))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.appBorder, lineWidth: 1)
                     )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(accent.opacity(glass ? 0.18 : (pastel ? 0.16 : 0.18)), lineWidth: 1)
-            )
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
     }
 
     private var bottomDock: some View {
@@ -1140,6 +1211,40 @@ struct ContentView: View {
 
     fileprivate func handleLoggedPastDaysChange() {
         viewModel.preserveMissingPastGoalSnapshots(baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal)
+    }
+
+    private func copySourceTitle(for date: Date) -> String {
+        "\(ShareFormatters.weekdayName(for: date)) · \(DateFormatter.shortDate.string(from: date))"
+    }
+
+    private func copyPlanToTomorrow(from sourceDate: Date) {
+        let calendar = Calendar.current
+        let destinationDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? viewModel.selectedDate
+        let sourceFoods = allFoodEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: sourceDate) }
+            .sorted { ($0.createdAt ?? $0.date) < ($1.createdAt ?? $1.date) }
+
+        for (index, entry) in sourceFoods.enumerated() {
+            let fallbackImage = viewModel.generatePlaceholderIcon(systemName: "fork.knife.circle.fill", color: .neonGreen)
+            let copied = FoodEntry(
+                image: entry.uiImage ?? fallbackImage,
+                name: entry.name,
+                calories: entry.calories,
+                protein: entry.protein,
+                carbs: entry.carbs,
+                fat: entry.fat,
+                ingredients: entry.ingredients,
+                date: destinationDate,
+                location: entry.location
+            )
+            copied.createdAt = Date().addingTimeInterval(Double(index))
+            modelContext.insert(copied)
+        }
+
+        viewModel.setDayMode(viewModel.dayMode(for: sourceDate), for: destinationDate)
+        try? modelContext.save()
+        syncViewModel()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }
 extension View {

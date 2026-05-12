@@ -9,6 +9,7 @@ extension HomeViewModel {
         guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
+        guard canUseFreeAIScan else { isShowingPaywall = true; return }
 
         let textImage = generatePlaceholderIcon(systemName: "brain", color: .neonGreen)
         let item = ProcessingItem(
@@ -45,10 +46,14 @@ extension HomeViewModel {
         guard let image else {
             return
         }
+        let isTraining = pickingMode == .training
+        if !isTraining {
+            guard canUseFreeAIScan else { isShowingPaywall = true; selectedCameraImage = nil; return }
+        }
 
         let item = ProcessingItem(
             images: [image.preparedForAIIntake()],
-            isTraining: pickingMode == .training,
+            isTraining: isTraining,
             targetDate: selectedDate
         )
 
@@ -64,6 +69,9 @@ extension HomeViewModel {
 
         let targetDate = selectedDate
         let isTraining = pickingMode == .training
+        if !isTraining {
+            guard canUseFreeAIScan else { isShowingPaywall = true; selectedPhotoItems.removeAll(); return }
+        }
 
         Task {
             var loadedImages: [UIImage] = []
@@ -93,9 +101,16 @@ extension HomeViewModel {
     }
 
     func enqueueHomeProcessingItem(_ item: ProcessingItem) {
+        if !item.isTraining {
+            AIUsageLimiter.recordScan()
+        }
         withAnimation {
             processingItems.append(item)
         }
+    }
+
+    var canUseFreeAIScan: Bool {
+        AIUsageLimiter.canScan
     }
 
     func processHomeProcessingItem(_ item: ProcessingItem) {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import StoreKit
 import UIKit
 
 struct ProfileView: View {
@@ -46,6 +47,7 @@ struct ProfileView: View {
     @State private var isShowingSignOutConfirm = false
     @State private var isShowingDeleteConfirm = false
     @State private var isShowingThemeSelection = false
+    @State private var isShowingPaywall = false
     @State private var goalSnapshot: GoalSnapshot?
     @State private var livePayload: FitMaksSharePayload?
     @State private var cachedRangeMetrics: [BodyMetricEntry] = []
@@ -184,6 +186,8 @@ struct ProfileView: View {
                         changeGoalsButton
                         profileSectionDivider(title: "Body tracking")
                         weightTrackerCard
+                        profileSectionDivider(title: "Subscription")
+                        subscriptionCard
                         profileSectionDivider(title: "Account")
                         accountCard
                     }
@@ -244,6 +248,9 @@ struct ProfileView: View {
                 isShowingThemeSelection = false
             }
         }
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallView()
+        }
         .alert("Weight scan", isPresented: Binding(
             get: { bodyScanError != nil },
             set: { if !$0 { bodyScanError = nil } }
@@ -274,6 +281,83 @@ struct ProfileView: View {
         } message: {
             Text("This removes your Apple ID link from FitMaks. Your local data stays on this device. To fully delete iCloud data, go to Settings → Apple ID → iCloud → Manage Storage.")
         }
+    }
+
+    private var subscriptionCard: some View {
+        let sub = SubscriptionManager.shared
+
+        return VStack(spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Image(systemName: sub.isPro ? "crown.fill" : "lock.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(sub.isPro ? .neonGreen : .fitOrange)
+
+                        Text(sub.isPro ? "FitMaks Pro" : "Free Plan")
+                            .font(.system(size: 16, weight: .black))
+                            .foregroundColor(.appText)
+                    }
+
+                    if sub.isPro {
+                        Text("All features unlocked")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.appMuted)
+                    } else {
+                        Text("\(AIUsageLimiter.scansRemaining) AI scans left today")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.appMuted)
+                    }
+                }
+
+                Spacer()
+
+                if !sub.isPro {
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        Text("Upgrade")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(Color.neonGreen))
+                            .shadow(color: .neonGreen.opacity(0.3), radius: 10, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if sub.isPro {
+                Button {
+                    Task {
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                            try? await AppStore.showManageSubscriptions(in: windowScene)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "creditcard")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Manage Subscription")
+                            .font(.system(size: 13, weight: .heavy))
+                    }
+                    .foregroundColor(.appMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.appSurface))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(themeCardGradient())
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(sub.isPro ? Color.neonGreen.opacity(0.22) : Color.appBorder, lineWidth: 1))
+        )
+        .shadow(color: sub.isPro ? .neonGreen.opacity(0.1) : .clear, radius: 14, y: 7)
     }
 
     private var accountCard: some View {

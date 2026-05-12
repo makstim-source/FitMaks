@@ -38,6 +38,7 @@ final class HomeViewModel {
     var isShowingGoalBreakdown = false
     var isShowingWeeklyReport = false
     var calendarReportDate: Date?
+    var isShowingPaywall = false
     var selectedGoalBreakdownSection: DailyGoalBreakdownSection = .calories
     var aiErrorMessage: String?
     var pendingAIReview: AIResultReview?

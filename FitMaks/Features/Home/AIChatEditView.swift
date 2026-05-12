@@ -228,7 +228,7 @@ struct AIChatEditView: View {
             if messages.isEmpty {
                 messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true))
             }
-            if !healthCommentLoaded {
+            if !healthCommentLoaded && SubscriptionManager.shared.isPro {
                 healthCommentLoaded = true
                 fetchHealthComment()
             }

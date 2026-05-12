@@ -75,6 +75,7 @@ struct FitMaksApp: App {
             .id(rootViewIdentity)
             .preferredColorScheme(selectedTheme.palette.preferredScheme)
             .task {
+                await SubscriptionManager.shared.refreshEntitlements()
                 guard isShowingLaunchSplash else { return }
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 withAnimation(.easeInOut(duration: 0.42)) {

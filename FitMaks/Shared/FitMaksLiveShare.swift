@@ -1122,65 +1122,191 @@ private struct FitMaksLiveTodayCard: View {
 private struct FitMaksLiveStreakCard: View {
     let snapshot: FitMaksShareStreakSnapshot
 
+    private var progress: Double {
+        min(Double(snapshot.current) / Double(max(snapshot.target, 1)), 1)
+    }
+
+    private var headline: String {
+        switch snapshot.current {
+        case 7...:
+            return "Weekly flame closed."
+        case 4...:
+            return "This week is moving."
+        case 1...:
+            return "The streak is alive."
+        default:
+            return "One clean day starts it."
+        }
+    }
+
     var body: some View {
         let light = isLightAppTheme()
 
-        VStack(alignment: .leading, spacing: 26) {
-            Text("STREAK MODE")
-                .font(.system(size: 22, weight: .heavy))
-                .foregroundColor(.fitOrange)
-                .tracking(1.4)
+        VStack(alignment: .leading, spacing: 24) {
+            HStack {
+                livePosterTag("Weekly report", color: .fitOrange)
+
+                Spacer()
+
+                Text(AppRules.calorieGraceLabel)
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundColor(light ? .appMuted : .white.opacity(0.66))
+            }
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Protect the streak.")
-                        .font(.system(size: 72, weight: .black))
+                    Text(headline)
+                        .font(.system(size: 66, weight: .black))
                         .foregroundColor(light ? .appText : .white)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.72)
 
-                    Text("Current flame \(snapshot.current)/\(snapshot.target).")
-                        .font(.system(size: 28, weight: .heavy))
+                    Text("Current flame \(snapshot.current)/\(snapshot.target), with \(snapshot.perfect30) perfect days in the last 30.")
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.74))
+                        .lineSpacing(3)
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(snapshot.current)")
-                        .font(.system(size: 120, weight: .black))
-                        .foregroundColor(light ? .appText : .white)
-
-                    Text("days")
-                        .font(.system(size: 28, weight: .heavy))
-                        .foregroundColor(light ? .appMuted : .white.opacity(0.72))
-                }
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(light ? Color.appSurface.opacity(0.95) : Color.white.opacity(0.14))
-
-                    Capsule()
+                ZStack {
+                    Circle()
                         .fill(
-                            LinearGradient(
-                                colors: [.fitOrange, .neonGreen],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                            RadialGradient(
+                                colors: [
+                                    Color.fitOrange.opacity(light ? 0.30 : 0.44),
+                                    Color.red.opacity(light ? 0.20 : 0.28),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 6,
+                                endRadius: 92
                             )
                         )
-                        .frame(width: proxy.size.width * CGFloat(min(Double(snapshot.current) / Double(max(snapshot.target, 1)), 1)))
+                        .frame(width: 180, height: 180)
+
+                    Circle()
+                        .fill(light ? Color.appSurface.opacity(0.98) : Color.white.opacity(0.07))
+                        .frame(width: 136, height: 136)
+                        .overlay(
+                            Circle()
+                                .stroke(light ? Color.appBorder.opacity(0.75) : Color.white.opacity(0.10), lineWidth: 1)
+                        )
+
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 68, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.18, blue: 0.06),
+                                    Color.red.opacity(0.86),
+                                    Color.fitOrange.opacity(0.42)
+                                ],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .offset(y: -2)
+                        .shadow(color: Color.red.opacity(0.38), radius: 14)
+
+                    VStack(spacing: 0) {
+                        HStack(alignment: .firstTextBaseline, spacing: 1) {
+                            Text("\(snapshot.current)")
+                                .font(.system(size: 56, weight: .black))
+                            Text("d")
+                                .font(.system(size: 20, weight: .black))
+                        }
+                        .foregroundColor(light ? .appText : .white)
+                        .offset(y: 34)
+
+                        Text("current")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(light ? .appMuted : .white.opacity(0.68))
+                            .offset(y: 30)
+                    }
+                }
+                .frame(width: 170, height: 170)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("\(snapshot.current)/\(snapshot.target) weekly flame")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundColor(light ? .appText : .white)
+
+                    Spacer()
+
+                    Text(progress >= 1 ? "Closed" : "In progress")
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundColor(progress >= 1 ? .neonGreen : .fitOrange)
+                }
+
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.12))
+
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.fitOrange, .yellow, .neonGreen],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(20, proxy.size.width * CGFloat(progress)))
+                    }
+                }
+                .frame(height: 16)
+
+                HStack(spacing: 8) {
+                    ForEach(0..<snapshot.target, id: \.self) { index in
+                        Capsule()
+                            .fill(index < snapshot.current ? Color.fitOrange : (light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.08)))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 8)
+                            .overlay(
+                                Capsule()
+                                    .stroke(index < snapshot.current ? Color.fitOrange.opacity(0.24) : (light ? Color.appBorder.opacity(0.75) : Color.clear), lineWidth: 1)
+                            )
+                    }
                 }
             }
-            .frame(height: 20)
 
-            HStack(spacing: 14) {
-                liveStatPill(title: "Best 30d", value: "\(snapshot.best30)d", accent: .fitOrange)
-                liveStatPill(title: "Perfect days", value: "\(snapshot.perfect30)/30", accent: .neonGreen)
+            HStack(spacing: 12) {
+                streakMetricPill(title: "Current", value: "\(snapshot.current)d", accent: .fitOrange, light: light)
+                streakMetricPill(title: "Best 30d", value: "\(snapshot.best30)d", accent: .yellow, light: light)
+                streakMetricPill(title: "Perfect days", value: "\(snapshot.perfect30)/30", accent: .neonGreen, light: light)
             }
         }
         .padding(34)
         .background(liveCardBackground)
+    }
+
+    private func streakMetricPill(title: String, value: String, accent: Color, light: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundColor(accent)
+                .tracking(0.8)
+
+            Text(value)
+                .font(.system(size: 30, weight: .black))
+                .foregroundColor(light ? .appText : .white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(light ? Color.appSurface.opacity(0.94) : Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(light ? Color.appBorder.opacity(0.72) : accent.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 

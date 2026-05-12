@@ -85,16 +85,18 @@ struct StatsScorePill: View {
 
     var body: some View {
         let light = isLightAppTheme()
+        let titleColor = light ? Color.appMuted : Color.white.opacity(0.66)
+        let valueColor = light ? Color.appText : Color.white
 
         HStack(spacing: 7) {
             Image(systemName: icon)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
                     .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(light ? .appMuted : .black.opacity(0.55))
+                    .foregroundColor(titleColor)
                 Text(value)
                     .font(.system(size: 14, weight: .black))
-                    .foregroundColor(.appAccentText)
+                    .foregroundColor(valueColor)
             }
         }
         .padding(.horizontal, 11)

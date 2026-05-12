@@ -354,12 +354,13 @@ struct AIChatEditView: View {
     }
 
     private func fetchHealthComment() {
-        isWaiting = true
+        let placeholder = ChatMessage(text: "Reviewing your dish…", isUser: false, shouldTypewrite: true)
+        messages.append(placeholder)
         let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients_breakdown: entry.ingredients, ai_response_text: "")
-        GeminiService.shared.refineAnalysis(image: nil, currentData: current, userComment: "Rate this dish from a healthy eating perspective. 2-3 short sentences: is it a good choice, pros and cons for health and fitness goals. DO NOT change any calorie or macro values — only write your commentary in ai_response_text. Respond in the same language as the food name.", userName: AuthService.shared.displayName) { result, error in
-            isWaiting = false
+        GeminiService.shared.refineAnalysis(image: nil, currentData: current, userComment: "You are a strict sports nutritionist. Give an HONEST, critical review of this dish — highlight every downside: excess sugar, bad fats, low protein, empty calories, glycemic impact, hidden sodium, anything. Mention positives only if they genuinely exist. Be direct and blunt, 2-3 sentences. DO NOT change any calorie or macro values — only write your review in ai_response_text. Respond in the same language as the food name.", userName: AuthService.shared.displayName) { result, error in
+            messages.removeAll { $0.id == placeholder.id }
             if let res = result {
-                let comment = res.ai_response_text.isEmpty ? "Looks balanced overall." : res.ai_response_text
+                let comment = res.ai_response_text.isEmpty ? "No strong concerns." : res.ai_response_text
                 messages.append(ChatMessage(text: comment, isUser: false, shouldTypewrite: true))
             }
         }

@@ -53,7 +53,7 @@ struct CustomCalendarView: View {
                             .foregroundColor(.appMuted)
                             .frame(maxWidth: .infinity)
                     }
-                    Color.clear.frame(width: 28)
+                    Color.clear.frame(width: 26)
                 }
 
                 let weeks = extractWeeks()
@@ -149,13 +149,26 @@ struct CustomCalendarView: View {
             Button {
                 onWeeklyReport?(monday)
             } label: {
-                Image(systemName: "list.clipboard")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.appMuted)
+                VStack(spacing: 3) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("W")
+                        .font(.system(size: 8, weight: .black))
+                }
+                .foregroundColor(.neonGreen)
+                .frame(width: 26, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.neonGreen.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.neonGreen.opacity(0.22), lineWidth: 1)
+                        )
+                )
             }
             .buttonStyle(.plain)
         } else {
-            Color.clear.frame(width: 24, height: 24)
+            Color.clear.frame(width: 26, height: 38)
         }
     }
 
@@ -284,7 +297,7 @@ private struct CalendarDayCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 4) {
             ZStack {
                 if isPerfectDay {
                     perfectMedal
@@ -293,25 +306,25 @@ private struct CalendarDayCell: View {
                 }
 
                 Text("\(dayNumber)")
-                    .font(.system(size: isPerfectDay ? 16 : 15, weight: isPerfectDay ? .heavy : (isSelected ? .bold : .medium)))
+                    .font(.system(size: isPerfectDay ? 14 : 13, weight: isPerfectDay ? .heavy : (isSelected ? .bold : .medium)))
                     .foregroundColor(dayTextColor)
 
                 if isPerfectDay {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: 8, weight: .black))
                         .foregroundColor(.yellow)
-                        .shadow(color: .yellow.opacity(0.9), radius: 6)
-                        .offset(x: 15, y: -16)
+                        .shadow(color: .yellow.opacity(0.9), radius: 5)
+                        .offset(x: 13, y: -14)
                 }
             }
-            .frame(width: 50, height: 50)
+            .frame(width: 40, height: 40)
             .scaleEffect(isPerfectDay ? 1.06 : 1)
             .overlay(
                 Circle()
                     .stroke(lightTheme ? Color.appAccentText.opacity(0.74) : Color.white, lineWidth: isSelected ? 2 : 0)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 42, height: 42)
             )
-            .shadow(color: perfectGlowColor, radius: isPerfectDay ? 12 : 0, x: 0, y: 0)
+            .shadow(color: perfectGlowColor, radius: isPerfectDay ? 10 : 0, x: 0, y: 0)
             .opacity(isFuture ? 0.35 : 1)
             .onTapGesture {
                 if !isFuture {
@@ -320,9 +333,9 @@ private struct CalendarDayCell: View {
             }
 
             if isFuture {
-                Color.clear.frame(height: 4)
+                Color.clear.frame(height: 3)
             } else {
-                HStack(spacing: 3) {
+                HStack(spacing: 2) {
                     statusPip(isMet: calorieGoalMet, color: .neonGreen)
                     statusPip(isMet: proteinGoalMet, color: .neonCyan)
                     statusPip(isMet: stepsGoalMet, color: .yellow)
@@ -330,9 +343,9 @@ private struct CalendarDayCell: View {
             }
 
             if isFuture {
-                Color.clear.frame(height: 12)
+                Color.clear.frame(height: 10)
             } else if mode == .chill {
-                Color.clear.frame(height: 22)
+                Color.clear.frame(height: 18)
             } else {
                 modeBadge
             }
@@ -349,12 +362,12 @@ private struct CalendarDayCell: View {
         case .gym:
             modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
         case .cardioGym:
-            HStack(spacing: -5) {
+            HStack(spacing: -4) {
                 modeBadgeIcon("figure.run", color: .neonGreen)
                     .zIndex(2)
                 modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
             }
-            .frame(height: 19)
+            .frame(height: 16)
         }
     }
 
@@ -370,21 +383,21 @@ private struct CalendarDayCell: View {
                         ],
                         center: .topLeading,
                         startRadius: 1,
-                        endRadius: 21
+                        endRadius: 17
                     )
                 )
-                .frame(width: 22, height: 22)
+                .frame(width: 18, height: 18)
                 .overlay(Circle().stroke(Color.appText.opacity(0.42), lineWidth: 1))
-                .shadow(color: color.opacity(isPerfectDay ? 0.95 : 0.72), radius: isPerfectDay ? 10 : 7, x: 0, y: 0)
+                .shadow(color: color.opacity(isPerfectDay ? 0.95 : 0.72), radius: isPerfectDay ? 8 : 5, x: 0, y: 0)
 
             if isText {
                 Text(symbol)
-                    .font(.system(size: 8, weight: .black))
+                    .font(.system(size: 7, weight: .black))
                     .foregroundColor(.appText)
                     .offset(y: -0.5)
             } else {
                 Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .black))
+                    .font(.system(size: 10, weight: .black))
                     .foregroundColor(.black.opacity(0.88))
                     .shadow(color: .white.opacity(0.24), radius: 1, x: 0, y: 1)
             }
@@ -395,19 +408,19 @@ private struct CalendarDayCell: View {
         ZStack {
             Circle()
                 .fill(standardFillColor)
-                .frame(width: 40, height: 40)
+                .frame(width: 32, height: 32)
 
             if proteinGoalMet {
                 Circle()
-                    .stroke(Color.neonCyan, lineWidth: 2)
-                    .frame(width: 44, height: 44)
-                    .shadow(color: .neonCyan.opacity(0.5), radius: 4)
+                    .stroke(Color.neonCyan, lineWidth: 1.5)
+                    .frame(width: 36, height: 36)
+                    .shadow(color: .neonCyan.opacity(0.5), radius: 3)
             }
 
             if stepsGoalMet {
                 Circle()
                     .stroke(Color.yellow.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 40, height: 40)
             }
         }
     }
@@ -424,10 +437,10 @@ private struct CalendarDayCell: View {
                         ],
                         center: .topLeading,
                         startRadius: 2,
-                        endRadius: 32
+                        endRadius: 26
                     )
                 )
-                .frame(width: 44, height: 44)
+                .frame(width: 36, height: 36)
 
             Circle()
                 .stroke(
@@ -435,13 +448,13 @@ private struct CalendarDayCell: View {
                         colors: [.yellow, .neonGreen, .neonCyan, .yellow],
                         center: .center
                     ),
-                    lineWidth: 3
+                    lineWidth: 2.5
                 )
-                .frame(width: 50, height: 50)
+                .frame(width: 40, height: 40)
 
             Circle()
                 .stroke(Color.appText.opacity(0.9), lineWidth: 1)
-                .frame(width: 37, height: 37)
+                .frame(width: 30, height: 30)
         }
     }
 

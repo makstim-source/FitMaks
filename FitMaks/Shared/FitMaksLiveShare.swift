@@ -1758,8 +1758,8 @@ private var liveCardBackground: some View {
     let light = isLightAppTheme()
 
     return RoundedRectangle(cornerRadius: 34)
-        .fill(light ? Color.appElevated : Color.black.opacity(0.54))
-        .overlay(RoundedRectangle(cornerRadius: 34).stroke(light ? Color.appBorder : Color.white.opacity(0.08), lineWidth: 1))
+        .fill(light ? Color.appElevated : Color(red: 14/255, green: 14/255, blue: 18/255).opacity(0.92))
+        .overlay(RoundedRectangle(cornerRadius: 34).stroke(light ? Color.appBorder : Color.white.opacity(0.10), lineWidth: 1))
 }
 
 private func liveStatPill(title: String, value: String, accent: Color) -> some View {

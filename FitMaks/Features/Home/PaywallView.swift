@@ -7,6 +7,7 @@ struct PaywallView: View {
 
     @State private var selectedProduct: Product?
     @State private var isPurchasing = false
+    @State private var isShowingOfferCodeSheet = false
 
     private let features: [(icon: String, title: String, free: String, pro: String)] = [
         ("camera.fill", "AI Food Scans", "5 / day", "Unlimited"),
@@ -32,7 +33,7 @@ struct PaywallView: View {
                         header
                         featureGrid
                         productCards
-                        restoreButton
+                        restoreAndPromoButtons
                         legalLinks
                     }
                     .padding()
@@ -57,6 +58,14 @@ struct PaywallView: View {
         .onChange(of: subscription.products.count) { _, _ in
             if selectedProduct == nil {
                 selectedProduct = subscription.yearlyProduct ?? subscription.monthlyProduct
+            }
+        }
+        .offerCodeRedemption(isPresented: $isShowingOfferCodeSheet) { result in
+            if case .success = result {
+                Task {
+                    await subscription.refreshEntitlements()
+                    if subscription.isPro { dismiss() }
+                }
             }
         }
     }
@@ -304,13 +313,25 @@ struct PaywallView: View {
         .buttonStyle(.plain)
     }
 
-    private var restoreButton: some View {
-        Button {
-            Task { await subscription.restorePurchases() }
-        } label: {
-            Text("Restore Purchases")
-                .font(.system(size: 13, weight: .heavy))
-                .foregroundColor(.appMuted)
+    private var restoreAndPromoButtons: some View {
+        HStack(spacing: 20) {
+            Button {
+                Task { await subscription.restorePurchases() }
+            } label: {
+                Text("Restore Purchases")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.appMuted)
+            }
+
+            Text("·").foregroundColor(.appMuted.opacity(0.4))
+
+            Button {
+                isShowingOfferCodeSheet = true
+            } label: {
+                Text("Promo Code")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.appMuted)
+            }
         }
     }
 

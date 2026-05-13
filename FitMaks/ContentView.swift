@@ -861,7 +861,7 @@ struct ContentView: View {
 
                 Spacer()
 
-                if !dailyFeed.isEmpty && !Calendar.current.isDateInToday(viewModel.selectedDate) {
+                if !dailyFeed.isEmpty && viewModel.selectedDate > Calendar.current.startOfDay(for: Date()) {
                     Button {
                         isShowingClearDayConfirm = true
                     } label: {

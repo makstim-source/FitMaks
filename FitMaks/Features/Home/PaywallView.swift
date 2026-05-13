@@ -54,6 +54,11 @@ struct PaywallView: View {
             await subscription.loadProducts()
             selectedProduct = subscription.yearlyProduct ?? subscription.monthlyProduct
         }
+        .onChange(of: subscription.products.count) { _, _ in
+            if selectedProduct == nil {
+                selectedProduct = subscription.yearlyProduct ?? subscription.monthlyProduct
+            }
+        }
     }
 
     private var header: some View {
@@ -150,17 +155,39 @@ struct PaywallView: View {
     private var productCards: some View {
         VStack(spacing: 12) {
             if let yearly = subscription.yearlyProduct {
-                productCard(yearly, badge: "Best value")
+                productCard(yearly, isYearly: true)
             }
             if let monthly = subscription.monthlyProduct {
-                productCard(monthly, badge: nil)
+                productCard(monthly, isYearly: false)
             }
 
             if subscription.products.isEmpty && !subscription.isLoading {
-                Text("Products not available. Check your connection.")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.appMuted)
-                    .padding()
+                VStack(spacing: 10) {
+                    Text("Products not available yet.")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.appText)
+
+                    Text("Check your StoreKit configuration or finish the subscription setup in App Store Connect, then try again.")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.appMuted)
+                        .multilineTextAlignment(.center)
+
+                    Button {
+                        Task {
+                            await subscription.loadProducts()
+                            selectedProduct = subscription.yearlyProduct ?? subscription.monthlyProduct
+                        }
+                    } label: {
+                        Text("Retry")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundColor(.appAccentText)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(Color.neonGreen))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding()
             }
 
             Button {
@@ -192,7 +219,7 @@ struct PaywallView: View {
             .buttonStyle(.plain)
             .disabled(selectedProduct == nil || isPurchasing)
 
-            if let error = subscription.purchaseError {
+            if let error = subscription.purchaseError, subscription.products.isEmpty == false {
                 Text(error)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.fitOrange)
@@ -201,21 +228,40 @@ struct PaywallView: View {
         }
     }
 
-    private func productCard(_ product: Product, badge: String?) -> some View {
+    private var yearlySavingsPercent: Int? {
+        guard let monthly = subscription.monthlyProduct,
+              let yearly = subscription.yearlyProduct else { return nil }
+        let monthlyAnnual = monthly.price * 12
+        guard monthlyAnnual > 0 else { return nil }
+        let savings = (monthlyAnnual - yearly.price) / monthlyAnnual * 100
+        let rounded = NSDecimalNumber(decimal: savings).intValue
+        return rounded > 0 ? rounded : nil
+    }
+
+    private func yearlyPerMonth(_ yearly: Product) -> String {
+        let perMonth = yearly.price / 12
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = yearly.priceFormatStyle.locale
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: perMonth as NSDecimalNumber) ?? ""
+    }
+
+    private func productCard(_ product: Product, isYearly: Bool) -> some View {
         let isSelected = selectedProduct?.id == product.id
 
         return Button {
             withAnimation(.spring(response: 0.25)) { selectedProduct = product }
         } label: {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Text(product.displayName)
                             .font(.system(size: 16, weight: .black))
                             .foregroundColor(.appText)
 
-                        if let badge {
-                            Text(badge.uppercased())
+                        if isYearly, let pct = yearlySavingsPercent {
+                            Text("SAVE \(pct)%")
                                 .font(.system(size: 9, weight: .heavy))
                                 .foregroundColor(.appAccentText)
                                 .padding(.horizontal, 8)
@@ -224,17 +270,32 @@ struct PaywallView: View {
                         }
                     }
 
-                    Text(product.description)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.appMuted)
-                        .lineLimit(1)
+                    if isYearly {
+                        Text("\(yearlyPerMonth(product))/mo")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(.neonGreen)
+                        + Text("  billed \(product.displayPrice)/year")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.appMuted)
+                    } else {
+                        Text(product.description)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.appMuted)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()
 
-                Text(product.displayPrice)
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundColor(isSelected ? .neonGreen : .appText)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(isYearly ? yearlyPerMonth(product) : product.displayPrice)
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(isSelected ? .neonGreen : .appText)
+
+                    Text(isYearly ? "/mo" : "/month")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.appMuted)
+                }
             }
             .padding(16)
             .background(

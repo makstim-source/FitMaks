@@ -14,7 +14,6 @@ struct PaywallView: View {
         ("sparkles", "AI Coach", "—", "Full access"),
         ("fork.knife", "Meal Critique", "—", "Full access"),
         ("chart.bar.fill", "Weekly Reports", "Basic", "Detailed"),
-        ("square.and.arrow.up", "Share Templates", "Basic", "All styles"),
         ("paintpalette.fill", "Themes", "Default", "All themes"),
     ]
 

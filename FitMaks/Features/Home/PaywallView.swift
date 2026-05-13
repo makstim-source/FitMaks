@@ -253,51 +253,43 @@ struct PaywallView: View {
         return Button {
             withAnimation(.spring(response: 0.25)) { selectedProduct = product }
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
+            VStack(spacing: 0) {
+                if isYearly, let pct = yearlySavingsPercent {
+                    Text("SAVE \(pct)% — \(yearlyPerMonth(product))/mo instead of \(subscription.monthlyProduct?.displayPrice ?? "")/mo")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.appAccentText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.fitOrange)
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(product.displayName)
                             .font(.system(size: 16, weight: .black))
                             .foregroundColor(.appText)
 
-                        if isYearly, let pct = yearlySavingsPercent {
-                            Text("SAVE \(pct)%")
-                                .font(.system(size: 9, weight: .heavy))
-                                .foregroundColor(.appAccentText)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.fitOrange))
-                        }
-                    }
-
-                    if isYearly {
-                        Text("\(yearlyPerMonth(product))/mo")
-                            .font(.system(size: 13, weight: .heavy))
-                            .foregroundColor(.neonGreen)
-                        + Text("  billed \(product.displayPrice)/year")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.appMuted)
-                    } else {
-                        Text(product.description)
+                        Text(isYearly
+                             ? "\(yearlyPerMonth(product))/mo"
+                             : product.description)
                             .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(isYearly ? .neonGreen : .appMuted)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(product.displayPrice)
+                            .font(.system(size: 20, weight: .black))
+                            .foregroundColor(isSelected ? .neonGreen : .appText)
+
+                        Text(isYearly ? "/year" : "/month")
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.appMuted)
-                            .lineLimit(1)
                     }
                 }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(isYearly ? yearlyPerMonth(product) : product.displayPrice)
-                        .font(.system(size: 18, weight: .black))
-                        .foregroundColor(isSelected ? .neonGreen : .appText)
-
-                    Text(isYearly ? "/mo" : "/month")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.appMuted)
-                }
+                .padding(16)
             }
-            .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.appSurface)
@@ -306,6 +298,7 @@ struct PaywallView: View {
                             .stroke(isSelected ? Color.neonGreen : Color.appBorder, lineWidth: isSelected ? 2 : 1)
                     )
             )
+            .clipShape(RoundedRectangle(cornerRadius: 20))
             .shadow(color: isSelected ? .neonGreen.opacity(0.15) : .clear, radius: 12, y: 6)
         }
         .buttonStyle(.plain)

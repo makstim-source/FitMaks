@@ -1827,35 +1827,35 @@ private struct FitMaksLiveWeeklyCard: View {
     var body: some View {
         let light = isLightAppTheme()
 
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 livePosterTag("WEEKLY REPORT", color: snapshot.scoreColor)
                 livePosterTag(snapshot.dateRange.uppercased(), color: .appMuted)
             }
 
-            HStack(alignment: .top, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("WEEK SCORE")
-                        .font(.system(size: 18, weight: .heavy))
+                        .font(.system(size: 14, weight: .heavy))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.62))
                         .tracking(1)
 
                     Text("\(snapshot.score)%")
-                        .font(.system(size: 78, weight: .black))
+                        .font(.system(size: 64, weight: .black))
                         .foregroundColor(snapshot.scoreColor)
 
                     Text(snapshot.scoreLabel)
-                        .font(.system(size: 24, weight: .heavy))
+                        .font(.system(size: 20, weight: .heavy))
                         .foregroundColor(light ? .appText : .white)
 
                     Text("\(snapshot.perfectDays)/7 perfect days")
-                        .font(.system(size: 19, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.7))
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     weeklySummaryPill(
                         title: "Perfect",
                         value: "\(snapshot.perfectDays)/7",
@@ -1872,28 +1872,28 @@ private struct FitMaksLiveWeeklyCard: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("WEEK AT A GLANCE")
-                        .font(.system(size: 18, weight: .heavy))
+                        .font(.system(size: 14, weight: .heavy))
                         .foregroundColor(light ? .appText : .white)
                         .tracking(0.8)
 
                     Spacer()
 
                     Text("C / P / S")
-                        .font(.system(size: 16, weight: .heavy))
+                        .font(.system(size: 12, weight: .heavy))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.54))
                         .tracking(0.8)
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     ForEach(snapshot.dayResults) { day in
                         weeklyDayCard(day, light: light)
                     }
                 }
             }
-            .padding(18)
+            .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 28)
                     .fill(light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.05))
@@ -1903,20 +1903,45 @@ private struct FitMaksLiveWeeklyCard: View {
                     )
             )
 
-            HStack(spacing: 14) {
-                liveStatPill(title: "Calories", value: snapshot.avgCalories, accent: .neonGreen)
-                liveStatPill(title: "Protein", value: snapshot.avgProtein, accent: .neonCyan)
+            HStack(spacing: 10) {
+                weeklyCompactStat(title: "CALORIES", value: snapshot.avgCalories, accent: .neonGreen, light: light)
+                weeklyCompactStat(title: "PROTEIN", value: snapshot.avgProtein, accent: .neonCyan, light: light)
             }
 
-            HStack(spacing: 14) {
-                liveStatPill(title: "Carbs", value: snapshot.avgCarbs, accent: .fitOrange)
-                liveStatPill(title: "Fat", value: snapshot.avgFat, accent: .fitPurple)
+            HStack(spacing: 10) {
+                weeklyCompactStat(title: "CARBS", value: snapshot.avgCarbs, accent: .fitOrange, light: light)
+                weeklyCompactStat(title: "FAT", value: snapshot.avgFat, accent: .fitPurple, light: light)
             }
 
-            liveStatPill(title: "Total Steps", value: snapshot.totalSteps, accent: .fitOrange)
+            HStack(spacing: 10) {
+                weeklyCompactStat(title: "TOTAL STEPS", value: snapshot.totalSteps, accent: .fitOrange, light: light)
+            }
         }
-        .padding(34)
+        .padding(24)
         .background(liveCardBackground)
+    }
+
+    private func weeklyCompactStat(title: String, value: String, accent: Color, light: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundColor(accent)
+                .tracking(0.8)
+
+            Text(value)
+                .font(.system(size: 26, weight: .black))
+                .foregroundColor(light ? .appText : .white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 20).fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.06)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(light ? Color.appBorder.opacity(0.65) : Color.clear, lineWidth: 1)
+        )
     }
 
     private func weeklyDayCard(_ day: FitMaksShareWeeklyDay, light: Bool) -> some View {

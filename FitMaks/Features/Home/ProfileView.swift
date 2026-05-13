@@ -1051,23 +1051,20 @@ struct ProfileView: View {
 
         let rangeMetrics = cachedRangeMetrics.isEmpty ? Array(bodyMetrics.prefix(30)) : cachedRangeMetrics
         let weightData = rangeMetrics
+            .filter { $0.weightKg > 0 }
             .sorted { $0.date < $1.date }
             .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
 
-        let rangeName = selectedWeightRange.title
+        guard !weightData.isEmpty else {
+            aiWeightLoading = false
+            aiWeightError = "No weight data in this range."
+            return
+        }
 
-        let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
-            dateRange: rangeName,
-            avgCalories: Int(selectedCalories),
-            targetCalories: Int(selectedCalories),
-            avgProtein: Int(selectedProtein),
-            targetProtein: Int(selectedProtein),
-            avgCarbs: 0,
-            avgFat: 0,
+        let (result, error) = await GeminiService.shared.analyzeWeightTrendAsync(
             weightEntries: weightData,
-            weeklyScore: 0,
-            perfectDays: 0,
-            totalDays: rangeMetrics.count,
+            targetCalories: Int(selectedCalories),
+            targetProtein: Int(selectedProtein),
             userName: AuthService.shared.displayName
         )
         aiWeightLoading = false

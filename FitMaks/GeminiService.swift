@@ -511,6 +511,58 @@ class GeminiService {
         }
     }
 
+    func analyzeWeightTrend(
+        weightEntries: [(date: String, weight: Double)],
+        targetCalories: Int,
+        targetProtein: Int,
+        userName: String? = nil,
+        completion: @escaping (String?, String?) -> Void
+    ) {
+        guard !weightEntries.isEmpty else {
+            completion(nil, "No weight data to analyze.")
+            return
+        }
+
+        let nameContext = userName.map { "The user's name is \($0). Address them by first name." } ?? ""
+        let weightLines = weightEntries.map { "\($0.date): \($0.weight) kg" }.joined(separator: "\n")
+        let firstDate = weightEntries.first!.date
+        let lastDate = weightEntries.last!.date
+        let entryCount = weightEntries.count
+
+        let prompt = """
+        You are a sharp, data-driven body composition analyst.
+        \(nameContext)
+
+        Analyze the user's weight trend from \(entryCount) measurements between \(firstDate) and \(lastDate).
+
+        WEIGHT LOG:
+        \(weightLines)
+
+        CONTEXT:
+        - User's daily calorie target: \(targetCalories) kcal
+        - User's daily protein target: \(targetProtein)g
+
+        RULES:
+        1. Identify the trend: gaining, losing, stable, or fluctuating. Quantify the change (first vs last, and rate per week if enough data).
+        2. Comment on consistency of measurements — are they regular or sporadic?
+        3. If weight is dropping, estimate if the rate is healthy (0.3-0.7 kg/week is typical for a moderate deficit).
+        4. If weight is rising or flat, suggest possible explanations (water retention, muscle gain, surplus, measurement timing).
+        5. Note any unusual spikes or dips and possible causes (sodium, hydration, post-workout).
+        6. Give 1-2 specific, actionable recommendations.
+        7. Be honest, concise, and practical. No motivational fluff.
+        8. Use 2-4 short paragraphs. Use emoji sparingly (1-2 max).
+        9. Do NOT comment on carbs, fat, or other nutrition data — you only have weight measurements and targets.
+        10. Detect the user's language from their name or default to English.
+
+        Return ONLY a single JSON object:
+        {"ai_summary": "your analysis here"}
+        """
+
+        sendToGemini(images: [], prompt: prompt, responseType: DailySummaryResult.self, temperature: 0.4) { result, error in
+            completion(result?.ai_summary, error)
+        }
+    }
+
     func scanGroceries(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
         let prompt = """
         Extract all individual food items from this grocery receipt or image. 
@@ -1141,6 +1193,24 @@ extension GeminiService {
                 weeklyScore: weeklyScore,
                 perfectDays: perfectDays,
                 totalDays: totalDays,
+                userName: userName
+            ) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func analyzeWeightTrendAsync(
+        weightEntries: [(date: String, weight: Double)],
+        targetCalories: Int,
+        targetProtein: Int,
+        userName: String? = nil
+    ) async -> (String?, String?) {
+        await withCheckedContinuation { continuation in
+            analyzeWeightTrend(
+                weightEntries: weightEntries,
+                targetCalories: targetCalories,
+                targetProtein: targetProtein,
                 userName: userName
             ) { result, error in
                 continuation.resume(returning: (result, error))

@@ -9,7 +9,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     case iphoneGlass = "iphone_glass"
 
     static let storageKey = "selectedThemeID"
-    static let defaultID = AppTheme.original.rawValue
+    static let defaultID = AppTheme.originalV2.rawValue
     static let areAlternateThemesEnabled = true
     static let selectableThemes: [AppTheme] = [.original, .originalV2, .earthFuel, .iphoneGlass]
 
@@ -378,10 +378,11 @@ struct ThemeSelectionView: View {
     var isFirstRun: Bool
     var onContinue: () -> Void
 
-    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
+    @AppStorage(AppTheme.storageKey) private var savedThemeID = AppTheme.defaultID
+    @State private var previewThemeID = ""
 
     private var selectedTheme: AppTheme {
-        AppTheme.resolvedTheme(for: selectedThemeID)
+        AppTheme.resolvedTheme(for: previewThemeID.isEmpty ? savedThemeID : previewThemeID)
     }
 
     var body: some View {
@@ -391,7 +392,7 @@ struct ThemeSelectionView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 22) {
                     header
-                    ThemePickerGrid(selectedThemeID: $selectedThemeID)
+                    ThemePickerGrid(selectedThemeID: $previewThemeID)
                     selectedThemeStory
                     continueButton
                 }
@@ -401,21 +402,39 @@ struct ThemeSelectionView: View {
             }
         }
         .preferredColorScheme(selectedTheme.palette.preferredScheme)
-        .onAppear(perform: normalizeSelection)
+        .onAppear {
+            previewThemeID = AppTheme.normalizedSelectableID(for: savedThemeID)
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(isFirstRun ? "CHOOSE YOUR VIBE" : "APP THEME")
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundColor(.neonGreen)
-                .tracking(1.1)
+            HStack {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(isFirstRun ? "CHOOSE YOUR VIBE" : "APP THEME")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.neonGreen)
+                        .tracking(1.1)
 
-            Text(isFirstRun ? "Make FitMaks feel like yours." : "Change the mood anytime.")
-                .font(.system(size: 34, weight: .black))
-                .foregroundColor(.appText)
-                .lineSpacing(0)
-                .fixedSize(horizontal: false, vertical: true)
+                    Text(isFirstRun ? "Make FitMaks feel like yours." : "Change the mood anytime.")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundColor(.appText)
+                        .lineSpacing(0)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                if !isFirstRun {
+                    Button { onContinue() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundColor(.appMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
 
             Text("Original stays untouched. Neon Core is the premium neon remix, Pastel Day is the soft daylight alternative, and iPhone Glass is the colder dark-glass take.")
                 .font(.system(size: 15, weight: .semibold))
@@ -472,6 +491,7 @@ struct ThemeSelectionView: View {
 
     private var continueButton: some View {
         Button {
+            savedThemeID = previewThemeID
             onContinue()
         } label: {
             HStack {
@@ -515,12 +535,6 @@ struct ThemeSelectionView: View {
             .fill(color)
             .frame(width: 28, height: 28)
             .overlay(Circle().stroke(Color.appText.opacity(0.22), lineWidth: 1))
-    }
-
-    private func normalizeSelection() {
-        let normalized = AppTheme.normalizedSelectableID(for: selectedThemeID)
-        guard normalized != selectedThemeID else { return }
-        selectedThemeID = normalized
     }
 }
 

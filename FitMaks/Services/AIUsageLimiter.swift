@@ -3,7 +3,7 @@ import Foundation
 enum AIUsageLimiter {
     private static let scanCountKey = "fitmaks_free_scan_count"
     private static let scanDateKey = "fitmaks_free_scan_date"
-    static let dailyFreeLimit = 5
+    static let dailyFreeLimit = 2
 
     static var scansUsedToday: Int {
         resetIfNewDay()

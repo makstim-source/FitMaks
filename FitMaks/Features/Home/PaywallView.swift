@@ -10,7 +10,7 @@ struct PaywallView: View {
     @State private var isShowingOfferCodeSheet = false
 
     private let features: [(icon: String, title: String, free: String, pro: String)] = [
-        ("camera.fill", "AI Food Scans", "5 / day", "Unlimited"),
+        ("camera.fill", "AI Food Scans", "2 / day", "Unlimited"),
         ("sparkles", "AI Coach", "—", "Full access"),
         ("fork.knife", "Meal Critique", "—", "Full access"),
         ("chart.bar.fill", "Weekly Reports", "Basic", "Detailed"),

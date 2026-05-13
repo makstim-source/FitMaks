@@ -31,6 +31,7 @@ struct ContentView: View {
     @State var viewModel = HomeViewModel()
     @State private var syncWorkItem: DispatchWorkItem?
     @State private var isShowingCopyDayDialog = false
+    @State private var isShowingClearDayConfirm = false
 
     // MARK: - Day Mode
 
@@ -432,6 +433,11 @@ struct ContentView: View {
             ) { sourceDate in
                 copyDayEntries(from: sourceDate)
             }
+        }
+        .confirmationDialog("Clear this day?", isPresented: $isShowingClearDayConfirm, titleVisibility: .visible) {
+            Button("Delete all entries", role: .destructive) { clearSelectedDay() }
+        } message: {
+            Text("All food and training entries for this day will be deleted.")
         }
         .alert("AI Error", isPresented: Binding(
             get: { viewModel.aiErrorMessage != nil },
@@ -839,6 +845,20 @@ struct ContentView: View {
 
                 Spacer()
 
+                if !dailyFeed.isEmpty && !Calendar.current.isDateInToday(viewModel.selectedDate) {
+                    Button {
+                        isShowingClearDayConfirm = true
+                    } label: {
+                        Text("Clear")
+                            .font(.system(size: 8, weight: .heavy))
+                            .foregroundColor(.red.opacity(0.85))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.red.opacity(0.1)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Text("\(dailyFeed.count) entries")
                     .font(.system(size: 8, weight: .bold))
                     .foregroundColor(.appMuted)
@@ -1232,6 +1252,22 @@ struct ContentView: View {
         }
 
         viewModel.setDayMode(viewModel.dayMode(for: sourceDate), for: destinationDate)
+        try? modelContext.save()
+        syncViewModel()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    private func clearSelectedDay() {
+        let calendar = Calendar.current
+        let date = viewModel.selectedDate
+
+        for entry in allFoodEntries where calendar.isDate(entry.date, inSameDayAs: date) {
+            viewModel.deleteFoodEntry(entry)
+        }
+        for entry in allTrainingEntries where calendar.isDate(entry.date, inSameDayAs: date) {
+            modelContext.delete(entry)
+        }
+
         try? modelContext.save()
         syncViewModel()
         UINotificationFeedbackGenerator().notificationOccurred(.success)

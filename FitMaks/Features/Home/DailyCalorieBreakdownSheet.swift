@@ -416,6 +416,7 @@ struct DailyCalorieBreakdownSheet: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(color))
+                .frame(width: 84, alignment: .center)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(detail)

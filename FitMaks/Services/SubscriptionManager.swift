@@ -1,7 +1,7 @@
 import Foundation
 import StoreKit
 
-@Observable
+@MainActor @Observable
 final class SubscriptionManager {
     static let shared = SubscriptionManager()
 
@@ -18,7 +18,7 @@ final class SubscriptionManager {
     var monthlyProduct: Product? { products.first { $0.id == Self.monthlyID } }
     var yearlyProduct: Product? { products.first { $0.id == Self.yearlyID } }
 
-    private var updateTask: Task<Void, Never>?
+    private nonisolated(unsafe) var updateTask: Task<Void, Never>?
 
     private init() {
         updateTask = Task { [weak self] in
@@ -36,14 +36,20 @@ final class SubscriptionManager {
     }
 
     func loadProducts() async {
-        guard products.isEmpty else { return }
+        guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
+        purchaseError = nil
         do {
             let storeProducts = try await Product.products(for: Self.productIDs)
             products = storeProducts.sorted { $0.price < $1.price }
+            if products.isEmpty {
+                purchaseError = "No subscription products were returned."
+            }
         } catch {
-            purchaseError = "Could not load products."
+            purchaseError = error.localizedDescription.isEmpty
+                ? "Could not load products."
+                : error.localizedDescription
         }
     }
 
@@ -74,7 +80,12 @@ final class SubscriptionManager {
     func restorePurchases() async {
         isLoading = true
         defer { isLoading = false }
-        try? await AppStore.sync()
+        purchaseError = nil
+        do {
+            try await AppStore.sync()
+        } catch {
+            purchaseError = "Restore failed. Check your connection and try again."
+        }
         await refreshEntitlements()
     }
 

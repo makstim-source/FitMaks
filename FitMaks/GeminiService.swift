@@ -457,6 +457,60 @@ class GeminiService {
         sendToGemini(images: [], prompt: prompt, responseType: RecipeListResult.self, temperature: 0.7) { result, error in completion(result?.recipes, error) }
     }
     
+    func generateNutritionWeightReport(
+        dateRange: String,
+        avgCalories: Int, targetCalories: Int,
+        avgProtein: Int, targetProtein: Int,
+        avgCarbs: Int, avgFat: Int,
+        weightEntries: [(date: String, weight: Double)],
+        weeklyScore: Int,
+        perfectDays: Int,
+        totalDays: Int,
+        userName: String? = nil,
+        completion: @escaping (String?, String?) -> Void
+    ) {
+        let nameContext = userName.map { "The user's name is \($0). Address them by first name." } ?? ""
+        let weightLines = weightEntries.map { "\($0.date): \($0.weight) kg" }.joined(separator: "\n")
+        let weightContext = weightEntries.isEmpty
+            ? "No weight measurements available for this period."
+            : "Weight log:\n\(weightLines)"
+
+        let prompt = """
+        You are a sharp, data-driven fitness and nutrition analyst.
+        \(nameContext)
+
+        Analyze the user's nutrition and weight data for the period: \(dateRange).
+
+        NUTRITION SUMMARY:
+        - Avg daily calories: \(avgCalories) kcal (target: \(targetCalories) kcal)
+        - Avg daily protein: \(avgProtein)g (target: \(targetProtein)g)
+        - Avg daily carbs: \(avgCarbs)g
+        - Avg daily fat: \(avgFat)g
+        - Weekly score: \(weeklyScore)% (\(perfectDays)/\(totalDays) perfect days)
+
+        \(weightContext)
+
+        RULES:
+        1. If weight data exists, analyze the trend (gaining, losing, stable) and connect it to the nutrition data. Is the calorie intake consistent with the observed weight change?
+        2. If weight is dropping but calories are near or above target, flag possible explanations (water loss, high activity, measurement timing).
+        3. If weight is stable or rising while in a deficit, explain likely causes (water retention, muscle gain, inconsistent tracking).
+        4. Highlight protein adherence — is the user hitting their protein target?
+        5. Comment on macro balance (carbs vs fat ratio) only if there's something notable.
+        6. Give 1-2 specific, actionable recommendations for the next period.
+        7. Be honest, concise, and practical. No motivational fluff.
+        8. Use 3-5 short paragraphs. Use emoji sparingly (1-2 max).
+        9. If no weight data: focus purely on nutrition patterns and recommendations.
+        10. Detect the user's language from their name or default to English.
+
+        Return ONLY a single JSON object:
+        {"ai_summary": "your analysis here"}
+        """
+
+        sendToGemini(images: [], prompt: prompt, responseType: DailySummaryResult.self, temperature: 0.4) { result, error in
+            completion(result?.ai_summary, error)
+        }
+    }
+
     func scanGroceries(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
         let prompt = """
         Extract all individual food items from this grocery receipt or image. 
@@ -711,7 +765,7 @@ class GeminiService {
                     return
                 }
                 let feedback = (json["promptFeedback"] as? [String: Any])?["blockReason"] as? String
-                completion(nil, feedback != nil ? "AI blocked: \(feedback!). Try rephrasing." : "Invalid Gemini response. Please try again.")
+                completion(nil, feedback.map { "AI blocked: \($0). Try rephrasing." } ?? "Invalid Gemini response. Please try again.")
                 return
             }
 
@@ -1061,6 +1115,34 @@ extension GeminiService {
     func scanGroceriesAsync(images: [UIImage]) async -> ([FoodResult]?, String?) {
         await withCheckedContinuation { continuation in
             scanGroceries(images: images) { result, error in
+                continuation.resume(returning: (result, error))
+            }
+        }
+    }
+
+    func generateNutritionWeightReportAsync(
+        dateRange: String,
+        avgCalories: Int, targetCalories: Int,
+        avgProtein: Int, targetProtein: Int,
+        avgCarbs: Int, avgFat: Int,
+        weightEntries: [(date: String, weight: Double)],
+        weeklyScore: Int,
+        perfectDays: Int,
+        totalDays: Int,
+        userName: String? = nil
+    ) async -> (String?, String?) {
+        await withCheckedContinuation { continuation in
+            generateNutritionWeightReport(
+                dateRange: dateRange,
+                avgCalories: avgCalories, targetCalories: targetCalories,
+                avgProtein: avgProtein, targetProtein: targetProtein,
+                avgCarbs: avgCarbs, avgFat: avgFat,
+                weightEntries: weightEntries,
+                weeklyScore: weeklyScore,
+                perfectDays: perfectDays,
+                totalDays: totalDays,
+                userName: userName
+            ) { result, error in
                 continuation.resume(returning: (result, error))
             }
         }

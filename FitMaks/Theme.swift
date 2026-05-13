@@ -426,7 +426,7 @@ struct ThemeSelectionView: View {
                 Spacer()
 
                 if !isFirstRun {
-                    Button { onContinue() } label: {
+                    Button { savedThemeID = previewThemeID; onContinue() } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 28))
                             .symbolRenderingMode(.hierarchical)

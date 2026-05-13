@@ -182,6 +182,17 @@ struct ContentView: View {
         return previousWeekReport
     }
 
+    func weightEntriesForReport(_ report: WeeklyReportData) -> [(date: String, weight: Double)] {
+        let calendar = Calendar.current
+        return allBodyMetrics
+            .filter { entry in
+                let d = calendar.startOfDay(for: entry.date)
+                return d >= report.weekStart && d <= report.weekEnd
+            }
+            .sorted { $0.date < $1.date }
+            .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
+    }
+
     var unlockedAchievementSignature: String {
         homeAchievementCollection.all
             .filter(\.isUnlocked)
@@ -324,7 +335,11 @@ struct ContentView: View {
             viewModel.calendarReportDate = nil
         }) {
             if let report = activeWeeklyReport {
-                WeeklyReportSheet(report: report) {
+                WeeklyReportSheet(
+                    report: report,
+                    weightEntries: weightEntriesForReport(report),
+                    userName: AuthService.shared.displayName
+                ) {
                     viewModel.isShowingWeeklyReport = false
                     let snapshot = FitMaksShareWeeklySnapshot(
                         dateRange: report.dateRangeLabel,
@@ -365,6 +380,7 @@ struct ContentView: View {
                 allFoodEntries: allFoodEntries,
                 allTrainingEntries: allTrainingEntries,
                 allSetups: allDailySetups,
+                bodyMetrics: allBodyMetrics,
                 baseCalories: useCustomGoals ? customCalories : calculatedCalories,
                 baseProtein: baseProteinGoal,
                 postOptions: universalPostOptions()

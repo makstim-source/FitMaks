@@ -51,6 +51,9 @@ struct ProfileView: View {
     @State private var goalSnapshot: GoalSnapshot?
     @State private var livePayload: FitMaksSharePayload?
     @State private var cachedRangeMetrics: [BodyMetricEntry] = []
+    @State private var aiWeightInsight: String?
+    @State private var aiWeightLoading = false
+    @State private var aiWeightError: String?
 
     private var neonPurple: Color { .fitPurple }
     private let activityOptions: [ActivityOption] = [
@@ -222,7 +225,11 @@ struct ProfileView: View {
             }
         }
         .onAppear { rebuildRangeMetricsCache() }
-        .onChange(of: selectedWeightRange) { _, _ in rebuildRangeMetricsCache() }
+        .onChange(of: selectedWeightRange) { _, _ in
+            rebuildRangeMetricsCache()
+            aiWeightInsight = nil
+            aiWeightError = nil
+        }
         .onChange(of: bodyMetrics) { _, _ in rebuildRangeMetricsCache() }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
         .sheet(isPresented: $isShowingGoalSettings) {
@@ -416,6 +423,18 @@ struct ProfileView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.appMuted)
             }
+
+            HStack(spacing: 16) {
+                Link(destination: URL(string: "https://www.notion.so/Privacy-Policy-for-FitMaks-34bd5554b61f80a49697e680e256a038")!) {
+                    Text("Privacy Policy")
+                }
+                Text("·").foregroundColor(.appMuted.opacity(0.4))
+                Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
+                    Text("Terms of Use")
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.appMuted)
 
             if AppTheme.areAlternateThemesEnabled {
                 Button {
@@ -780,6 +799,7 @@ struct ProfileView: View {
 
                 bodyCompositionGrid
                 weightInsightText
+                aiWeightAnalysisCard
                 bodyMetricHistory
             }
 
@@ -919,6 +939,143 @@ struct ProfileView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18).fill(Color.appSurface))
+    }
+
+    private var aiWeightAnalysisCard: some View {
+        let isPro = SubscriptionManager.shared.isPro
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.fitPurple)
+                Text("AI WEIGHT ANALYSIS")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+                Spacer()
+                if !isPro {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+            }
+
+            if isPro {
+                if aiWeightLoading {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.fitPurple)
+                        Text("Analyzing trends...")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.appMuted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+                } else if let aiWeightInsight {
+                    Text(aiWeightInsight)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if aiWeightError != nil {
+                    Button {
+                        Task { await loadAIWeightInsight() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry analysis")
+                        }
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.fitPurple)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        Task { await loadAIWeightInsight() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Analyze my weight trend")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundColor(.fitPurple)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                ZStack {
+                    Text("Your weight has been trending down by 0.3 kg over the past 30 days, consistent with your caloric deficit. Protein adherence is strong.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(3)
+                        .blur(radius: 5)
+
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Unlock AI Analysis")
+                                .font(.system(size: 12, weight: .black))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.neonGreen))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.appSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(isPro ? Color.fitPurple.opacity(0.18) : Color.appBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    private func loadAIWeightInsight() async {
+        guard !aiWeightLoading else { return }
+        aiWeightLoading = true
+        aiWeightError = nil
+
+        let rangeMetrics = cachedRangeMetrics.isEmpty ? Array(bodyMetrics.prefix(30)) : cachedRangeMetrics
+        let weightData = rangeMetrics
+            .sorted { $0.date < $1.date }
+            .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
+
+        let rangeName = selectedWeightRange.title
+
+        let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
+            dateRange: rangeName,
+            avgCalories: Int(selectedCalories),
+            targetCalories: Int(selectedCalories),
+            avgProtein: Int(selectedProtein),
+            targetProtein: Int(selectedProtein),
+            avgCarbs: 0,
+            avgFat: 0,
+            weightEntries: weightData,
+            weeklyScore: 0,
+            perfectDays: 0,
+            totalDays: rangeMetrics.count,
+            userName: AuthService.shared.displayName
+        )
+        aiWeightLoading = false
+        if let result {
+            aiWeightInsight = result
+        } else {
+            aiWeightError = error ?? "Analysis failed."
+        }
     }
 
     private var bodyMetricHistory: some View {

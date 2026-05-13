@@ -11,19 +11,7 @@ struct FitMaksApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        let config = ModelConfiguration(
-            cloudKitDatabase: .private("iCloud.MaksTim.FitMaks")
-        )
-        do {
-            modelContainer = try ModelContainer(
-                for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
-                     DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
-                     ShoppingItem.self,
-                configurations: config
-            )
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
+        modelContainer = Self.makeContainer()
 
         ICloudSettingsSync.startObserving()
         ICloudSettingsSync.pullFromICloud()
@@ -84,6 +72,33 @@ struct FitMaksApp: App {
             }
         }
         .modelContainer(modelContainer)
+    }
+
+    private static func makeContainer() -> ModelContainer {
+        let cloudConfig = ModelConfiguration(
+            cloudKitDatabase: .private("iCloud.MaksTim.FitMaks")
+        )
+        if let container = try? ModelContainer(
+            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                 ShoppingItem.self,
+            configurations: cloudConfig
+        ) {
+            return container
+        }
+        if let container = try? ModelContainer(
+            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                 ShoppingItem.self
+        ) {
+            return container
+        }
+        return try! ModelContainer(
+            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                 ShoppingItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
     }
 }
 

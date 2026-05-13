@@ -57,6 +57,10 @@ struct AIAssistantView: View {
                             VStack(spacing: 16) {
                                 coachPulseCard
 
+                                if messages.isEmpty && !isWaiting {
+                                    quickActions
+                                }
+
                                 ForEach(messages) { msg in
                                     CoachMessageBubble(message: msg, accentColor: .neonCyan)
                                         .id(msg.id)
@@ -97,11 +101,6 @@ struct AIAssistantView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") { dismiss() }
                         .foregroundColor(.appMuted)
-                }
-            }
-            .onAppear {
-                if messages.isEmpty {
-                    fetchSummary(isInitial: true, message: "", image: nil)
                 }
             }
             .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
@@ -209,6 +208,72 @@ struct AIAssistantView: View {
                 .stroke(Color.appBorder, lineWidth: 1)
         )
         .shadow(color: Color.neonCyan.opacity(0.12), radius: 18, x: 0, y: 10)
+    }
+
+    private var quickActionItems: [(icon: String, title: String, subtitle: String, color: Color, prompt: String)] {
+        Calendar.current.isDateInTomorrow(selectedDate)
+            ? [
+                ("calendar.badge.plus", "Plan tomorrow", "Build a meal plan for the day", .neonCyan, ""),
+                ("lightbulb.fill", "Suggest meals", "What should I eat based on my fridge?", .fitOrange, "What should I eat tomorrow based on what's in my fridge? Suggest 3 meal options with calories and protein."),
+                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, ""),
+            ]
+            : [
+                ("waveform.path.ecg", "Analyze my day", "Full breakdown with tips", .neonCyan, ""),
+                ("fork.knife", "Critique my meals", "Honest feedback on food choices", .fitOrange, "Give me honest, specific feedback on my food choices today. What was good, what could be better, and what should I change?"),
+                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, ""),
+            ]
+    }
+
+    private var quickActions: some View {
+        VStack(spacing: 10) {
+            ForEach(quickActionItems, id: \.title) { action in
+                Button {
+                    if action.prompt.isEmpty {
+                        fetchSummary(isInitial: true, message: "", image: nil)
+                    } else {
+                        messages.append(ChatMessage(text: action.prompt, isUser: true))
+                        fetchSummary(isInitial: false, message: action.prompt, image: nil)
+                    }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: action.icon)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(action.color)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(action.color.opacity(0.14))
+                            )
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(action.title)
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundColor(.appText)
+
+                            Text(action.subtitle)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.appMuted)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.appMuted)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.appSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.appBorder, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var aiNavTitle: String {

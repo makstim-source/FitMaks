@@ -260,8 +260,16 @@ struct WeeklyReportBanner: View {
 
 struct WeeklyReportSheet: View {
     let report: WeeklyReportData
+    var weightEntries: [(date: String, weight: Double)] = []
+    var userName: String? = nil
     var onShare: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+
+    private var isPro: Bool { SubscriptionManager.shared.isPro }
+    @State private var aiAnalysis: String?
+    @State private var aiLoading = false
+    @State private var aiError: String?
+    @State private var isShowingPaywall = false
 
     var body: some View {
         NavigationView {
@@ -278,6 +286,7 @@ struct WeeklyReportSheet: View {
                         scoreCard
                         weekGrid
                         statsCards
+                        aiInsightSection
                         if let onShare {
                             shareButton(action: onShare)
                         }
@@ -294,6 +303,12 @@ struct WeeklyReportSheet: View {
                         .foregroundColor(.neonGreen)
                         .bold()
                 }
+            }
+            .task {
+                if isPro { await loadAIAnalysis() }
+            }
+            .sheet(isPresented: $isShowingPaywall) {
+                PaywallView()
             }
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
@@ -522,6 +537,113 @@ struct WeeklyReportSheet: View {
                 .fill(Color.appElevated)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
         )
+    }
+
+    // MARK: - AI Insight
+
+    private var aiInsightSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.fitPurple)
+                Text("AI ANALYSIS")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+                Spacer()
+                if !isPro {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+            }
+
+            if isPro {
+                if aiLoading {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.fitPurple)
+                        Text("Analyzing your week...")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.appMuted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                } else if let aiAnalysis {
+                    Text(aiAnalysis)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let aiError {
+                    Text(aiError)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red.opacity(0.8))
+                }
+            } else {
+                ZStack {
+                    Text("Your nutrition was consistent this week with an average of 2,100 kcal. Protein intake fell short on 3 days. Weight trend shows a gradual decrease of 0.3 kg which aligns with your caloric deficit. Consider adding a protein-rich snack on training days.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .blur(radius: 6)
+
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Unlock AI Analysis")
+                                .font(.system(size: 13, weight: .black))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.neonGreen))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.appElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(isPro ? Color.fitPurple.opacity(0.22) : Color.appBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    private func loadAIAnalysis() async {
+        aiLoading = true
+        let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
+            dateRange: report.dateRangeLabel,
+            avgCalories: Int(report.avgCalories),
+            targetCalories: Int(report.avgCalorieTarget),
+            avgProtein: Int(report.avgProtein),
+            targetProtein: Int(report.avgProteinTarget),
+            avgCarbs: Int(report.avgCarbs),
+            avgFat: Int(report.avgFat),
+            weightEntries: weightEntries,
+            weeklyScore: report.weeklyScore,
+            perfectDays: report.perfectDays,
+            totalDays: report.days.count,
+            userName: userName
+        )
+        aiLoading = false
+        if let result {
+            aiAnalysis = result
+        } else {
+            aiError = error ?? "Failed to generate analysis."
+        }
     }
 
     private func shareButton(action: @escaping () -> Void) -> some View {

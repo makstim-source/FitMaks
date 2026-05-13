@@ -130,34 +130,42 @@ struct FavoriteChatEditView: View {
                     }
 
                     HStack(spacing: 10) {
-                        Button("Cancel") {
+                        Button {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
                                 selectedBasis = favorite.portionBasis
                                 isEditingBasis = false
                             }
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 13, weight: .black))
+                                .foregroundColor(.appText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(Color.appBorder))
                         }
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.appText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Capsule().fill(Color.appBorder))
+                        .buttonStyle(.plain)
 
-                        Button("Apply") {
+                        Button {
                             favorite.updatePortionBasis(selectedBasis)
                             originalIngredients = favorite.ingredients
                             originalCalories = favorite.calories
                             originalProtein = favorite.protein
                             originalCarbs = favorite.carbs
                             originalFat = favorite.fat
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
                                 isEditingBasis = false
                             }
+                        } label: {
+                            Text("Apply")
+                                .font(.system(size: 13, weight: .black))
+                                .foregroundColor(selectedBasis == favorite.portionBasis ? .appMuted : .appAccentText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(selectedBasis == favorite.portionBasis ? Color.gray.opacity(0.3) : Color.neonGreen))
                         }
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundColor(.appAccentText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Capsule().fill(Color.neonGreen))
+                        .buttonStyle(.plain)
+                        .disabled(selectedBasis == favorite.portionBasis)
                     }
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))

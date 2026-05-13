@@ -9,6 +9,7 @@ struct StatsView: View {
     var allFoodEntries: [FoodEntry]
     var allTrainingEntries: [TrainingEntry]
     var allSetups: [DailySetup]
+    var bodyMetrics: [BodyMetricEntry] = []
     var baseCalories: Double
     var baseProtein: Double
     var postOptions: [FitMaksPostOption] = []
@@ -20,6 +21,10 @@ struct StatsView: View {
     @State private var cachedStats: [WeekStat] = []
     @State private var cachedLast30Stats: [WeekStat] = []
     @State private var cachedAchievements: StatsAchievementCollection?
+    @State private var aiInsight: String?
+    @State private var aiInsightLoading = false
+    @State private var aiInsightError: String?
+    @State private var isShowingPaywall = false
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
@@ -106,6 +111,7 @@ struct StatsView: View {
                         )
                         StatsWeeklyArena(stats: stats)
                         StatsFuelChart(stats: stats)
+                        statsAIInsightCard
                         StatsChallengeCard(
                             currentPerfectStreak: currentPerfectStreak,
                             remainingChecks: remainingChecks
@@ -173,12 +179,147 @@ struct StatsView: View {
             .onChange(of: weeklySteps) { _, _ in
                 rebuildStats()
             }
+            .task {
+                if SubscriptionManager.shared.isPro { await loadAIInsight() }
+            }
+            .sheet(isPresented: $isShowingPaywall) {
+                PaywallView()
+            }
         }
         .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
+
+    // MARK: - AI Insight
+
+    private var statsAIInsightCard: some View {
+        let isPro = SubscriptionManager.shared.isPro
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.fitPurple)
+                Text("AI WEEKLY INSIGHT")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+                Spacer()
+                if !isPro {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+            }
+
+            if isPro {
+                if aiInsightLoading {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.fitPurple)
+                        Text("Analyzing your week...")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.appMuted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 16)
+                } else if let aiInsight {
+                    Text(aiInsight)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let aiInsightError {
+                    Text(aiInsightError)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red.opacity(0.8))
+                }
+            } else {
+                ZStack {
+                    Text("Your caloric intake averaged 2,100 kcal this week, sitting right at your deficit target. Protein was on point 5 out of 7 days. Weight dropped 0.2 kg — steady progress.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .blur(radius: 6)
+
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Unlock AI Insights")
+                                .font(.system(size: 13, weight: .black))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.neonGreen))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.appElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(isPro ? Color.fitPurple.opacity(0.22) : Color.appBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    private func loadAIInsight() async {
+        guard !aiInsightLoading, aiInsight == nil else { return }
+        aiInsightLoading = true
+
+        let calendar = Calendar.current
+        let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let weightData = bodyMetrics
+            .filter { $0.date >= sevenDaysAgo }
+            .sorted { $0.date < $1.date }
+            .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
+
+        let avgProteinTarget = stats.isEmpty ? 0.0 : stats.map(\.proteinTarget).reduce(0, +) / Double(stats.count)
+        let avgCalTarget = stats.isEmpty ? 0.0 : stats.map(\.target).reduce(0, +) / Double(stats.count)
+
+        let recentFood = allFoodEntries.filter { $0.date >= sevenDaysAgo }
+        let totalCarbs = recentFood.reduce(0.0) { $0 + $1.carbs }
+        let totalFat = recentFood.reduce(0.0) { $0 + $1.fat }
+        let dayCount = max(stats.count, 1)
+        let avgCarbsVal = totalCarbs / Double(dayCount)
+        let avgFatVal = totalFat / Double(dayCount)
+
+        let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
+            dateRange: "Last 7 days",
+            avgCalories: Int(avgCalories),
+            targetCalories: Int(avgCalTarget),
+            avgProtein: Int(stats.map(\.protein).reduce(0, +) / Double(max(stats.count, 1))),
+            targetProtein: Int(avgProteinTarget),
+            avgCarbs: Int(avgCarbsVal),
+            avgFat: Int(avgFatVal),
+            weightEntries: weightData,
+            weeklyScore: weeklyScore,
+            perfectDays: stats.filter(\.isPerfect).count,
+            totalDays: stats.count,
+            userName: AuthService.shared.displayName
+        )
+        aiInsightLoading = false
+        if let result {
+            aiInsight = result
+        } else {
+            aiInsightError = error ?? "Failed to generate insight."
+        }
+    }
+
+    // MARK: - Rebuild
 
     private func rebuildStats() {
         let calendar = Calendar.current

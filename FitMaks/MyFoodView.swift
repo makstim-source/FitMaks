@@ -99,7 +99,7 @@ struct MyFoodView: View {
             .navigationTitle(isBuildingMeal ? "Build Meal" : isSelectionMode ? (initialTab == 0 ? "Pick from Fridge" : "Pick from Meals") : "My Food 🍱")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.neonCyan) }
+                ToolbarItem(placement: .navigationBarLeading) { Button("Close") { dismiss() }.foregroundColor(.appText) }
             }
             .confirmationDialog("Add to \(currentTab == 0 ? "Fridge" : "Meals")", isPresented: $isShowingSourceDialog) {
                 Button("Camera") { self.isScanningReceipt = false; self.isShowingCamera = true }
@@ -207,7 +207,11 @@ struct MyFoodView: View {
 
     // MARK: - Tab Subviews
     private var myFoodBackground: some View {
-        LinearGradient(
+        let theme = AppTheme.current
+        let neonCore = theme == .originalV2
+        let glass = isIPhoneGlassTheme(theme)
+
+        return LinearGradient(
             colors: [
                 Color.appBackgroundStart,
                 Color.appBackgroundMid,
@@ -219,16 +223,16 @@ struct MyFoodView: View {
         .ignoresSafeArea()
         .overlay(alignment: .topLeading) {
             Circle()
-                .fill(Color.neonCyan.opacity(0.12))
-                .frame(width: 230, height: 230)
-                .blur(radius: 52)
+                .fill((neonCore ? theme.palette.secondary : Color.neonCyan).opacity(glass ? 0.14 : (neonCore ? 0.18 : 0.12)))
+                .frame(width: neonCore ? 280 : 230, height: neonCore ? 280 : 230)
+                .blur(radius: neonCore ? 64 : 52)
                 .offset(x: -110, y: -80)
         }
         .overlay(alignment: .bottomTrailing) {
             Circle()
-                .fill(Color.orange.opacity(0.10))
-                .frame(width: 260, height: 260)
-                .blur(radius: 58)
+                .fill((neonCore ? theme.palette.action : Color.orange).opacity(glass ? 0.12 : (neonCore ? 0.16 : 0.10)))
+                .frame(width: neonCore ? 320 : 260, height: neonCore ? 320 : 260)
+                .blur(radius: neonCore ? 72 : 58)
                 .offset(x: 100, y: 90)
         }
     }
@@ -251,7 +255,7 @@ struct MyFoodView: View {
 
                 HStack(spacing: 7) {
                     libraryCount(title: "Fridge", value: favorites.count, color: .neonCyan)
-                    libraryCount(title: "Meals", value: savedRecipes.count, color: .orange)
+                    libraryCount(title: "Meals", value: savedRecipes.count, color: .fitOrange)
                 }
             }
         }
@@ -263,11 +267,11 @@ struct MyFoodView: View {
     private var foodTabSwitcher: some View {
         HStack(spacing: 8) {
             tabButton(title: "Fridge", emoji: "❄️", index: 0, color: .neonCyan)
-            tabButton(title: "Meals", emoji: "🍲", index: 1, color: .orange)
-            tabButton(title: "Shopping", emoji: "🛒", index: 2, color: .neonGreen)
+            tabButton(title: "Meals", emoji: "🍲", index: 1, color: .fitOrange)
+            tabButton(title: "Shopping", emoji: "🛒", index: 2, color: .fitPurple)
         }
         .padding(6)
-        .background(Capsule().fill(Color.appElevated))
+        .background(Capsule().fill(themeChromeGradient()))
         .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
         .padding(.horizontal, 18)
         .padding(.bottom, 12)
@@ -287,7 +291,13 @@ struct MyFoodView: View {
             .foregroundColor(currentTab == index ? .appAccentText : .appMuted)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(Capsule().fill(currentTab == index ? color : Color.clear))
+            .background(
+                Capsule().fill(
+                    currentTab == index
+                        ? AnyShapeStyle(selectedTabGradient(for: color))
+                        : AnyShapeStyle(Color.clear)
+                )
+            )
         }
         .buttonStyle(.plain)
     }
@@ -300,11 +310,11 @@ struct MyFoodView: View {
 
             Text(title)
                 .font(.system(size: 8, weight: .heavy))
-                .foregroundColor(.gray)
+                .foregroundColor(.appMuted)
         }
         .frame(width: 54, height: 48)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.14), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 16).fill(themeCardGradient()))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(AppTheme.current == .originalV2 ? 0.24 : 0.14), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -348,7 +358,7 @@ struct MyFoodView: View {
                 foodActionButton(title: "Ideas", systemName: "sparkles", color: .neonCyan, isLoading: isGeneratingRecipe, action: cookSomething)
                     .disabled(isGeneratingRecipe)
                 foodActionButton(title: "Add", systemName: "plus", color: .neonCyan) { isShowingSourceDialog = true }
-                foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .white) { isShowingReceiptSourceDialog = true }
+                foodActionButton(title: "Receipt", systemName: "doc.text.viewfinder", color: .fitPurple) { isShowingReceiptSourceDialog = true }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 16)
@@ -363,7 +373,7 @@ struct MyFoodView: View {
                 systemName: "fork.knife",
                 title: "No saved meals",
                 subtitle: "Save dishes you repeat often and add them to diary in one tap.",
-                color: .orange
+                color: .fitOrange
             )
         } else {
             ScrollView {
@@ -395,8 +405,8 @@ struct MyFoodView: View {
             mealBuildBar
         } else if !isSelectionMode {
             HStack(spacing: 8) {
-                foodActionButton(title: "Add Meal", systemName: "plus", color: .orange) { isShowingSourceDialog = true }
-                foodActionButton(title: "Build from Fridge", systemName: "square.stack.3d.up", color: .orange) {
+                foodActionButton(title: "Add Meal", systemName: "plus", color: .fitOrange) { isShowingSourceDialog = true }
+                foodActionButton(title: "Build from Fridge", systemName: "square.stack.3d.up", color: .fitOrange) {
                     withAnimation(.spring()) { isBuildingMeal = true; currentTab = 0 }
                 }
             }
@@ -429,7 +439,7 @@ struct MyFoodView: View {
 
                     Text(subtitle)
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
                 }
@@ -477,7 +487,7 @@ struct MyFoodView: View {
             .frame(maxWidth: .infinity)
             .background(
                 Capsule()
-                    .fill(Color.appElevated)
+                    .fill(themeChromeGradient())
                     .overlay(Capsule().stroke(color.opacity(0.22), lineWidth: 1))
             )
         }
@@ -492,14 +502,14 @@ struct MyFoodView: View {
                     .scaledToFill()
                     .frame(width: 54, height: 54)
                     .clipShape(RoundedRectangle(cornerRadius: 15))
-                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.orange.opacity(0.20), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.fitOrange.opacity(0.20), lineWidth: 1))
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 15)
-                        .fill(Color.orange.opacity(0.13))
+                        .fill(Color.fitOrange.opacity(0.13))
                     Image(systemName: "fork.knife")
                         .font(.title3.bold())
-                        .foregroundColor(.orange)
+                        .foregroundColor(.fitOrange)
                 }
                 .frame(width: 54, height: 54)
             }
@@ -530,11 +540,11 @@ struct MyFoodView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 6) {
-                rowIconButton(systemName: "pencil", color: .white.opacity(0.82)) {
+                rowIconButton(systemName: "pencil", color: .appText) {
                     withAnimation(.spring()) { selectedMealForEdit = recipe }
                 }
 
-                rowIconButton(systemName: "plus", color: .orange) {
+                rowIconButton(systemName: "plus", color: .fitOrange) {
                     addMealToDiary(recipe)
                     dismiss()
                 }
@@ -543,9 +553,7 @@ struct MyFoodView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.orange.opacity(0.14), lineWidth: 1))
+            myFoodRowBackground(accent: .fitOrange)
         )
     }
 
@@ -556,7 +564,7 @@ struct MyFoodView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("SHOPPING LIST")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.appMuted)
                         .tracking(1)
 
                     Text("\(shoppingItems.filter { !$0.isCompleted }.count) open items")
@@ -572,10 +580,10 @@ struct MyFoodView: View {
                         Text("Clear")
                             .font(.caption)
                             .fontWeight(.heavy)
-                            .foregroundColor(.red)
+                            .foregroundColor(.appAccentText)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(Color.red.opacity(0.12)))
+                            .background(Capsule().fill(Color.fitOrange.opacity(0.18)))
                     }
                 }
             }
@@ -586,7 +594,7 @@ struct MyFoodView: View {
                 TextField("Add item...", text: $newShopItem)
                     .padding(.horizontal, 14)
                     .frame(height: 46)
-                    .background(Capsule().fill(Color.appElevated))
+                    .background(Capsule().fill(themeChromeGradient()))
                     .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
                     .foregroundColor(.appText)
 
@@ -599,8 +607,8 @@ struct MyFoodView: View {
                         .font(.system(size: 17, weight: .black))
                         .foregroundColor(.appAccentText)
                         .frame(width: 46, height: 46)
-                        .background(Circle().fill(Color.neonGreen))
-                        .shadow(color: Color.neonGreen.opacity(0.35), radius: 10)
+                        .background(Circle().fill(themePrimaryButtonGradient()))
+                        .shadow(color: themeShadowColor().opacity(0.35), radius: 10)
                 }
             }
             .padding(.horizontal, 18)
@@ -611,14 +619,14 @@ struct MyFoodView: View {
                         HStack {
                             Button(action: { withAnimation { item.isCompleted.toggle() } }) {
                                 Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(item.isCompleted ? .gray : .neonCyan)
+                                    .foregroundColor(item.isCompleted ? .appMuted : .neonCyan)
                                     .font(.title2)
                             }
 
                             Text(item.name)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundColor(item.isCompleted ? .gray : .white)
+                                .foregroundColor(item.isCompleted ? .appMuted : .appText)
                                 .strikethrough(item.isCompleted)
 
                             Spacer()
@@ -961,9 +969,7 @@ struct MyFoodView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
+            myFoodRowBackground(accent: .neonCyan)
         )
         .contentShape(Rectangle())
         .onTapGesture {
@@ -981,11 +987,57 @@ struct MyFoodView: View {
                 .frame(width: 30, height: 30)
                 .background(
                     Circle()
-                        .fill(Color.appBorder)
+                        .fill(AppTheme.current == .originalV2 ? Color.appElevated.opacity(0.95) : Color.appBorder)
                         .overlay(Circle().stroke(color.opacity(0.22), lineWidth: 1))
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    private func selectedTabGradient(for color: Color) -> LinearGradient {
+        let theme = AppTheme.current
+        if theme == .originalV2 {
+            return LinearGradient(
+                colors: [color.opacity(0.92), theme.palette.primary.opacity(0.96)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        if isIPhoneGlassTheme(theme) {
+            return LinearGradient(
+                colors: [color.opacity(0.88), theme.palette.secondary.opacity(0.9)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        return LinearGradient(colors: [color, color], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func myFoodRowBackground(accent: Color) -> some View {
+        let theme = AppTheme.current
+
+        return RoundedRectangle(cornerRadius: 20)
+            .fill(
+                theme == .originalV2
+                    ? AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                theme.palette.surface,
+                                accent.opacity(0.12),
+                                theme.palette.elevated
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    : AnyShapeStyle(themeCardGradient())
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(accent.opacity(theme == .originalV2 ? 0.22 : 0.14), lineWidth: 1)
+            )
     }
 
     @ViewBuilder
@@ -1184,4 +1236,3 @@ struct MyFoodView: View {
         modelContext.delete(recipe)
     }
 }
-

@@ -110,8 +110,20 @@ struct FitMaksShareWeeklySnapshot: Identifiable {
     let avgCarbs: String
     let avgFat: String
     let totalSteps: String
-    let dayResults: [(emoji: String, isPerfect: Bool)]
+    let dayResults: [FitMaksShareWeeklyDay]
     let scoreColor: Color
+}
+
+struct FitMaksShareWeeklyDay: Identifiable {
+    let id = UUID()
+    let label: String
+    let dayNumber: String
+    let modeEmoji: String
+    let modeLabel: String
+    let isPerfect: Bool
+    let calorieWin: Bool
+    let proteinWin: Bool
+    let stepWin: Bool
 }
 
 struct FitMaksShareWorkoutSnapshot: Identifiable {
@@ -1815,53 +1827,81 @@ private struct FitMaksLiveWeeklyCard: View {
     var body: some View {
         let light = isLightAppTheme()
 
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 8) {
                 livePosterTag("WEEKLY REPORT", color: snapshot.scoreColor)
                 livePosterTag(snapshot.dateRange.uppercased(), color: .appMuted)
             }
 
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("WEEK SCORE")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.62))
+                        .tracking(1)
+
                     Text("\(snapshot.score)%")
-                        .font(.system(size: 88, weight: .black))
+                        .font(.system(size: 78, weight: .black))
                         .foregroundColor(snapshot.scoreColor)
 
                     Text(snapshot.scoreLabel)
-                        .font(.system(size: 28, weight: .heavy))
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(light ? .appText : .white)
 
                     Text("\(snapshot.perfectDays)/7 perfect days")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 19, weight: .bold))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.7))
                 }
 
                 Spacer()
-            }
 
-            HStack(spacing: 8) {
-                ForEach(Array(snapshot.dayResults.enumerated()), id: \.offset) { _, day in
-                    ZStack {
-                        Circle()
-                            .fill(day.isPerfect ? snapshot.scoreColor.opacity(0.22) : (light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.07)))
-                            .overlay(
-                                Circle()
-                                    .stroke(day.isPerfect ? snapshot.scoreColor.opacity(0.5) : (light ? Color.appBorder.opacity(0.6) : Color.white.opacity(0.1)), lineWidth: 2)
-                            )
+                VStack(spacing: 10) {
+                    weeklySummaryPill(
+                        title: "Perfect",
+                        value: "\(snapshot.perfectDays)/7",
+                        accent: snapshot.scoreColor,
+                        symbol: "sparkles"
+                    )
 
-                        if day.isPerfect {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 18, weight: .black))
-                                .foregroundColor(snapshot.scoreColor)
-                        } else {
-                            Text(day.emoji)
-                                .font(.system(size: 22))
-                        }
-                    }
-                    .frame(width: 54, height: 54)
+                    weeklySummaryPill(
+                        title: "Steps",
+                        value: snapshot.totalSteps,
+                        accent: .fitOrange,
+                        symbol: "figure.walk"
+                    )
                 }
             }
-            .frame(maxWidth: .infinity)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("WEEK AT A GLANCE")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(light ? .appText : .white)
+                        .tracking(0.8)
+
+                    Spacer()
+
+                    Text("C / P / S")
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.54))
+                        .tracking(0.8)
+                }
+
+                HStack(spacing: 8) {
+                    ForEach(snapshot.dayResults) { day in
+                        weeklyDayCard(day, light: light)
+                    }
+                }
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28)
+                            .stroke(light ? Color.appBorder.opacity(0.72) : Color.white.opacity(0.08), lineWidth: 1)
+                    )
+            )
 
             HStack(spacing: 14) {
                 liveStatPill(title: "Calories", value: snapshot.avgCalories, accent: .neonGreen)
@@ -1877,6 +1917,108 @@ private struct FitMaksLiveWeeklyCard: View {
         }
         .padding(34)
         .background(liveCardBackground)
+    }
+
+    private func weeklyDayCard(_ day: FitMaksShareWeeklyDay, light: Bool) -> some View {
+        VStack(spacing: 8) {
+            VStack(spacing: 1) {
+                Text(day.label)
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(light ? .appMuted : .white.opacity(0.56))
+                    .tracking(0.6)
+
+                Text(day.dayNumber)
+                    .font(.system(size: 26, weight: .black))
+                    .foregroundColor(light ? .appText : .white)
+            }
+
+            Text(day.modeEmoji)
+                .font(.system(size: 18))
+
+            Text(day.modeLabel.uppercased())
+                .font(.system(size: 8.5, weight: .heavy))
+                .foregroundColor(light ? .appMuted : .white.opacity(0.46))
+                .tracking(0.7)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            HStack(spacing: 4) {
+                weeklyCheckChip("C", active: day.calorieWin, color: .neonGreen, light: light)
+                weeklyCheckChip("P", active: day.proteinWin, color: .neonCyan, light: light)
+                weeklyCheckChip("S", active: day.stepWin, color: .fitOrange, light: light)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(day.isPerfect ? snapshot.scoreColor.opacity(light ? 0.14 : 0.18) : (light ? Color.appElevated.opacity(0.8) : Color.white.opacity(0.03)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(day.isPerfect ? snapshot.scoreColor.opacity(light ? 0.36 : 0.48) : (light ? Color.appBorder.opacity(0.6) : Color.white.opacity(0.08)), lineWidth: 1)
+                )
+        )
+        .overlay(alignment: .topTrailing) {
+            if day.isPerfect {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(snapshot.scoreColor)
+                    .padding(7)
+            }
+        }
+    }
+
+    private func weeklyCheckChip(_ title: String, active: Bool, color: Color, light: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .black))
+            .foregroundColor(active ? (light ? .black : .black) : (light ? .appMuted : .white.opacity(0.4)))
+            .frame(width: 20, height: 20)
+            .background(
+                Capsule()
+                    .fill(active ? color : (light ? Color.appSurface : Color.white.opacity(0.06)))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(active ? color.opacity(light ? 0.28 : 0.08) : (light ? Color.appBorder.opacity(0.5) : Color.white.opacity(0.08)), lineWidth: 1)
+            )
+    }
+
+    private func weeklySummaryPill(title: String, value: String, accent: Color, symbol: String) -> some View {
+        let light = isLightAppTheme()
+
+        return HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(accent)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(light ? .appMuted : .white.opacity(0.55))
+                    .tracking(0.7)
+
+                Text(value)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(light ? .appText : .white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 176)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(light ? Color.appSurface.opacity(0.9) : Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(light ? Color.appBorder.opacity(0.65) : Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 

@@ -193,13 +193,12 @@ struct ContentView: View {
         let calendar = Calendar.current
         let selected = calendar.startOfDay(for: viewModel.selectedDate)
 
-        let foodDates = allFoodEntries.map { calendar.startOfDay(for: $0.date) }
-        let setupDates = allDailySetups.compactMap { DateFormatter.yyyyMMdd.date(from: $0.dateID) }
+        let foodDates = Set(allFoodEntries.map { calendar.startOfDay(for: $0.date) })
 
-        return Array(Set(foodDates + setupDates))
+        return foodDates
             .filter { $0 != selected }
             .sorted(by: >)
-            .prefix(10)
+            .prefix(8)
             .map { $0 }
     }
 
@@ -426,18 +425,13 @@ struct ContentView: View {
             )
             .presentationDetents([.medium, .large])
         }
-        .confirmationDialog(
-            "Copy from another day",
-            isPresented: $isShowingCopyDayDialog,
-            titleVisibility: .visible
-        ) {
-            ForEach(copyablePlanDates, id: \.self) { sourceDate in
-                Button(copySourceTitle(for: sourceDate)) {
-                    copyDayEntries(from: sourceDate)
-                }
+        .sheet(isPresented: $isShowingCopyDayDialog) {
+            CopyDayPickerSheet(
+                dates: copyablePlanDates,
+                allFoodEntries: allFoodEntries
+            ) { sourceDate in
+                copyDayEntries(from: sourceDate)
             }
-        } message: {
-            Text("Copy meals and mode into the selected day.")
         }
         .alert("AI Error", isPresented: Binding(
             get: { viewModel.aiErrorMessage != nil },
@@ -1211,10 +1205,6 @@ struct ContentView: View {
 
     fileprivate func handleLoggedPastDaysChange() {
         viewModel.preserveMissingPastGoalSnapshots(baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal)
-    }
-
-    private func copySourceTitle(for date: Date) -> String {
-        "\(ShareFormatters.weekdayName(for: date)) · \(DateFormatter.shortDate.string(from: date))"
     }
 
     private func copyDayEntries(from sourceDate: Date) {

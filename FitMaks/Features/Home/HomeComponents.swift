@@ -634,3 +634,128 @@ struct HomeStatsPanelCelebrationOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
+
+struct CopyDayPickerSheet: View {
+    var dates: [Date]
+    var allFoodEntries: [FoodEntry]
+    var onPick: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 14) {
+                    ForEach(dates, id: \.self) { date in
+                        let foods = foodEntries(for: date)
+                        let totalCal = foods.reduce(0) { $0 + $1.calories }
+                        let totalProt = foods.reduce(0) { $0 + $1.protein }
+
+                        Button {
+                            onPick(date)
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Text(dayTitle(for: date))
+                                        .font(.system(size: 14, weight: .black))
+                                        .foregroundColor(.appText)
+
+                                    Spacer()
+
+                                    HStack(spacing: 8) {
+                                        Label("\(Int(totalCal))", systemImage: "flame.fill")
+                                            .foregroundColor(.neonGreen)
+                                        Label("\(Int(totalProt))g", systemImage: "drop.fill")
+                                            .foregroundColor(.neonCyan)
+                                    }
+                                    .font(.system(size: 11, weight: .heavy))
+                                }
+
+                                if foods.isEmpty {
+                                    Text("No meals")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.appMuted)
+                                } else {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(foods, id: \.id) { entry in
+                                                VStack(spacing: 4) {
+                                                    if let img = entry.uiImage {
+                                                        Image(uiImage: img)
+                                                            .resizable()
+                                                            .scaledToFill()
+                                                            .frame(width: 52, height: 52)
+                                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                    } else {
+                                                        RoundedRectangle(cornerRadius: 12)
+                                                            .fill(Color.neonGreen.opacity(0.12))
+                                                            .frame(width: 52, height: 52)
+                                                            .overlay(
+                                                                Image(systemName: "fork.knife")
+                                                                    .font(.system(size: 14))
+                                                                    .foregroundColor(.neonGreen)
+                                                            )
+                                                    }
+
+                                                    Text(shortFoodName(entry.name, maxChars: 10))
+                                                        .font(.system(size: 9, weight: .bold))
+                                                        .foregroundColor(.appMuted)
+                                                        .lineLimit(1)
+                                                        .frame(width: 52)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(Color.appSurface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 18)
+                                            .stroke(Color.appBorder, lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            .background(
+                LinearGradient(
+                    colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .navigationTitle("Copy from another day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.neonGreen)
+                        .fontWeight(.bold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func foodEntries(for date: Date) -> [FoodEntry] {
+        let calendar = Calendar.current
+        return allFoodEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: date) }
+            .sorted { ($0.createdAt ?? $0.date) < ($1.createdAt ?? $1.date) }
+    }
+
+    private func dayTitle(for date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        return "\(ShareFormatters.weekdayName(for: date)) · \(DateFormatter.shortDate.string(from: date))"
+    }
+}

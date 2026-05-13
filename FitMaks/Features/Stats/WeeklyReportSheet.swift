@@ -261,6 +261,8 @@ struct WeeklyReportBanner: View {
 struct WeeklyReportSheet: View {
     let report: WeeklyReportData
     var weightEntries: [(date: String, weight: Double)] = []
+    var baseCalories: Double = 0
+    var baseProtein: Double = 0
     var userName: String? = nil
     var onShare: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
@@ -629,17 +631,15 @@ struct WeeklyReportSheet: View {
         let trackedCount = Double(max(tracked.count, 1))
         let avgCal = tracked.map(\.consumed).reduce(0, +) / trackedCount
         let avgProt = tracked.map(\.protein).reduce(0, +) / trackedCount
-        let avgCalTarget = tracked.map(\.target).reduce(0, +) / trackedCount
-        let avgProtTarget = tracked.map(\.proteinTarget).reduce(0, +) / trackedCount
         let avgCarbs = report.totalCarbs / trackedCount
         let avgFat = report.totalFat / trackedCount
 
         let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
             dateRange: "\(report.dateRangeLabel) (\(tracked.count)/\(report.days.count) days tracked)",
             avgCalories: Int(avgCal),
-            targetCalories: Int(avgCalTarget),
+            targetCalories: Int(baseCalories),
             avgProtein: Int(avgProt),
-            targetProtein: Int(avgProtTarget),
+            targetProtein: Int(baseProtein),
             avgCarbs: Int(avgCarbs),
             avgFat: Int(avgFat),
             weightEntries: weightEntries,

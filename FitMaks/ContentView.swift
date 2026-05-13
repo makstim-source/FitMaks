@@ -338,6 +338,8 @@ struct ContentView: View {
                 WeeklyReportSheet(
                     report: report,
                     weightEntries: weightEntriesForReport(report),
+                    baseCalories: baseCaloriesGoal,
+                    baseProtein: baseProteinGoal,
                     userName: AuthService.shared.displayName
                 ) {
                     viewModel.isShowingWeeklyReport = false

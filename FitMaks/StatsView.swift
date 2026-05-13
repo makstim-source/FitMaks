@@ -291,8 +291,6 @@ struct StatsView: View {
         let trackedCount = Double(max(trackedDays.count, 1))
         let avgCalTracked = trackedDays.map(\.consumed).reduce(0, +) / trackedCount
         let avgProtTracked = trackedDays.map(\.protein).reduce(0, +) / trackedCount
-        let avgCalTarget = trackedDays.isEmpty ? 0.0 : trackedDays.map(\.target).reduce(0, +) / trackedCount
-        let avgProteinTarget = trackedDays.isEmpty ? 0.0 : trackedDays.map(\.proteinTarget).reduce(0, +) / trackedCount
 
         let recentFood = allFoodEntries.filter { $0.date >= sevenDaysAgo }
         let totalCarbs = recentFood.reduce(0.0) { $0 + $1.carbs }
@@ -303,9 +301,9 @@ struct StatsView: View {
         let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
             dateRange: "Last 7 days (\(trackedDays.count) days with food logged)",
             avgCalories: Int(avgCalTracked),
-            targetCalories: Int(avgCalTarget),
+            targetCalories: Int(baseCalories),
             avgProtein: Int(avgProtTracked),
-            targetProtein: Int(avgProteinTarget),
+            targetProtein: Int(baseProtein),
             avgCarbs: Int(avgCarbsVal),
             avgFat: Int(avgFatVal),
             weightEntries: weightData,

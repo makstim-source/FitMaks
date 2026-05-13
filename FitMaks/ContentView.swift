@@ -30,7 +30,7 @@ struct ContentView: View {
 
     @State var viewModel = HomeViewModel()
     @State private var syncWorkItem: DispatchWorkItem?
-    @State private var isShowingTomorrowCopyDialog = false
+    @State private var isShowingCopyDayDialog = false
 
     // MARK: - Day Mode
 
@@ -191,13 +191,13 @@ struct ContentView: View {
 
     var copyablePlanDates: [Date] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let selected = calendar.startOfDay(for: viewModel.selectedDate)
 
         let foodDates = allFoodEntries.map { calendar.startOfDay(for: $0.date) }
         let setupDates = allDailySetups.compactMap { DateFormatter.yyyyMMdd.date(from: $0.dateID) }
 
         return Array(Set(foodDates + setupDates))
-            .filter { $0 <= today }
+            .filter { $0 != selected }
             .sorted(by: >)
             .prefix(10)
             .map { $0 }
@@ -428,16 +428,16 @@ struct ContentView: View {
         }
         .confirmationDialog(
             "Copy from another day",
-            isPresented: $isShowingTomorrowCopyDialog,
+            isPresented: $isShowingCopyDayDialog,
             titleVisibility: .visible
         ) {
             ForEach(copyablePlanDates, id: \.self) { sourceDate in
                 Button(copySourceTitle(for: sourceDate)) {
-                    copyPlanToTomorrow(from: sourceDate)
+                    copyDayEntries(from: sourceDate)
                 }
             }
         } message: {
-            Text("Copy meals and mode into tomorrow.")
+            Text("Copy meals and mode into the selected day.")
         }
         .alert("AI Error", isPresented: Binding(
             get: { viewModel.aiErrorMessage != nil },
@@ -956,10 +956,10 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
 
-            if isTomorrow, !copyablePlanDates.isEmpty {
+            if !copyablePlanDates.isEmpty {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    isShowingTomorrowCopyDialog = true
+                    isShowingCopyDayDialog = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "doc.on.doc")
@@ -1217,9 +1217,9 @@ struct ContentView: View {
         "\(ShareFormatters.weekdayName(for: date)) · \(DateFormatter.shortDate.string(from: date))"
     }
 
-    private func copyPlanToTomorrow(from sourceDate: Date) {
+    private func copyDayEntries(from sourceDate: Date) {
         let calendar = Calendar.current
-        let destinationDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? viewModel.selectedDate
+        let destinationDate = calendar.startOfDay(for: viewModel.selectedDate)
         let sourceFoods = allFoodEntries
             .filter { calendar.isDate($0.date, inSameDayAs: sourceDate) }
             .sorted { ($0.createdAt ?? $0.date) < ($1.createdAt ?? $1.date) }

@@ -624,18 +624,28 @@ struct WeeklyReportSheet: View {
 
     private func loadAIAnalysis() async {
         aiLoading = true
+
+        let tracked = report.days.filter(\.hasFood)
+        let trackedCount = Double(max(tracked.count, 1))
+        let avgCal = tracked.map(\.consumed).reduce(0, +) / trackedCount
+        let avgProt = tracked.map(\.protein).reduce(0, +) / trackedCount
+        let avgCalTarget = tracked.map(\.target).reduce(0, +) / trackedCount
+        let avgProtTarget = tracked.map(\.proteinTarget).reduce(0, +) / trackedCount
+        let avgCarbs = report.totalCarbs / trackedCount
+        let avgFat = report.totalFat / trackedCount
+
         let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
-            dateRange: report.dateRangeLabel,
-            avgCalories: Int(report.avgCalories),
-            targetCalories: Int(report.avgCalorieTarget),
-            avgProtein: Int(report.avgProtein),
-            targetProtein: Int(report.avgProteinTarget),
-            avgCarbs: Int(report.avgCarbs),
-            avgFat: Int(report.avgFat),
+            dateRange: "\(report.dateRangeLabel) (\(tracked.count)/\(report.days.count) days tracked)",
+            avgCalories: Int(avgCal),
+            targetCalories: Int(avgCalTarget),
+            avgProtein: Int(avgProt),
+            targetProtein: Int(avgProtTarget),
+            avgCarbs: Int(avgCarbs),
+            avgFat: Int(avgFat),
             weightEntries: weightEntries,
             weeklyScore: report.weeklyScore,
             perfectDays: report.perfectDays,
-            totalDays: report.days.count,
+            totalDays: tracked.count,
             userName: userName
         )
         aiLoading = false

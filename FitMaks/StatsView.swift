@@ -287,28 +287,31 @@ struct StatsView: View {
             .sorted { $0.date < $1.date }
             .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
 
-        let avgProteinTarget = stats.isEmpty ? 0.0 : stats.map(\.proteinTarget).reduce(0, +) / Double(stats.count)
-        let avgCalTarget = stats.isEmpty ? 0.0 : stats.map(\.target).reduce(0, +) / Double(stats.count)
+        let trackedDays = stats.filter(\.hasFood)
+        let trackedCount = Double(max(trackedDays.count, 1))
+        let avgCalTracked = trackedDays.map(\.consumed).reduce(0, +) / trackedCount
+        let avgProtTracked = trackedDays.map(\.protein).reduce(0, +) / trackedCount
+        let avgCalTarget = trackedDays.isEmpty ? 0.0 : trackedDays.map(\.target).reduce(0, +) / trackedCount
+        let avgProteinTarget = trackedDays.isEmpty ? 0.0 : trackedDays.map(\.proteinTarget).reduce(0, +) / trackedCount
 
         let recentFood = allFoodEntries.filter { $0.date >= sevenDaysAgo }
         let totalCarbs = recentFood.reduce(0.0) { $0 + $1.carbs }
         let totalFat = recentFood.reduce(0.0) { $0 + $1.fat }
-        let dayCount = max(stats.count, 1)
-        let avgCarbsVal = totalCarbs / Double(dayCount)
-        let avgFatVal = totalFat / Double(dayCount)
+        let avgCarbsVal = totalCarbs / trackedCount
+        let avgFatVal = totalFat / trackedCount
 
         let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
-            dateRange: "Last 7 days",
-            avgCalories: Int(avgCalories),
+            dateRange: "Last 7 days (\(trackedDays.count) days with food logged)",
+            avgCalories: Int(avgCalTracked),
             targetCalories: Int(avgCalTarget),
-            avgProtein: Int(stats.map(\.protein).reduce(0, +) / Double(max(stats.count, 1))),
+            avgProtein: Int(avgProtTracked),
             targetProtein: Int(avgProteinTarget),
             avgCarbs: Int(avgCarbsVal),
             avgFat: Int(avgFatVal),
             weightEntries: weightData,
             weeklyScore: weeklyScore,
             perfectDays: stats.filter(\.isPerfect).count,
-            totalDays: stats.count,
+            totalDays: trackedDays.count,
             userName: AuthService.shared.displayName
         )
         aiInsightLoading = false

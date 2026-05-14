@@ -169,8 +169,9 @@ struct ContentView: View {
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
     var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
     var trailingSevenDayReport: WeeklyReportData? {
-        WeeklyReportData.trailingDays(
-            endingOn: Date(),
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
+        return WeeklyReportData.trailingDays(
+            endingOn: yesterday,
             count: 7,
             allFoodEntries: allFoodEntries,
             allTrainingEntries: allTrainingEntries,
@@ -181,11 +182,12 @@ struct ContentView: View {
             activityLevel: activityLevel
         )
     }
+    var bannerReport: WeeklyReportData? {
+        trailingSevenDayReport ?? previousWeekReport
+    }
     var shouldShowWeeklyBanner: Bool {
-        let calendar = Calendar.current
-        guard calendar.isDateInToday(viewModel.selectedDate) else { return false }
-        guard calendar.component(.weekday, from: Date()) == 2 else { return false }
-        guard let report = previousWeekReport else { return false }
+        guard Calendar.current.isDateInToday(viewModel.selectedDate) else { return false }
+        guard let report = bannerReport else { return false }
         return lastViewedWeeklyReportID != report.weekID
     }
     func weekReport(for date: Date) -> WeeklyReportData? {
@@ -282,7 +284,7 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
-                if shouldShowWeeklyBanner, let report = previousWeekReport {
+                if shouldShowWeeklyBanner, let report = bannerReport {
                     WeeklyReportBanner(report: report) {
                         viewModel.calendarReportDate = nil
                         viewModel.isShowingWeeklyReport = true
@@ -409,7 +411,7 @@ struct ContentView: View {
                     viewModel.livePayload = .weeklyReport(snapshot)
                 }
                 .onAppear {
-                    if let prev = previousWeekReport, report.weekID == prev.weekID {
+                    if let banner = bannerReport, report.weekID == banner.weekID {
                         lastViewedWeeklyReportID = report.weekID
                     }
                 }

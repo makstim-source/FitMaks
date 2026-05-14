@@ -283,7 +283,7 @@ struct WeeklyReportBanner: View {
                 .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Weekly Report")
+                    Text("Last 7 Days")
                         .font(.system(size: 14, weight: .black))
                         .foregroundColor(.appText)
 
@@ -360,7 +360,7 @@ struct WeeklyReportSheet: View {
                     .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Weekly Report")
+            .navigationTitle("Last 7 Days")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -383,7 +383,7 @@ struct WeeklyReportSheet: View {
 
     private var scoreCard: some View {
         VStack(spacing: 14) {
-            Text("WEEKLY REPORT")
+            Text("LAST 7 DAYS")
                 .font(.system(size: 10, weight: .heavy))
                 .foregroundColor(report.scoreColor)
                 .tracking(1.2)
@@ -400,7 +400,7 @@ struct WeeklyReportSheet: View {
                 .font(.system(size: 16, weight: .heavy))
                 .foregroundColor(.appText)
 
-            Text("\(report.perfectDays)/7 perfect days")
+            Text("\(report.perfectDays)/\(report.days.count) perfect days")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.appMuted)
         }
@@ -443,39 +443,30 @@ struct WeeklyReportSheet: View {
     private func dayColumn(_ day: DayProgress) -> some View {
         let dayName = day.date.formatted(.dateTime.weekday(.abbreviated))
 
-        return VStack(spacing: 6) {
+        return VStack(spacing: 5) {
             Text(dayName)
                 .font(.system(size: 10, weight: .heavy))
                 .foregroundColor(.appMuted)
 
-            ZStack {
-                Circle()
-                    .fill(day.isPerfect ? Color.neonGreen.opacity(0.18) : Color.appElevated)
-                    .overlay(
-                        Circle()
-                            .stroke(day.isPerfect ? Color.neonGreen.opacity(0.5) : Color.appBorder, lineWidth: 1)
-                    )
-
-                if day.isPerfect {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundColor(.neonGreen)
-                } else {
-                    VStack(spacing: 2) {
-                        HStack(spacing: 2) {
-                            Circle().fill(day.calorieWin ? Color.neonGreen : Color.appBorder).frame(width: 5, height: 5)
-                            Circle().fill(day.proteinWin ? Color.neonCyan : Color.appBorder).frame(width: 5, height: 5)
-                        }
-                        Circle().fill(day.stepWin ? Color.fitOrange : Color.appBorder).frame(width: 5, height: 5)
-                    }
-                }
-            }
-            .frame(width: 38, height: 38)
-
             Text(day.mode.emoji)
-                .font(.system(size: 14))
+                .font(.system(size: 20))
+
+            HStack(spacing: 3) {
+                Circle().fill(day.calorieWin ? Color.neonGreen : Color.appBorder).frame(width: 5, height: 5)
+                Circle().fill(day.proteinWin ? Color.neonCyan : Color.appBorder).frame(width: 5, height: 5)
+                Circle().fill(day.stepWin ? Color.fitOrange : Color.appBorder).frame(width: 5, height: 5)
+            }
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(day.isPerfect ? Color.neonGreen.opacity(0.15) : Color.appElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(day.isPerfect ? Color.neonGreen.opacity(0.4) : Color.appBorder, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Stats Cards
@@ -486,16 +477,16 @@ struct WeeklyReportSheet: View {
                 metricCard(
                     title: "AVG CALORIES",
                     value: "\(Int(report.avgCalories))",
-                    target: "/ \(Int(report.avgCalorieTarget)) kcal",
-                    detail: "\(report.calorieWins)/7 on target",
+                    target: "/ \(Int(baseCalories)) kcal",
+                    detail: "\(report.calorieWins)/\(report.days.count) on target",
                     color: .neonGreen
                 )
 
                 metricCard(
                     title: "AVG PROTEIN",
                     value: "\(Int(report.avgProtein))g",
-                    target: "/ \(Int(report.avgProteinTarget))g",
-                    detail: "\(report.proteinWins)/7 on target",
+                    target: "/ \(Int(baseProtein))g",
+                    detail: "\(report.proteinWins)/\(report.days.count) on target",
                     color: .neonCyan
                 )
             }
@@ -523,7 +514,7 @@ struct WeeklyReportSheet: View {
                     title: "TOTAL STEPS",
                     value: Int(report.totalSteps).formatted(),
                     target: "",
-                    detail: "\(report.stepWins)/7 hit target",
+                    detail: "\(report.stepWins)/\(report.days.count) hit target",
                     color: .fitOrange
                 )
 
@@ -725,7 +716,7 @@ struct WeeklyReportSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 14, weight: .bold))
-                Text("Share Weekly Report")
+                Text("Share Report")
                     .font(.system(size: 14, weight: .black))
             }
             .foregroundColor(.black)

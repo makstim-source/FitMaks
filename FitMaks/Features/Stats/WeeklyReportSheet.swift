@@ -283,7 +283,7 @@ struct WeeklyReportBanner: View {
                 .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Last 7 Days")
+                    Text("Weekly Report")
                         .font(.system(size: 14, weight: .black))
                         .foregroundColor(.appText)
 

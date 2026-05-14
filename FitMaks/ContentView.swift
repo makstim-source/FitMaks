@@ -47,7 +47,7 @@ struct ContentView: View {
         let selectedDay = calendar.startOfDay(for: viewModel.selectedDate)
         let today = calendar.startOfDay(for: Date())
 
-        guard selectedDay >= today else { return false }
+        guard selectedDay > today else { return false }
         return !dailyFeed.isEmpty || setup(for: viewModel.selectedDate) != nil
     }
 
@@ -182,12 +182,11 @@ struct ContentView: View {
             activityLevel: activityLevel
         )
     }
-    var bannerReport: WeeklyReportData? {
-        trailingSevenDayReport ?? previousWeekReport
-    }
     var shouldShowWeeklyBanner: Bool {
-        guard Calendar.current.isDateInToday(viewModel.selectedDate) else { return false }
-        guard let report = bannerReport else { return false }
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(viewModel.selectedDate) else { return false }
+        guard calendar.component(.weekday, from: Date()) == 2 else { return false }
+        guard let report = previousWeekReport else { return false }
         return lastViewedWeeklyReportID != report.weekID
     }
     func weekReport(for date: Date) -> WeeklyReportData? {
@@ -284,7 +283,7 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
-                if shouldShowWeeklyBanner, let report = bannerReport {
+                if shouldShowWeeklyBanner, let report = previousWeekReport {
                     WeeklyReportBanner(report: report) {
                         viewModel.calendarReportDate = nil
                         viewModel.isShowingWeeklyReport = true
@@ -411,7 +410,7 @@ struct ContentView: View {
                     viewModel.livePayload = .weeklyReport(snapshot)
                 }
                 .onAppear {
-                    if let banner = bannerReport, report.weekID == banner.weekID {
+                    if let prev = previousWeekReport, report.weekID == prev.weekID {
                         lastViewedWeeklyReportID = report.weekID
                     }
                 }

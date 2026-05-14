@@ -462,6 +462,7 @@ class GeminiService {
         avgCalories: Int, targetCalories: Int,
         avgProtein: Int, targetProtein: Int,
         avgCarbs: Int, avgFat: Int,
+        avgTrainingCalories: Int = 0,
         weightEntries: [(date: String, weight: Double)],
         weeklyScore: Int,
         perfectDays: Int,
@@ -474,6 +475,9 @@ class GeminiService {
         let weightContext = weightEntries.isEmpty
             ? "No weight measurements available for this period."
             : "Weight log:\n\(weightLines)"
+        let trainingContext = avgTrainingCalories > 0
+            ? "- Avg daily training burn: \(avgTrainingCalories) kcal (the app adds this as a calorie bonus, so effective daily budget is ~\(targetCalories + avgTrainingCalories) kcal on training days)"
+            : "- No significant training logged"
 
         let prompt = """
         You are a sharp, data-driven fitness and nutrition analyst.
@@ -482,25 +486,28 @@ class GeminiService {
         Analyze the user's nutrition and weight data for the period: \(dateRange).
 
         NUTRITION SUMMARY:
-        - Avg daily calories: \(avgCalories) kcal (target: \(targetCalories) kcal)
+        - Base daily calorie target: \(targetCalories) kcal (without training bonuses)
+        - Avg daily calories consumed: \(avgCalories) kcal
         - Avg daily protein: \(avgProtein)g (target: \(targetProtein)g)
         - Avg daily carbs: \(avgCarbs)g
         - Avg daily fat: \(avgFat)g
+        \(trainingContext)
         - Weekly score: \(weeklyScore)% (\(perfectDays)/\(totalDays) perfect days)
 
         \(weightContext)
 
         RULES:
-        1. If weight data exists, analyze the trend (gaining, losing, stable) and connect it to the nutrition data. Is the calorie intake consistent with the observed weight change?
-        2. If weight is dropping but calories are near or above target, flag possible explanations (water loss, high activity, measurement timing).
-        3. If weight is stable or rising while in a deficit, explain likely causes (water retention, muscle gain, inconsistent tracking).
-        4. Highlight protein adherence — is the user hitting their protein target?
-        5. Comment on macro balance (carbs vs fat ratio) only if there's something notable.
-        6. Give 1-2 specific, actionable recommendations for the next period.
-        7. Be honest, concise, and practical. No motivational fluff.
-        8. Use 3-5 short paragraphs. Use emoji sparingly (1-2 max).
-        9. If no weight data: focus purely on nutrition patterns and recommendations.
-        10. Detect the user's language from their name or default to English.
+        1. The calorie target shown is the BASE target. Training burns extra calories on top. Factor training into your energy balance analysis — if the user burns 800+ kcal training, eating above the base target is expected and healthy.
+        2. If weight data exists, analyze the trend (gaining, losing, stable) and connect it to the TOTAL energy balance (intake minus base metabolism minus training burn).
+        3. If weight is dropping but calories seem high, consider that high training volume explains it.
+        4. If weight is stable or rising while in an apparent deficit, explain likely causes (water retention, muscle gain, inconsistent tracking, underestimated intake).
+        5. Highlight protein adherence — is the user hitting their protein target?
+        6. Comment on macro balance (carbs vs fat ratio) only if there's something notable.
+        7. Give 1-2 specific, actionable recommendations for the next period.
+        8. Be honest, concise, and practical. No motivational fluff.
+        9. Use 3-5 short paragraphs. Use emoji sparingly (1-2 max).
+        10. If no weight data: focus purely on nutrition patterns and recommendations.
+        11. Detect the user's language from their name or default to English.
 
         Return ONLY a single JSON object:
         {"ai_summary": "your analysis here"}
@@ -1177,6 +1184,7 @@ extension GeminiService {
         avgCalories: Int, targetCalories: Int,
         avgProtein: Int, targetProtein: Int,
         avgCarbs: Int, avgFat: Int,
+        avgTrainingCalories: Int = 0,
         weightEntries: [(date: String, weight: Double)],
         weeklyScore: Int,
         perfectDays: Int,
@@ -1189,6 +1197,7 @@ extension GeminiService {
                 avgCalories: avgCalories, targetCalories: targetCalories,
                 avgProtein: avgProtein, targetProtein: targetProtein,
                 avgCarbs: avgCarbs, avgFat: avgFat,
+                avgTrainingCalories: avgTrainingCalories,
                 weightEntries: weightEntries,
                 weeklyScore: weeklyScore,
                 perfectDays: perfectDays,

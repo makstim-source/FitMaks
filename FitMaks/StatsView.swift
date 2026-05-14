@@ -13,6 +13,7 @@ struct StatsView: View {
     var baseCalories: Double
     var baseProtein: Double
     var postOptions: [FitMaksPostOption] = []
+    var onLast7DaysReport: (() -> Void)?
 
     @State private var weeklySteps: [String: Double] = [:]
     @State private var achievementBanner: StatsAchievement?
@@ -101,14 +102,17 @@ struct StatsView: View {
                                 )
                             }
                         )
-                        StatsMetricGrid(
+                        StatsLast7DaysReportButton(
+                            dateRange: statsDateRangeLabel,
+                            weeklyScore: weeklyScore,
+                            perfectDays: stats.filter { $0.isPerfect }.count,
                             calorieWins: calorieWins,
                             proteinWins: proteinWins,
                             stepWins: stepWins,
-                            weeklyScore: weeklyScore,
-                            avgCalories: avgCalories,
-                            totalSteps: totalSteps
-                        )
+                            scoreColor: scoreColor(for: weeklyScore)
+                        ) {
+                            onLast7DaysReport?()
+                        }
                         StatsWeeklyArena(stats: stats)
                         StatsFuelChart(stats: stats)
                         statsAIInsightCard
@@ -193,6 +197,22 @@ struct StatsView: View {
     }
 
     // MARK: - AI Insight
+
+    private var statsDateRangeLabel: String {
+        guard let first = stats.first?.date, let last = stats.last?.date else {
+            return "Last 7 days"
+        }
+
+        return "\(StatsFormatters.shortDay(first)) — \(StatsFormatters.shortDay(last))"
+    }
+
+    private func scoreColor(for score: Int) -> Color {
+        switch score {
+        case 80...100: return .neonGreen
+        case 60..<80: return .fitOrange
+        default: return .red
+        }
+    }
 
     private var statsAIInsightCard: some View {
         let isPro = SubscriptionManager.shared.isPro
@@ -298,6 +318,10 @@ struct StatsView: View {
         let avgCarbsVal = totalCarbs / trackedCount
         let avgFatVal = totalFat / trackedCount
 
+        let recentTraining = allTrainingEntries.filter { $0.date >= sevenDaysAgo }
+        let totalTrainingCal = recentTraining.reduce(0.0) { $0 + $1.caloriesBurned }
+        let avgTrainingCal = totalTrainingCal / Double(max(stats.count, 1))
+
         let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
             dateRange: "Last 7 days (\(trackedDays.count) days with food logged)",
             avgCalories: Int(avgCalTracked),
@@ -306,6 +330,7 @@ struct StatsView: View {
             targetProtein: Int(baseProtein),
             avgCarbs: Int(avgCarbsVal),
             avgFat: Int(avgFatVal),
+            avgTrainingCalories: Int(avgTrainingCal),
             weightEntries: weightData,
             weeklyScore: weeklyScore,
             perfectDays: stats.filter(\.isPerfect).count,

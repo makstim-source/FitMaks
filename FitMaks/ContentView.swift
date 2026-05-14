@@ -42,6 +42,15 @@ struct ContentView: View {
         return viewModel.setupIndex[id]
     }
 
+    private var canClearSelectedDay: Bool {
+        let calendar = Calendar.current
+        let selectedDay = calendar.startOfDay(for: viewModel.selectedDate)
+        let today = calendar.startOfDay(for: Date())
+
+        guard selectedDay >= today else { return false }
+        return !dailyFeed.isEmpty || setup(for: viewModel.selectedDate) != nil
+    }
+
     // MARK: - Goals & Targets
 
     var calculatedProtein: Double {
@@ -159,7 +168,23 @@ struct ContentView: View {
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
     var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
+    var trailingSevenDayReport: WeeklyReportData? {
+        WeeklyReportData.trailingDays(
+            endingOn: Date(),
+            count: 7,
+            allFoodEntries: allFoodEntries,
+            allTrainingEntries: allTrainingEntries,
+            setupIndex: viewModel.setupIndex,
+            baseCaloriesGoal: baseCaloriesGoal,
+            baseProteinGoal: baseProteinGoal,
+            stepsIndex: viewModel.homeWeeklySteps,
+            activityLevel: activityLevel
+        )
+    }
     var shouldShowWeeklyBanner: Bool {
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(viewModel.selectedDate) else { return false }
+        guard calendar.component(.weekday, from: Date()) == 2 else { return false }
         guard let report = previousWeekReport else { return false }
         return lastViewedWeeklyReportID != report.weekID
     }
@@ -177,9 +202,12 @@ struct ContentView: View {
     }
     var activeWeeklyReport: WeeklyReportData? {
         if let calDate = viewModel.calendarReportDate {
+            if Calendar.current.isDateInToday(calDate) {
+                return trailingSevenDayReport
+            }
             return weekReport(for: calDate)
         }
-        return previousWeekReport
+        return trailingSevenDayReport
     }
 
     func weightEntriesForReport(_ report: WeeklyReportData) -> [(date: String, weight: Double)] {
@@ -191,6 +219,16 @@ struct ContentView: View {
             }
             .sorted { $0.date < $1.date }
             .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
+    }
+
+    func avgTrainingCaloriesForReport(_ report: WeeklyReportData) -> Double {
+        let calendar = Calendar.current
+        let reportTraining = allTrainingEntries.filter { entry in
+            let d = calendar.startOfDay(for: entry.date)
+            return d >= report.weekStart && d <= report.weekEnd
+        }
+        let total = reportTraining.reduce(0.0) { $0 + $1.caloriesBurned }
+        return total / Double(max(report.days.count, 1))
     }
 
     var unlockedAchievementSignature: String {
@@ -340,6 +378,7 @@ struct ContentView: View {
                     weightEntries: weightEntriesForReport(report),
                     baseCalories: baseCaloriesGoal,
                     baseProtein: baseProteinGoal,
+                    avgTrainingCalories: avgTrainingCaloriesForReport(report),
                     userName: AuthService.shared.displayName
                 ) {
                     viewModel.isShowingWeeklyReport = false
@@ -385,7 +424,14 @@ struct ContentView: View {
                 bodyMetrics: allBodyMetrics,
                 baseCalories: useCustomGoals ? customCalories : calculatedCalories,
                 baseProtein: baseProteinGoal,
-                postOptions: universalPostOptions()
+                postOptions: universalPostOptions(),
+                onLast7DaysReport: {
+                    viewModel.isShowingStats = false
+                    viewModel.calendarReportDate = Date()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        viewModel.isShowingWeeklyReport = true
+                    }
+                }
             )
         }
         .fullScreenCover(isPresented: $viewModel.isShowingAchievements) {
@@ -455,7 +501,7 @@ struct ContentView: View {
         .confirmationDialog("Clear this day?", isPresented: $isShowingClearDayConfirm, titleVisibility: .visible) {
             Button("Delete all entries", role: .destructive) { clearSelectedDay() }
         } message: {
-            Text("All food and training entries for this day will be deleted.")
+            Text("Food, training, and the selected plan for this day will be deleted.")
         }
         .alert("AI Error", isPresented: Binding(
             get: { viewModel.aiErrorMessage != nil },
@@ -484,10 +530,18 @@ struct ContentView: View {
         .applyStateObservers(self)
         .overlay {
             if viewModel.isShowingSourceDialog {
-                Color.appScrim
-                    .ignoresSafeArea()
-                    .onTapGesture { withAnimation(.easeOut(duration: 0.8)) { viewModel.isShowingSourceDialog = false } }
-                    .transition(.opacity)
+                ZStack {
+                    Rectangle()
+                        .fill(Color.black.opacity(isLightAppTheme() ? 0.36 : 0.72))
+
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .opacity(isLightAppTheme() ? 0.80 : 0.26)
+                }
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { viewModel.isShowingSourceDialog = false } }
+                .transition(.opacity)
 
                 VStack {
                     Spacer()
@@ -508,6 +562,7 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .ignoresSafeArea(.container, edges: .bottom)
+                .zIndex(1)
             }
         }
         .animation(.spring(response: 0.32, dampingFraction: 0.88), value: viewModel.isShowingSourceDialog)
@@ -750,7 +805,7 @@ struct ContentView: View {
         return VStack(alignment: .leading, spacing: 7) {
             if shouldShowPlanPrompt {
                 Text(Calendar.current.isDateInTomorrow(viewModel.selectedDate)
-                     ? "Plan tomorrow's mode"
+                     ? "What's the plan for tomorrow?"
                      : "What's your plan for today?")
                     .font(.system(size: 11, weight: .heavy))
                     .foregroundColor(.appMuted)
@@ -863,7 +918,7 @@ struct ContentView: View {
 
                 Spacer()
 
-                if !dailyFeed.isEmpty && viewModel.selectedDate > Calendar.current.startOfDay(for: Date()) {
+                if canClearSelectedDay {
                     Button {
                         isShowingClearDayConfirm = true
                     } label: {
@@ -1284,6 +1339,9 @@ struct ContentView: View {
         }
         for entry in allTrainingEntries where calendar.isDate(entry.date, inSameDayAs: date) {
             modelContext.delete(entry)
+        }
+        for setup in allDailySetups where setup.dateID == DateFormatter.yyyyMMdd.string(from: date) {
+            modelContext.delete(setup)
         }
 
         try? modelContext.save()

@@ -83,6 +83,10 @@ struct CustomCalendarView: View {
                 }
 
                 calendarLegend
+
+                if let report = latestCompletedWeeklyReport {
+                    calendarLast7DaysReport(report)
+                }
             }
             .padding()
             .padding(.bottom, 16)
@@ -203,6 +207,58 @@ struct CustomCalendarView: View {
         .padding(.top, 4)
     }
 
+    @ViewBuilder
+    private func calendarLast7DaysReport(_ report: WeeklyReportData) -> some View {
+        Button {
+            onWeeklyReport?(Date())
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Last 7 days report")
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text(report.dateRangeLabel)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.appMuted)
+
+                    Text("\(report.weeklyScore)% score · \(report.perfectDays)/\(report.days.count) perfect days")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(report.scoreColor)
+                }
+
+                Spacer(minLength: 10)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(report.scoreColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                report.scoreColor.opacity(0.16),
+                                Color.appSurface,
+                                Color.appSurface.opacity(0.96)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(report.scoreColor.opacity(0.24), lineWidth: 1)
+                    )
+            )
+            .shadow(color: report.scoreColor.opacity(0.12), radius: 10, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+    }
+
     private func legendItem(color: Color, text: String) -> some View {
         HStack(spacing: 4) {
             Circle()
@@ -212,6 +268,21 @@ struct CustomCalendarView: View {
         }
         .font(.system(size: 11, weight: .medium))
         .foregroundColor(.appMuted)
+    }
+
+    private var latestCompletedWeeklyReport: WeeklyReportData? {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
+        return WeeklyReportData.trailingDays(
+            endingOn: yesterday,
+            count: 7,
+            allFoodEntries: allEntries,
+            allTrainingEntries: allTrainingEntries,
+            setupIndex: calendarSetupIndex,
+            baseCaloriesGoal: baseCalories,
+            baseProteinGoal: baseProtein,
+            stepsIndex: stepsByDay,
+            activityLevel: activityLevel
+        )
     }
 
     private var calendarSetupIndex: [String: DailySetup] {

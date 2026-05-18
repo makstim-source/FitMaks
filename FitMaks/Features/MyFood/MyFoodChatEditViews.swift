@@ -6,6 +6,7 @@ struct FavoriteChatEditView: View {
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
     @State private var attachedImage: UIImage? = nil; @State private var isShowingAttachmentDialog = false; @State private var isShowingAttachmentPicker = false; @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @State private var isEditingBasis = false
     @State private var selectedBasis: FavoritePortionBasis
     @FocusState private var isInputFocused: Bool
@@ -42,6 +43,51 @@ struct FavoriteChatEditView: View {
                     endPoint: .bottomTrailing
                 )
             )
+            HStack(spacing: 14) {
+                Button(action: { isShowingDirectPhotoDialog = true }) {
+                    ZStack(alignment: .bottomTrailing) {
+                        if let img = favorite.uiImage {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 52, height: 52)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                        } else {
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.neonCyan.opacity(0.15))
+                                .frame(width: 52, height: 52)
+                                .overlay(
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.neonCyan.opacity(0.6))
+                                )
+                        }
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(4)
+                            .background(Circle().fill(Color.neonCyan))
+                            .offset(x: 4, y: 4)
+                    }
+                }
+                .buttonStyle(.plain)
+                VStack(spacing: 0) {
+                    HStack(spacing: 6) {
+                        TextField("Item name", text: $favorite.name)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.appText)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.neonCyan.opacity(0.45))
+                    }
+                    Rectangle()
+                        .fill(Color.neonCyan.opacity(0.18))
+                        .frame(height: 1)
+                        .padding(.top, 6)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 20) {
@@ -69,6 +115,8 @@ struct FavoriteChatEditView: View {
         .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
+        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
+        .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
 
     private var favoriteBasisCard: some View {
@@ -273,10 +321,20 @@ struct MealChatEditView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                TextField("Meal name", text: $recipe.name)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.appText)
-                Spacer()
+                VStack(spacing: 0) {
+                    HStack(spacing: 6) {
+                        TextField("Meal name", text: $recipe.name)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.appText)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.orange.opacity(0.45))
+                    }
+                    Rectangle()
+                        .fill(Color.orange.opacity(0.18))
+                        .frame(height: 1)
+                        .padding(.top, 6)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

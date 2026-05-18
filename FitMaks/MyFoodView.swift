@@ -555,6 +555,10 @@ struct MyFoodView: View {
         .background(
             myFoodRowBackground(accent: .fitOrange)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring()) { selectedMealForEdit = recipe }
+        }
     }
 
     @ViewBuilder
@@ -577,14 +581,24 @@ struct MyFoodView: View {
 
                 if !shoppingItems.isEmpty {
                     Button(action: { isShowingClearAlert = true }) {
-                        Text("Clear")
-                            .font(.caption)
-                            .fontWeight(.heavy)
-                            .foregroundColor(.appAccentText)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(Capsule().fill(Color.fitOrange.opacity(0.18)))
+                        HStack(spacing: 5) {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 9, weight: .black))
+
+                            Text("Clear")
+                                .font(.system(size: 12, weight: .black))
+                        }
+                        .foregroundColor(.fitOrange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.fitOrange.opacity(isLightAppTheme() ? 0.13 : 0.16)))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.fitOrange.opacity(0.42), lineWidth: 1)
+                        )
+                        .shadow(color: Color.fitOrange.opacity(isLightAppTheme() ? 0.06 : 0.18), radius: 8, x: 0, y: 4)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 18)

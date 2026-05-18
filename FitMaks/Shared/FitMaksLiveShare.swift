@@ -1827,30 +1827,37 @@ private struct FitMaksLiveWeeklyCard: View {
     var body: some View {
         let light = isLightAppTheme()
 
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             HStack(spacing: 8) {
                 livePosterTag("WEEKLY REPORT", color: snapshot.scoreColor)
                 livePosterTag(snapshot.dateRange.uppercased(), color: .appMuted)
                 Spacer()
             }
 
-            VStack(spacing: 8) {
+            HStack(spacing: 14) {
                 Text("\(snapshot.score)%")
-                    .font(.system(size: 72, weight: .black))
+                    .font(.system(size: 58, weight: .black))
                     .foregroundColor(snapshot.scoreColor)
+                    .lineLimit(1)
 
-                Text(snapshot.scoreLabel)
-                    .font(.system(size: 22, weight: .heavy))
-                    .foregroundColor(light ? .appText : .white)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(snapshot.scoreLabel)
+                        .font(.system(size: 20, weight: .heavy))
+                        .foregroundColor(light ? .appText : .white)
 
-                Text("\(snapshot.perfectDays)/\(snapshot.dayResults.count) perfect days")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(light ? .appMuted : .white.opacity(0.7))
+                    Text("\(snapshot.perfectDays)/\(snapshot.dayResults.count) perfect days · \(snapshot.totalSteps) steps")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.65))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 28)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(
                         light
                         ? AnyShapeStyle(snapshot.scoreColor.opacity(0.10))
@@ -1864,7 +1871,7 @@ private struct FitMaksLiveWeeklyCard: View {
                     )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 28)
+                RoundedRectangle(cornerRadius: 24)
                     .stroke(light ? Color.appBorder.opacity(0.68) : snapshot.scoreColor.opacity(0.22), lineWidth: 1)
             )
 
@@ -1874,26 +1881,31 @@ private struct FitMaksLiveWeeklyCard: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                weeklyStatCard(title: "CALORIES", value: snapshot.avgCalories, subtitle: "per day avg", accent: .neonGreen, light: light)
-                weeklyStatCard(title: "PROTEIN", value: snapshot.avgProtein, subtitle: "per day avg", accent: .neonCyan, light: light)
+            HStack(spacing: 8) {
+                weeklyStatCard(title: "CALORIES", value: snapshot.avgCalories, accent: .neonGreen, light: light)
+                weeklyStatCard(title: "PROTEIN", value: snapshot.avgProtein, accent: .neonCyan, light: light)
+                weeklyStatCard(title: "CARBS", value: snapshot.avgCarbs, accent: .fitOrange, light: light)
+                weeklyStatCard(title: "FAT", value: snapshot.avgFat, accent: .fitPurple, light: light)
             }
 
-            HStack(spacing: 10) {
-                weeklyStatCard(title: "STEPS", value: snapshot.totalSteps, subtitle: "total", accent: .fitOrange, light: light)
-                weeklyStatCard(title: "TRAINING", value: trainingMixLabel, subtitle: "mode split", accent: .fitPurple, light: light)
+            HStack(spacing: 12) {
+                ForEach(trainingParts, id: \.self) { part in
+                    Text(part)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(light ? .appMuted : .white.opacity(0.6))
+                }
             }
         }
         .padding(24)
         .background(liveCardBackground)
     }
 
-    private var trainingMixLabel: String {
+    private var trainingParts: [String] {
         var parts: [String] = []
-        if cardioDays > 0 { parts.append("\(cardioDays)× cardio") }
-        if strengthDays > 0 { parts.append("\(strengthDays)× gym") }
-        if chillDays > 0 { parts.append("\(chillDays)× chill") }
-        return parts.joined(separator: " · ")
+        if cardioDays > 0 { parts.append("🏃 \(cardioDays)× cardio") }
+        if strengthDays > 0 { parts.append("🏋️ \(strengthDays)× gym") }
+        if chillDays > 0 { parts.append("💤 \(chillDays)× chill") }
+        return parts
     }
 
     private var chillDays: Int {
@@ -1911,34 +1923,30 @@ private struct FitMaksLiveWeeklyCard: View {
     private func weeklyStatCard(
         title: String,
         value: String,
-        subtitle: String,
         accent: Color,
         light: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 12, weight: .heavy))
+                .font(.system(size: 10, weight: .heavy))
                 .foregroundColor(accent)
-                .tracking(0.8)
+                .tracking(0.6)
 
             Text(value)
-                .font(.system(size: 24, weight: .black))
+                .font(.system(size: 20, weight: .black))
                 .foregroundColor(light ? .appText : .white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.65)
-
-            Text(subtitle)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(light ? .appMuted : .white.opacity(0.55))
+                .minimumScaleFactor(0.6)
         }
-        .padding(14)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.06))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(light ? Color.appBorder.opacity(0.65) : Color.white.opacity(0.06), lineWidth: 1)
         )
     }

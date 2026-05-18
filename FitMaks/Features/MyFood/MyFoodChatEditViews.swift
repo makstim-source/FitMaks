@@ -219,6 +219,7 @@ struct MealChatEditView: View {
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
     @State private var attachedImage: UIImage? = nil; @State private var isShowingAttachmentDialog = false; @State private var isShowingAttachmentPicker = false; @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @FocusState private var isInputFocused: Bool
     var onDelete: () -> Void; var onDone: () -> Void; var onMove: () -> Void
     private var lightTheme: Bool { isLightAppTheme() }
@@ -244,6 +245,41 @@ struct MealChatEditView: View {
                     endPoint: .bottomTrailing
                 )
             )
+            HStack(spacing: 14) {
+                Button(action: { isShowingDirectPhotoDialog = true }) {
+                    ZStack(alignment: .bottomTrailing) {
+                        if let img = recipe.uiImage {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 52, height: 52)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                        } else {
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.orange.opacity(0.15))
+                                .frame(width: 52, height: 52)
+                                .overlay(
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.orange.opacity(0.6))
+                                )
+                        }
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(4)
+                            .background(Circle().fill(Color.orange))
+                            .offset(x: 4, y: 4)
+                    }
+                }
+                .buttonStyle(.plain)
+                TextField("Meal name", text: $recipe.name)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(.appText)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 20) {
@@ -270,6 +306,8 @@ struct MealChatEditView: View {
         .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
+        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
+        .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
 
     private func setAsDishPhoto(_ image: UIImage) {

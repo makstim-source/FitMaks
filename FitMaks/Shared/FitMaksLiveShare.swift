@@ -1888,10 +1888,10 @@ private struct FitMaksLiveWeeklyCard: View {
                 weeklyStatCard(title: "FAT", value: snapshot.avgFat, accent: .fitPurple, light: light)
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 ForEach(trainingParts, id: \.self) { part in
                     Text(part)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.6))
                 }
             }
@@ -1926,48 +1926,48 @@ private struct FitMaksLiveWeeklyCard: View {
         accent: Color,
         light: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 10, weight: .heavy))
+                .font(.system(size: 13, weight: .heavy))
                 .foregroundColor(accent)
-                .tracking(0.6)
+                .tracking(0.7)
 
             Text(value)
-                .font(.system(size: 20, weight: .black))
+                .font(.system(size: 24, weight: .black))
                 .foregroundColor(light ? .appText : .white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.55)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 18)
                 .fill(light ? Color.appSurface.opacity(0.92) : Color.white.opacity(0.06))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 18)
                 .stroke(light ? Color.appBorder.opacity(0.65) : Color.white.opacity(0.06), lineWidth: 1)
         )
     }
 
     private func weeklyDayCard(_ day: FitMaksShareWeeklyDay, light: Bool) -> some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 6) {
             Text(day.label)
-                .font(.system(size: 12, weight: .heavy))
+                .font(.system(size: 14, weight: .heavy))
                 .foregroundColor(light ? .appMuted : .white.opacity(0.56))
 
             Text(day.modeEmoji)
-                .font(.system(size: 22))
+                .font(.system(size: 28))
 
-            HStack(spacing: 3) {
-                Circle().fill(day.calorieWin ? Color.neonGreen : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 6, height: 6)
-                Circle().fill(day.proteinWin ? Color.neonCyan : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 6, height: 6)
-                Circle().fill(day.stepWin ? Color.fitOrange : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 6, height: 6)
+            HStack(spacing: 4) {
+                Circle().fill(day.calorieWin ? Color.neonGreen : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
+                Circle().fill(day.proteinWin ? Color.neonCyan : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
+                Circle().fill(day.stepWin ? Color.fitOrange : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(day.isPerfect ? snapshot.scoreColor.opacity(light ? 0.14 : 0.18) : (light ? Color.appElevated.opacity(0.8) : Color.white.opacity(0.03)))

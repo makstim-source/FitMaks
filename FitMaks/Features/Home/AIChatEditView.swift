@@ -18,7 +18,6 @@ struct AIChatEditView: View {
     @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isShowingSaveDialog = false
     @State private var saveConfirmationText: String?
-    @State private var healthCommentLoaded = false
     @FocusState private var isInputFocused: Bool
 
     var onShare: (() -> Void)? = nil
@@ -127,6 +126,20 @@ struct AIChatEditView: View {
                     .buttonStyle(.plain)
                     .disabled(isWaiting)
 
+                    if SubscriptionManager.shared.isPro {
+                        Button(action: fetchHealthComment) {
+                            Text("Review")
+                                .font(.system(size: 12, weight: .black))
+                                .foregroundColor(.appAccentText)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .frame(maxWidth: .infinity)
+                                .background(Capsule().fill(Color.fitOrange.opacity(isWaiting ? 0.45 : 1)))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isWaiting)
+                    }
+
                     Button(action: { isShowingSaveDialog = true }) {
                         Text("Save to My Food")
                             .font(.system(size: 12, weight: .black))
@@ -225,13 +238,6 @@ struct AIChatEditView: View {
             originalProtein = entry.protein
             originalCarbs = entry.carbs
             originalFat = entry.fat
-            if messages.isEmpty {
-                messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true))
-            }
-            if !healthCommentLoaded && SubscriptionManager.shared.isPro {
-                healthCommentLoaded = true
-                fetchHealthComment()
-            }
         }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
             Button("Camera") {

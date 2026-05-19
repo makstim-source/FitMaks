@@ -126,7 +126,16 @@ enum FavoritePortionRules {
     ]
 
     private static let pieceKeywords = [
-        "egg", "яйц", "banana", "банан", "apple", "яблок", "slice", "ломтик", "piece", "pcs"
+        "egg", "яйц", "banana", "банан", "apple", "яблок", "slice", "ломтик", "piece", "pcs",
+        "flatbread", "лаваш", "лепёшка", "wrap", "tortilla", "тортилья", "cracker", "waffle",
+        "вафл", "pancake", "блин", "muffin", "маффин", "cookie", "печень"
+    ]
+
+    private static let productSuffixes = [
+        "flatbread", "лаваш", "лепёшка", "cake", "торт", "cookie", "печень", "muffin", "маффин",
+        "wrap", "tortilla", "тортилья", "cracker", "crisp", "waffle", "вафл", "pancake", "блин",
+        "bar", "батончик", "ball", "milk", "молоко", "drink", "напиток", "shake", "smoothie",
+        "yogurt", "йогурт", "soup", "суп"
     ]
 
     static func totalWeightGrams(from ingredients: String) -> Double? {
@@ -168,11 +177,13 @@ enum FavoritePortionRules {
         }
 
         if rawStapleKeywords.contains(where: { lowerName.contains($0) }) {
-            if totalWeight != nil {
-                return (.per100g, totalWeight)
+            let isFinishedProduct = productSuffixes.contains(where: { lowerName.contains($0) })
+            if !isFinishedProduct {
+                if totalWeight != nil {
+                    return (.per100g, totalWeight)
+                }
+                return (.perPack, totalWeight)
             }
-
-            return (.perPack, totalWeight)
         }
 
         if packagedKeywords.contains(where: { lowerName.contains($0) }) {

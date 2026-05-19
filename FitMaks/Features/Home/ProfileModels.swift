@@ -31,4 +31,7 @@ struct GoalSnapshot {
     let useCustomGoals: Bool
     let customCalories: Double
     let customProtein: Double
+    let macroRestriction: String
+    let customFat: Double
+    let customCarbs: Double
 }

@@ -17,6 +17,9 @@ struct ProfileView: View {
     @Binding var useCustomGoals: Bool
     @Binding var customCalories: Double
     @Binding var customProtein: Double
+    @Binding var macroRestriction: String
+    @Binding var customFat: Double
+    @Binding var customCarbs: Double
 
     var calculatedCalories: Double
     var calculatedProtein: Double
@@ -649,6 +652,9 @@ struct ProfileView: View {
                             useCustomGoals = snap.useCustomGoals
                             customCalories = snap.customCalories
                             customProtein = snap.customProtein
+                            macroRestriction = snap.macroRestriction
+                            customFat = snap.customFat
+                            customCarbs = snap.customCarbs
                         }
                         isShowingGoalSettings = false
                     }
@@ -668,7 +674,9 @@ struct ProfileView: View {
                     gender: gender, age: age, weight: weight, height: height,
                     goal: goal, activityLevel: activityLevel,
                     useCustomGoals: useCustomGoals,
-                    customCalories: customCalories, customProtein: customProtein
+                    customCalories: customCalories, customProtein: customProtein,
+                    macroRestriction: macroRestriction,
+                    customFat: customFat, customCarbs: customCarbs
                 )
             }
         }
@@ -1573,10 +1581,148 @@ struct ProfileView: View {
                     editableGoalField(title: "Protein", value: $customProtein, unit: "g")
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
+
+                macroRestrictionSection
             }
         }
         .padding(18)
         .background(cardBackground)
+    }
+
+    private var macroRestrictionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("MACRO SPLIT")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            HStack(spacing: 6) {
+                restrictionButton(title: "Auto", value: "none")
+                restrictionButton(title: "Set Fat", value: "fat")
+                restrictionButton(title: "Set Carbs", value: "carbs")
+            }
+
+            if macroRestriction != "none" {
+                let proteinCal = customProtein * 4
+                let remainingCal = max(0, customCalories - proteinCal)
+
+                if macroRestriction == "fat" {
+                    HStack(spacing: 12) {
+                        editableGoalField(title: "Fat", value: $customFat, unit: "g")
+                        computedGoalField(title: "Carbs", value: autoCarbs, unit: "g")
+                    }
+
+                    macroCalorieSummary(
+                        proteinCal: proteinCal,
+                        fatCal: customFat * 9,
+                        carbsCal: autoCarbs * 4,
+                        remaining: remainingCal
+                    )
+                } else {
+                    HStack(spacing: 12) {
+                        computedGoalField(title: "Fat", value: autoFat, unit: "g")
+                        editableGoalField(title: "Carbs", value: $customCarbs, unit: "g")
+                    }
+
+                    macroCalorieSummary(
+                        proteinCal: proteinCal,
+                        fatCal: autoFat * 9,
+                        carbsCal: customCarbs * 4,
+                        remaining: remainingCal
+                    )
+                }
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private var autoCarbs: Double {
+        let remaining = customCalories - (customProtein * 4) - (customFat * 9)
+        return max(0, remaining / 4)
+    }
+
+    private var autoFat: Double {
+        let remaining = customCalories - (customProtein * 4) - (customCarbs * 4)
+        return max(0, remaining / 9)
+    }
+
+    private func restrictionButton(title: String, value: String) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                macroRestriction = value
+            }
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: .heavy))
+                .foregroundColor(macroRestriction == value ? .appAccentText : .appMuted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule().fill(macroRestriction == value ? neonPurple : Color.appElevated)
+                )
+                .overlay(Capsule().stroke(macroRestriction == value ? Color.clear : Color.appBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func computedGoalField(title: String, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.appMuted)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(Int(value.rounded()))")
+                    .font(.title3)
+                    .fontWeight(.heavy)
+                    .foregroundColor(neonPurple)
+
+                Text(unit)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.appMuted)
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(neonPurple.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(neonPurple.opacity(0.2), lineWidth: 1))
+    }
+
+    private func macroCalorieSummary(proteinCal: Double, fatCal: Double, carbsCal: Double, remaining: Double) -> some View {
+        let total = proteinCal + fatCal + carbsCal
+        let overflow = total > customCalories + 1
+
+        return HStack(spacing: 0) {
+            macroBar(label: "P", cal: proteinCal, total: customCalories, color: .neonCyan)
+            macroBar(label: "F", cal: fatCal, total: customCalories, color: .yellow)
+            macroBar(label: "C", cal: carbsCal, total: customCalories, color: .fitOrange)
+        }
+        .frame(height: 22)
+        .clipShape(Capsule())
+        .overlay(
+            HStack {
+                Spacer()
+                Text(overflow ? "over budget" : "\(Int(customCalories)) kcal")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundColor(overflow ? .red : .appText.opacity(0.7))
+                    .padding(.trailing, 8)
+            }
+        )
+    }
+
+    private func macroBar(label: String, cal: Double, total: Double, color: Color) -> some View {
+        let fraction = total > 0 ? max(0.05, cal / total) : 0.33
+        return Rectangle()
+            .fill(color.opacity(0.55))
+            .frame(maxWidth: .infinity)
+            .frame(width: nil)
+            .overlay(
+                Text(label)
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundColor(.white)
+            )
+            .layoutPriority(fraction)
     }
 
     private var liveTargetBadge: some View {

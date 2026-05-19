@@ -7,6 +7,7 @@ enum ICloudSettingsSync {
         "userGender", "userAge", "userWeight", "userHeight",
         "userGoal", "userActivity", "useCustomGoals",
         "customCalories", "customProtein",
+        "macroRestriction", "customFat", "customCarbs",
         "hasCompletedOnboarding",
         "lastKnownBaseCaloriesGoal", "lastKnownBaseProteinGoal",
         "appleUserName", "appleUserEmail"
@@ -63,8 +64,10 @@ enum ICloudSettingsSync {
             return (value as? Bool) == false
         case "useCustomGoals":
             return (value as? Bool) == false
-        case "customCalories", "customProtein":
+        case "customCalories", "customProtein", "customFat", "customCarbs":
             return (value as? Double) == 0.0
+        case "macroRestriction":
+            return (value as? String) == "none"
         default:
             return false
         }

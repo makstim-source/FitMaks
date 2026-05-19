@@ -21,6 +21,9 @@ struct ContentView: View {
     @AppStorage("useCustomGoals") fileprivate var useCustomGoals: Bool = false
     @AppStorage("customCalories") fileprivate var customCalories: Double = 0.0
     @AppStorage("customProtein") fileprivate var customProtein: Double = 0.0
+    @AppStorage("macroRestriction") fileprivate var macroRestriction: String = "none"
+    @AppStorage("customFat") fileprivate var customFat: Double = 0.0
+    @AppStorage("customCarbs") fileprivate var customCarbs: Double = 0.0
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
@@ -366,6 +369,8 @@ struct ContentView: View {
                 goal: $goal, activityLevel: $activityLevel,
                 useCustomGoals: $useCustomGoals,
                 customCalories: $customCalories, customProtein: $customProtein,
+                macroRestriction: $macroRestriction,
+                customFat: $customFat, customCarbs: $customCarbs,
                 calculatedCalories: calculatedCalories, calculatedProtein: calculatedProtein,
                 postOptions: universalPostOptions()
             )

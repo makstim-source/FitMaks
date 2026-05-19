@@ -29,7 +29,7 @@ struct ContentView: View {
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
     @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
-    @AppStorage("hasMigratedCategoriesV2") private var hasMigratedCategories = false
+    @AppStorage("hasMigratedCategoriesV3") private var hasMigratedCategories = false
     @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()

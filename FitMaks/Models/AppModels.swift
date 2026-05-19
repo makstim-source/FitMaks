@@ -115,22 +115,24 @@ struct FavoritePortionPreset: Identifiable {
 // MARK: - Food Categories
 
 enum FridgeCategory: String, CaseIterable {
-    case protein = "Protein"
-    case carbs = "Carbs"
+    case proteins = "Proteins"
+    case healthyCarbs = "Healthy Carbs"
     case fruitVeg = "Fruit & Veg"
     case dairy = "Dairy"
     case drinks = "Drinks"
     case snacks = "Snacks"
+    case sauces = "Sauces & Extras"
     case other = "Other"
 
     var emoji: String {
         switch self {
-        case .protein: return "🥩"
-        case .carbs: return "🍚"
+        case .proteins: return "🥩"
+        case .healthyCarbs: return "🍚"
         case .fruitVeg: return "🥬"
         case .dairy: return "🧀"
         case .drinks: return "🥤"
         case .snacks: return "🍫"
+        case .sauces: return "🫙"
         case .other: return "📦"
         }
     }
@@ -167,34 +169,42 @@ enum FridgeCategory: String, CaseIterable {
                          "cookie", "печень", "candy", "конфет", "waffle", "вафл", "cracker",
                          "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад",
                          "suklaa", "keksi", "pähkinä"]
+        let sauceKeys = ["sauce", "соус", "ketchup", "кетчуп", "mayo", "майонез", "mustard", "горчиц",
+                         "dressing", "заправк", "vinegar", "уксус", "oil", "олив", "honey", "мёд", "мед",
+                         "syrup", "сироп", "jam", "джем", "варень", "pesto", "песто", "soy sauce",
+                         "sriracha", "hummus", "хумус", "salsa", "сальса", "spice", "специ",
+                         "sinappi", "kastike", "hunaja", "öljy"]
         let drinkKeys = ["juice", "сок", "cola", "cola zero", "soda", "water", "вода",
                          "drink", "напиток", "shake", "smoothie", "coffee", "кофе", "tea", "чай",
                          "monster", "red bull", "компот", "морс",
                          "mehu", "kahvi", "tee", "limonadi"]
 
-        if proteinKeys.contains(where: { text.contains($0) }) { return .protein }
+        if proteinKeys.contains(where: { text.contains($0) }) { return .proteins }
         if dairyKeys.contains(where: { text.contains($0) }) { return .dairy }
-        if carbKeys.contains(where: { text.contains($0) }) { return .carbs }
+        if carbKeys.contains(where: { text.contains($0) }) { return .healthyCarbs }
         if fruitVegKeys.contains(where: { text.contains($0) }) { return .fruitVeg }
         if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
+        if sauceKeys.contains(where: { text.contains($0) }) { return .sauces }
         if drinkKeys.contains(where: { text.contains($0) }) { return .drinks }
         return .other
     }
 }
 
 enum MealCategory: String, CaseIterable {
+    case mainDish = "Main Dish"
+    case sides = "Sides"
+    case salads = "Salads & Starters"
     case breakfast = "Breakfast"
-    case lunch = "Lunch"
-    case dinner = "Dinner"
-    case snack = "Snack"
+    case snacks = "Snacks"
     case other = "Other"
 
     var emoji: String {
         switch self {
+        case .mainDish: return "🍖"
+        case .sides: return "🥘"
+        case .salads: return "🥗"
         case .breakfast: return "🌅"
-        case .lunch: return "☀️"
-        case .dinner: return "🌙"
-        case .snack: return "🍿"
+        case .snacks: return "🍿"
         case .other: return "🍽️"
         }
     }
@@ -204,23 +214,37 @@ enum MealCategory: String, CaseIterable {
 
         let breakfastKeys = ["breakfast", "завтрак", "oatmeal", "каша", "porridge", "pancake", "блин",
                              "waffle", "вафл", "cereal", "мюсли", "granola", "гранола", "toast", "тост",
-                             "омлет", "omelette", "scrambled", "яичниц"]
-        let lunchKeys = ["lunch", "обед", "soup", "суп", "борщ", "borscht", "salad", "салат",
-                         "sandwich", "бутерброд", "сэндвич", "bowl", "боул", "wrap"]
-        let dinnerKeys = ["dinner", "ужин", "steak", "стейк", "pasta", "паста"]
+                             "омлет", "omelette", "scrambled", "яичниц", "aamiainen", "puuro"]
+        let saladKeys = ["salad", "салат", "soup", "суп", "борщ", "borscht", "starter", "закуск",
+                         "appetizer", "bruschetta", "брускетт", "gazpacho", "keitto", "salaatti",
+                         "hummus", "хумус", "bowl", "боул"]
         let snackKeys = ["snack", "перекус", "shake", "шейк", "smoothie", "смузи", "bar", "батончик",
-                         "yogurt", "йогурт", "fruit", "фрукт"]
+                         "yogurt", "йогурт", "fruit cup", "фрукт", "protein ball",
+                         "välipala"]
+
+        let mainDishProtein = ["chicken", "курин", "курица", "beef", "говя", "turkey", "индей",
+                               "salmon", "лосось", "fish", "рыб", "pork", "свинин", "steak", "стейк",
+                               "lamb", "баранин", "duck", "утк", "tuna", "тунец", "shrimp", "креветк",
+                               "kana", "lohi", "nauta", "filee", "pihvi", "liha"]
+        let mainDishCarb = ["rice", "рис", "pasta", "паста", "макарон", "potato", "картош",
+                            "noodle", "лапш", "riisi", "peruna"]
+        let sideKeys = ["rice", "рис", "bread", "хлеб", "couscous", "кускус", "quinoa", "киноа",
+                        "mashed", "пюре", "fries", "фри", "buckwheat", "гречк",
+                        "oat", "овся", "flatbread", "лаваш", "tortilla", "тортилья",
+                        "riisi", "leipä", "kaura"]
 
         if breakfastKeys.contains(where: { text.contains($0) }) { return .breakfast }
-        if lunchKeys.contains(where: { text.contains($0) }) { return .lunch }
-        if dinnerKeys.contains(where: { text.contains($0) }) { return .dinner }
-        if snackKeys.contains(where: { text.contains($0) }) { return .snack }
+        if saladKeys.contains(where: { text.contains($0) }) { return .salads }
+        if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
 
-        let hour = Calendar.current.component(.hour, from: dateSaved)
-        if hour < 11 { return .breakfast }
-        if hour < 15 { return .lunch }
-        if hour < 21 { return .dinner }
-        return .snack
+        let hasProtein = mainDishProtein.contains(where: { text.contains($0) })
+        let hasCarb = mainDishCarb.contains(where: { text.contains($0) })
+        if hasProtein && hasCarb { return .mainDish }
+        if hasProtein { return .mainDish }
+
+        if sideKeys.contains(where: { text.contains($0) }) { return .sides }
+
+        return .other
     }
 }
 

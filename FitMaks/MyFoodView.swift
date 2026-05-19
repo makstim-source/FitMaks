@@ -372,7 +372,7 @@ struct MyFoodView: View {
                 fridgeCategoryChips
             }
             ScrollView {
-                VStack(spacing: 12) {
+                LazyVStack(spacing: 12) {
                     ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
                     ForEach(filteredFavorites) { fav in
                         if isBuildingMeal {
@@ -425,7 +425,7 @@ struct MyFoodView: View {
                 mealCategoryChips
             }
             ScrollView {
-                VStack(spacing: 12) {
+                LazyVStack(spacing: 12) {
                     ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
                     ForEach(filteredRecipes) { r in
                         if isBuildingMeal {

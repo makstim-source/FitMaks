@@ -70,6 +70,18 @@ final class HomeViewModel {
     var cachedDailyFeed: [TimelineItem] = []
     var cachedLoggedPastDaysSignature: String = ""
 
+    private var foodByDate: [String: [FoodEntry]] = [:]
+    private var trainingByDate: [String: [TrainingEntry]] = [:]
+
+    private func rebuildDateIndices() {
+        foodByDate = Dictionary(grouping: allFoodEntries) {
+            DateFormatter.yyyyMMdd.string(from: $0.date)
+        }
+        trainingByDate = Dictionary(grouping: allTrainingEntries) {
+            DateFormatter.yyyyMMdd.string(from: $0.date)
+        }
+    }
+
     func sync(
         weight: Double,
         baseCaloriesGoal: Double,
@@ -90,17 +102,20 @@ final class HomeViewModel {
         if self.modelContext == nil {
             self.modelContext = modelContext
         }
+        rebuildDateIndices()
         rebuildDailyCache()
         rebuildLoggedPastDaysSignature()
         rebuildCachedStats(activityLevel: activityLevel)
     }
 
     func rebuildDailyCache() {
-        let calendar = Calendar.current
-        cachedDailyFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
-        cachedDailyTraining = allTrainingEntries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
-        cachedTodayFood = allFoodEntries.filter { calendar.isDateInToday($0.date) }
-        cachedTodayTraining = allTrainingEntries.filter { calendar.isDateInToday($0.date) }
+        let selectedKey = DateFormatter.yyyyMMdd.string(from: selectedDate)
+        let todayKey = DateFormatter.yyyyMMdd.string(from: Date())
+
+        cachedDailyFood = foodByDate[selectedKey] ?? []
+        cachedDailyTraining = trainingByDate[selectedKey] ?? []
+        cachedTodayFood = foodByDate[todayKey] ?? []
+        cachedTodayTraining = trainingByDate[todayKey] ?? []
 
         cachedDailyCalories = cachedDailyFood.reduce(0) { $0 + $1.calories }
         cachedDailyProtein = cachedDailyFood.reduce(0) { $0 + $1.protein }
@@ -121,14 +136,10 @@ final class HomeViewModel {
     }
 
     func rebuildLoggedPastDaysSignature() {
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
-        let ids = Set(
-            (allFoodEntries.map(\.date) + allTrainingEntries.map(\.date))
-                .filter { $0 < todayStart }
-                .map { DateFormatter.yyyyMMdd.string(from: $0) }
-        )
-        cachedLoggedPastDaysSignature = ids.sorted().joined(separator: "|")
+        let todayKey = DateFormatter.yyyyMMdd.string(from: Date())
+        let allKeys = Set(foodByDate.keys).union(trainingByDate.keys)
+        let pastKeys = allKeys.filter { $0 < todayKey }
+        cachedLoggedPastDaysSignature = pastKeys.sorted().joined(separator: "|")
     }
 
     private func rebuildCachedStats(activityLevel: String) {
@@ -142,13 +153,10 @@ final class HomeViewModel {
             let dateID = DateFormatter.yyyyMMdd.string(from: date)
             let setup = setupIndex[dateID]
             let mode = DayMode.fromStoredValue(setup?.mode)
-            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            let dayTrainingCalories = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + $1.caloriesBurned }
-            let dayUploadedSteps = allTrainingEntries
-                .filter { calendar.isDate($0.date, inSameDayAs: date) }
-                .reduce(0) { $0 + max($1.steps ?? 0, 0) }
+            let dayFood = foodByDate[dateID] ?? []
+            let dayTraining = trainingByDate[dateID] ?? []
+            let dayTrainingCalories = dayTraining.reduce(0) { $0 + $1.caloriesBurned }
+            let dayUploadedSteps = dayTraining.reduce(0) { $0 + max($1.steps ?? 0, 0) }
             return DayProgressEngine.progress(
                 date: date,
                 foodEntries: dayFood,

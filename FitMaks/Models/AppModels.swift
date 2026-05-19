@@ -112,6 +112,108 @@ struct FavoritePortionPreset: Identifiable {
     let amount: Double
 }
 
+// MARK: - Food Categories
+
+enum FridgeCategory: String, CaseIterable {
+    case protein = "Protein"
+    case carbs = "Carbs"
+    case fruitVeg = "Fruit & Veg"
+    case dairy = "Dairy"
+    case drinks = "Drinks"
+    case snacks = "Snacks"
+    case other = "Other"
+
+    var emoji: String {
+        switch self {
+        case .protein: return "🥩"
+        case .carbs: return "🍚"
+        case .fruitVeg: return "🥬"
+        case .dairy: return "🧀"
+        case .drinks: return "🥤"
+        case .snacks: return "🍫"
+        case .other: return "📦"
+        }
+    }
+
+    static func infer(name: String, ingredients: String) -> FridgeCategory {
+        let text = (name + " " + ingredients).lowercased()
+
+        let proteinKeys = ["chicken", "курин", "курица", "beef", "говя", "turkey", "индей",
+                           "tuna", "тунец", "salmon", "лосось", "shrimp", "креветк", "fish", "рыб",
+                           "egg", "яйц", "mince", "фарш", "steak", "pork", "свинин", "duck", "утк",
+                           "lamb", "баранин", "tofu", "тофу", "protein", "протеин"]
+        let dairyKeys = ["milk", "молок", "yogurt", "йогурт", "skyr", "cheese", "сыр",
+                         "творог", "cottage", "кефир", "kefir", "cream", "сливк", "butter", "масло",
+                         "сметан", "alpro", "valio"]
+        let drinkKeys = ["juice", "сок", "cola", "cola zero", "soda", "water", "вода",
+                         "drink", "напиток", "shake", "smoothie", "coffee", "кофе", "tea", "чай",
+                         "monster", "red bull", "компот", "морс"]
+        let fruitVegKeys = ["apple", "яблок", "banana", "банан", "berr", "ягод", "orange", "апельсин",
+                            "grape", "виноград", "tomato", "помидор", "cucumber", "огурец", "pepper", "перец",
+                            "carrot", "морков", "onion", "лук", "avocado", "авокадо", "lettuce", "салат",
+                            "spinach", "шпинат", "broccoli", "брокколи", "mango", "манго", "kiwi", "киви",
+                            "lemon", "лимон", "peach", "персик", "pear", "груш", "cabbage", "капуст",
+                            "zucchini", "кабачок", "eggplant", "баклажан", "mushroom", "гриб"]
+        let carbKeys = ["rice", "рис", "pasta", "макарон", "bread", "хлеб", "oat", "овся",
+                        "potato", "картош", "noodle", "лапш", "cereal", "мюсли", "granola",
+                        "buckwheat", "гречк", "couscous", "кускус", "quinoa", "киноа", "булк",
+                        "tortilla", "тортилья", "flatbread", "лаваш", "wrap"]
+        let snackKeys = ["bar", "батончик", "chocolate", "шоколад", "chips", "чипс", "nuts", "орех",
+                         "cookie", "печень", "candy", "конфет", "waffle", "вафл", "cracker",
+                         "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад"]
+
+        if drinkKeys.contains(where: { text.contains($0) }) { return .drinks }
+        if dairyKeys.contains(where: { text.contains($0) }) { return .dairy }
+        if fruitVegKeys.contains(where: { text.contains($0) }) { return .fruitVeg }
+        if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
+        if proteinKeys.contains(where: { text.contains($0) }) { return .protein }
+        if carbKeys.contains(where: { text.contains($0) }) { return .carbs }
+        return .other
+    }
+}
+
+enum MealCategory: String, CaseIterable {
+    case breakfast = "Breakfast"
+    case lunch = "Lunch"
+    case dinner = "Dinner"
+    case snack = "Snack"
+    case other = "Other"
+
+    var emoji: String {
+        switch self {
+        case .breakfast: return "🌅"
+        case .lunch: return "☀️"
+        case .dinner: return "🌙"
+        case .snack: return "🍿"
+        case .other: return "🍽️"
+        }
+    }
+
+    static func infer(name: String, ingredients: String, dateSaved: Date) -> MealCategory {
+        let text = (name + " " + ingredients).lowercased()
+
+        let breakfastKeys = ["breakfast", "завтрак", "oatmeal", "каша", "porridge", "pancake", "блин",
+                             "waffle", "вафл", "cereal", "мюсли", "granola", "гранола", "toast", "тост",
+                             "омлет", "omelette", "scrambled", "яичниц"]
+        let lunchKeys = ["lunch", "обед", "soup", "суп", "борщ", "borscht", "salad", "салат",
+                         "sandwich", "бутерброд", "сэндвич", "bowl", "боул", "wrap"]
+        let dinnerKeys = ["dinner", "ужин", "steak", "стейк", "pasta", "паста"]
+        let snackKeys = ["snack", "перекус", "shake", "шейк", "smoothie", "смузи", "bar", "батончик",
+                         "yogurt", "йогурт", "fruit", "фрукт"]
+
+        if breakfastKeys.contains(where: { text.contains($0) }) { return .breakfast }
+        if lunchKeys.contains(where: { text.contains($0) }) { return .lunch }
+        if dinnerKeys.contains(where: { text.contains($0) }) { return .dinner }
+        if snackKeys.contains(where: { text.contains($0) }) { return .snack }
+
+        let hour = Calendar.current.component(.hour, from: dateSaved)
+        if hour < 11 { return .breakfast }
+        if hour < 15 { return .lunch }
+        if hour < 21 { return .dinner }
+        return .snack
+    }
+}
+
 enum FavoritePortionRules {
     private static let packagedKeywords = [
         "yogurt", "йогурт", "skyr", "bar", "батон", "drink", "shake", "milk", "кефир",
@@ -248,8 +350,14 @@ final class FavoriteFood {
     var ingredients: String = ""
     var portionBasisRaw: String = FavoritePortionBasis.perServing.rawValue
     var portionGramsReference: Double?
+    var categoryRaw: String = FridgeCategory.other.rawValue
 
     @Attribute(.externalStorage) var imageData: Data?
+
+    var category: FridgeCategory {
+        get { FridgeCategory(rawValue: categoryRaw) ?? .other }
+        set { categoryRaw = newValue.rawValue }
+    }
 
     var portionBasis: FavoritePortionBasis {
         get { FavoritePortionBasis(rawValue: portionBasisRaw) ?? .perServing }
@@ -328,6 +436,7 @@ final class FavoriteFood {
         self.ingredients = normalizedNutrition.ingredients
         self.portionBasisRaw = resolvedBasis.rawValue
         self.portionGramsReference = resolvedReference
+        self.categoryRaw = FridgeCategory.infer(name: name, ingredients: ingredients).rawValue
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 
@@ -595,8 +704,14 @@ final class SavedRecipe {
     var fat: Double = 0
     var dateSaved: Date = Date()
     var ingredients: String = ""
+    var categoryRaw: String = MealCategory.other.rawValue
 
     @Attribute(.externalStorage) var imageData: Data?
+
+    var category: MealCategory {
+        get { MealCategory(rawValue: categoryRaw) ?? .other }
+        set { categoryRaw = newValue.rawValue }
+    }
 
     var uiImage: UIImage? {
         guard let imageData else { return nil }
@@ -621,6 +736,7 @@ final class SavedRecipe {
         self.fat = max(0, fat)
         self.ingredients = ingredients
         self.dateSaved = Date()
+        self.categoryRaw = MealCategory.infer(name: name, ingredients: ingredients, dateSaved: Date()).rawValue
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 

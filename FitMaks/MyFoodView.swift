@@ -46,6 +46,9 @@ struct MyFoodView: View {
     @State private var isBuildingMeal = false
     @State private var selectedForMeal: Set<UUID> = []
     @State private var isShowingMealBuilder = false
+    @State private var searchText = ""
+    @State private var selectedFridgeCategory: FridgeCategory? = nil
+    @State private var selectedMealCategory: MealCategory? = nil
 
     private var newestFavorites: [FavoriteFood] {
         favorites.enumerated()
@@ -66,6 +69,40 @@ struct MyFoodView: View {
 
     private var newestSavedRecipes: [SavedRecipe] {
         savedRecipes.sorted { $0.dateSaved > $1.dateSaved }
+    }
+
+    private var filteredFavorites: [FavoriteFood] {
+        var result = newestFavorites
+        if let cat = selectedFridgeCategory {
+            result = result.filter { $0.category == cat }
+        }
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = result.filter { $0.name.lowercased().contains(query) || $0.ingredients.lowercased().contains(query) }
+        }
+        return result
+    }
+
+    private var filteredRecipes: [SavedRecipe] {
+        var result = newestSavedRecipes
+        if let cat = selectedMealCategory {
+            result = result.filter { $0.category == cat }
+        }
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = result.filter { $0.name.lowercased().contains(query) || $0.ingredients.lowercased().contains(query) }
+        }
+        return result
+    }
+
+    private var activeFridgeCategories: [FridgeCategory] {
+        let used = Set(favorites.map { $0.category })
+        return FridgeCategory.allCases.filter { used.contains($0) }
+    }
+
+    private var activeMealCategories: [MealCategory] {
+        let used = Set(savedRecipes.map { $0.category })
+        return MealCategory.allCases.filter { used.contains($0) }
     }
 
     @ViewBuilder
@@ -281,6 +318,9 @@ struct MyFoodView: View {
         Button {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                 currentTab = index
+                searchText = ""
+                selectedFridgeCategory = nil
+                selectedMealCategory = nil
             }
         } label: {
             HStack(spacing: 5) {
@@ -327,10 +367,14 @@ struct MyFoodView: View {
                 color: .neonCyan
             )
         } else {
+            if !isBuildingMeal {
+                foodSearchBar(color: .neonCyan)
+                fridgeCategoryChips
+            }
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
-                    ForEach(newestFavorites) { fav in
+                    ForEach(filteredFavorites) { fav in
                         if isBuildingMeal {
                             buildMealSelectableRow(fav)
                         } else {
@@ -376,10 +420,14 @@ struct MyFoodView: View {
                 color: .fitOrange
             )
         } else {
+            if !isBuildingMeal {
+                foodSearchBar(color: .fitOrange)
+                mealCategoryChips
+            }
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
-                    ForEach(newestSavedRecipes) { r in
+                    ForEach(filteredRecipes) { r in
                         if isBuildingMeal {
                             buildMealSelectableMealRow(r)
                         } else {
@@ -1027,6 +1075,88 @@ struct MyFoodView: View {
         }
 
         return LinearGradient(colors: [color, color], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func foodSearchBar(color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.appMuted)
+
+            TextField("Search...", text: $searchText)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.appText)
+
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.appMuted)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .background(Capsule().fill(themeChromeGradient()))
+        .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
+        .padding(.horizontal, 18)
+        .padding(.bottom, 6)
+    }
+
+    private var fridgeCategoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                categoryChip(title: "All", emoji: nil, isSelected: selectedFridgeCategory == nil, color: .neonCyan) {
+                    withAnimation(.spring(response: 0.25)) { selectedFridgeCategory = nil }
+                }
+                ForEach(activeFridgeCategories, id: \.rawValue) { cat in
+                    categoryChip(title: cat.rawValue, emoji: cat.emoji, isSelected: selectedFridgeCategory == cat, color: .neonCyan) {
+                        withAnimation(.spring(response: 0.25)) {
+                            selectedFridgeCategory = selectedFridgeCategory == cat ? nil : cat
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private var mealCategoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                categoryChip(title: "All", emoji: nil, isSelected: selectedMealCategory == nil, color: .fitOrange) {
+                    withAnimation(.spring(response: 0.25)) { selectedMealCategory = nil }
+                }
+                ForEach(activeMealCategories, id: \.rawValue) { cat in
+                    categoryChip(title: cat.rawValue, emoji: cat.emoji, isSelected: selectedMealCategory == cat, color: .fitOrange) {
+                        withAnimation(.spring(response: 0.25)) {
+                            selectedMealCategory = selectedMealCategory == cat ? nil : cat
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private func categoryChip(title: String, emoji: String?, isSelected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let emoji { Text(emoji).font(.system(size: 12)) }
+                Text(title)
+                    .font(.system(size: 11, weight: .heavy))
+            }
+            .foregroundColor(isSelected ? .appAccentText : .appMuted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule().fill(isSelected ? color : Color.appSurface)
+            )
+            .overlay(Capsule().stroke(isSelected ? Color.clear : Color.appBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private func myFoodRowBackground(accent: Color) -> some View {

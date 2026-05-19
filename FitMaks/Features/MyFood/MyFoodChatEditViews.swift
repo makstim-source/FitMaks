@@ -88,6 +88,7 @@ struct FavoriteChatEditView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            fridgeCategoryPicker
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 20) {
@@ -117,6 +118,30 @@ struct FavoriteChatEditView: View {
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
+    }
+
+    private var fridgeCategoryPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(FridgeCategory.allCases, id: \.rawValue) { cat in
+                    Button {
+                        favorite.category = cat
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        Text("\(cat.emoji) \(cat.rawValue)")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundColor(favorite.category == cat ? .appAccentText : .appMuted)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(favorite.category == cat ? Color.neonCyan : Color.appSurface))
+                            .overlay(Capsule().stroke(favorite.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 4)
     }
 
     private var favoriteBasisCard: some View {
@@ -338,6 +363,7 @@ struct MealChatEditView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            mealCategoryPicker
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 20) {
@@ -366,6 +392,30 @@ struct MealChatEditView: View {
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
+    }
+
+    private var mealCategoryPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(MealCategory.allCases, id: \.rawValue) { cat in
+                    Button {
+                        recipe.category = cat
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        Text("\(cat.emoji) \(cat.rawValue)")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundColor(recipe.category == cat ? .appAccentText : .appMuted)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(recipe.category == cat ? Color.orange : Color.appSurface))
+                            .overlay(Capsule().stroke(recipe.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 4)
     }
 
     private func setAsDishPhoto(_ image: UIImage) {

@@ -29,6 +29,7 @@ struct ContentView: View {
     @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
     @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
+    @AppStorage("hasMigratedCategories") private var hasMigratedCategories = false
     @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()
@@ -1255,8 +1256,28 @@ struct ContentView: View {
         try? modelContext.save()
     }
 
+    fileprivate func migrateCategoriesIfNeeded() {
+        guard !hasMigratedCategories else { return }
+        hasMigratedCategories = true
+
+        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
+        for fav in favorites where fav.categoryRaw == FridgeCategory.other.rawValue {
+            let inferred = FridgeCategory.infer(name: fav.name, ingredients: fav.ingredients)
+            if inferred != .other { fav.categoryRaw = inferred.rawValue }
+        }
+
+        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
+        for recipe in recipes where recipe.categoryRaw == MealCategory.other.rawValue {
+            let inferred = MealCategory.infer(name: recipe.name, ingredients: recipe.ingredients, dateSaved: recipe.dateSaved)
+            if inferred != .other { recipe.categoryRaw = inferred.rawValue }
+        }
+
+        try? modelContext.save()
+    }
+
     fileprivate func handleOnAppear() {
         migrateCarbsFatIfNeeded()
+        migrateCategoriesIfNeeded()
         syncViewModel()
         var tempCalories = lastKnownBaseCaloriesGoal
         var tempProtein = lastKnownBaseProteinGoal

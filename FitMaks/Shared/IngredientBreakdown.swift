@@ -136,28 +136,29 @@ struct IngredientBreakdownCard: View {
     var fat: Double = 0
     var accentColor: Color
 
+    private var parsedItems: [ParsedIng] {
+        fillMissingMacros(parseIngredientBreakdown(ingredients), totalCarbs: carbs, totalFat: fat)
+    }
+
     var body: some View {
+        let items = parsedItems
+        let showCF = items.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
+        let showWeight = items.contains { !$0.weight.isEmpty && $0.weight != "0" && $0.weight != "0g" }
+
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
                 Label(title, systemImage: "wand.and.stars")
                     .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(accentColor)
                     .tracking(0.6)
-
-                HStack(spacing: 6) {
-                    macroChip(text: "\(Int(calories)) kcal", color: .neonGreen)
-                    macroChip(text: "\(Int(protein))g P", color: .neonCyan)
-                    if carbs > 0 { macroChip(text: "\(Int(carbs))g C", color: .fitOrange) }
-                    if fat > 0 { macroChip(text: "\(Int(fat))g F", color: .yellow) }
-                }
+                Spacer()
+                macroChip(text: "\(Int(calories)) kcal", color: .neonGreen)
+                macroChip(text: "\(Int(protein))g P", color: .neonCyan)
+                if carbs > 0 { macroChip(text: "\(Int(carbs))g C", color: .fitOrange) }
+                if fat > 0 { macroChip(text: "\(Int(fat))g F", color: .yellow) }
             }
 
-            VStack(spacing: 8) {
-                let parsedItems = fillMissingMacros(parseIngredientBreakdown(ingredients), totalCarbs: carbs, totalFat: fat)
-                let showCF = parsedItems.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
-
-                let showWeight = parsedItems.contains { !$0.weight.isEmpty && $0.weight != "0" && $0.weight != "0g" }
-
+            VStack(spacing: 0) {
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)
                     if showWeight {
@@ -172,8 +173,9 @@ struct IngredientBreakdownCard: View {
                 }
                 .font(.system(size: 10, weight: .heavy))
                 .foregroundColor(.gray)
+                .padding(.bottom, 8)
 
-                ForEach(parsedItems) { item in
+                ForEach(items) { item in
                     HStack {
                         Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(2)
@@ -221,6 +223,7 @@ struct IngredientBreakdownCard: View {
                 )
                 .overlay(RoundedRectangle(cornerRadius: 24).stroke(accentColor.opacity(0.15), lineWidth: 1))
         )
+        .drawingGroup()
     }
 
     private func macroChip(text: String, color: Color) -> some View {

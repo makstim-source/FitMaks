@@ -105,7 +105,7 @@ struct FavoriteChatEditView: View {
             fridgeCategoryPicker
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 20) {
+                    LazyVStack(spacing: 20) {
                         IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonCyan)
                         favoriteBasisCard
                         ForEach(messages) { msg in
@@ -509,7 +509,7 @@ struct MealChatEditView: View {
             mealCategoryPicker
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 20) {
+                    LazyVStack(spacing: 20) {
                         IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .orange)
                         ForEach(messages) { msg in
                             VStack(spacing: 10) {

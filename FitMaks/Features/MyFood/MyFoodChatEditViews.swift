@@ -1,6 +1,11 @@
 import SwiftUI
 import SwiftData
 
+enum MyFoodEditPresentationStyle {
+    case card
+    case screen
+}
+
 struct FavoriteChatEditView: View {
     @Bindable var favorite: FavoriteFood
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
@@ -10,12 +15,21 @@ struct FavoriteChatEditView: View {
     @State private var isEditingBasis = false
     @State private var selectedBasis: FavoritePortionBasis
     @FocusState private var isInputFocused: Bool
+    let presentationStyle: MyFoodEditPresentationStyle
     var onDelete: () -> Void; var onDone: () -> Void; var onMove: () -> Void
 
     private var lightTheme: Bool { isLightAppTheme() }
+    private var isFullScreen: Bool { presentationStyle == .screen }
 
-    init(favorite: FavoriteFood, onDelete: @escaping () -> Void, onDone: @escaping () -> Void, onMove: @escaping () -> Void) {
+    init(
+        favorite: FavoriteFood,
+        presentationStyle: MyFoodEditPresentationStyle = .card,
+        onDelete: @escaping () -> Void,
+        onDone: @escaping () -> Void,
+        onMove: @escaping () -> Void
+    ) {
         self.favorite = favorite
+        self.presentationStyle = presentationStyle
         self.onDelete = onDelete
         self.onDone = onDone
         self.onMove = onMove
@@ -110,10 +124,49 @@ struct FavoriteChatEditView: View {
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.neonCyan)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.96) : Color.black.opacity(0.24))
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
-        }.background(LinearGradient(colors: lightTheme ? [Color.appElevated, Color.appSurface] : [Color(red: 18/255, green: 21/255, blue: 28/255), Color.appScrim], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.neonCyan.opacity(lightTheme ? 0.12 : 0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
-        .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
+        }
+        .background(
+            Group {
+                if isFullScreen {
+                    LinearGradient(
+                        colors: lightTheme
+                            ? [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd]
+                            : [Color(red: 7/255, green: 13/255, blue: 18/255), Color(red: 10/255, green: 16/255, blue: 22/255)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 28)
+                            .fill(lightTheme ? Color.appElevated : Color(red: 10/255, green: 14/255, blue: 20/255))
+                        RoundedRectangle(cornerRadius: 28)
+                            .fill(
+                                LinearGradient(
+                                    colors: lightTheme
+                                        ? [Color.appElevated, Color.appSurface]
+                                        : [Color(red: 16/255, green: 22/255, blue: 30/255), Color(red: 11/255, green: 16/255, blue: 22/255)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 28, style: .continuous))
+        .overlay(
+            Group {
+                if !isFullScreen {
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.neonCyan.opacity(lightTheme ? 0.12 : 0.18), lineWidth: 1)
+                }
+            }
+        )
+        .padding(.horizontal, isFullScreen ? 0 : 15)
+        .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
+        .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
@@ -282,9 +335,95 @@ struct FavoriteChatEditView: View {
         }
     }
 
-    func sendMessage() { isInputFocused = false; let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: favorite.name, emoji: nil, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, ingredients_breakdown: favorite.ingredients, ai_response_text: ""); GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in isWaiting = false; if let res = result { favorite.name = res.food_name; favorite.calories = res.calories; favorite.protein = res.protein; favorite.carbs = res.carbs; favorite.fat = res.fat; favorite.ingredients = res.ingredients_breakdown; if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 { favorite.portionGramsReference = newWeight }; favorite.updatePortionBasis(favorite.portionBasis); messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+    func sendMessage() {
+        isInputFocused = false
+        let text = userMessage
+        let imageToSend = attachedImage
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        userMessage = ""
+        withAnimation { attachedImage = nil }
+        isWaiting = true
 
-    func recalculateFresh() { guard let image = favorite.uiImage else { messages.append(ChatMessage(text: "I need the original photo to recalculate this one.", isUser: false, shouldTypewrite: true)); return }; isWaiting = true; messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image)); GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in isWaiting = false; if let res = result { favorite.name = res.food_name; favorite.calories = res.calories; favorite.protein = res.protein; favorite.carbs = res.carbs; favorite.fat = res.fat; favorite.ingredients = res.ingredients_breakdown; if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 { favorite.portionGramsReference = newWeight }; favorite.updatePortionBasis(favorite.portionBasis); originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat; messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+        let current = FoodResult(
+            food_name: favorite.name,
+            emoji: nil,
+            calories: favorite.calories,
+            protein: favorite.protein,
+            carbs: favorite.carbs,
+            fat: favorite.fat,
+            ingredients_breakdown: favorite.ingredients,
+            fridge_category: favorite.category.aiKey,
+            meal_category: nil,
+            ai_response_text: ""
+        )
+
+        GeminiService.shared.refineAnalysis(
+            image: imageToSend,
+            currentData: current,
+            userComment: text,
+            userName: AuthService.shared.displayName
+        ) { result, error in
+            isWaiting = false
+            if let res = result {
+                favorite.name = res.food_name
+                favorite.calories = res.calories
+                favorite.protein = res.protein
+                favorite.carbs = res.carbs
+                favorite.fat = res.fat
+                favorite.ingredients = res.ingredients_breakdown
+                favorite.category = FridgeCategory.resolve(
+                    name: res.food_name,
+                    ingredients: res.ingredients_breakdown,
+                    aiRawValue: res.fridge_category
+                )
+                if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 {
+                    favorite.portionGramsReference = newWeight
+                }
+                favorite.updatePortionBasis(favorite.portionBasis)
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true))
+            } else {
+                messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
+
+    func recalculateFresh() {
+        guard let image = favorite.uiImage else {
+            messages.append(ChatMessage(text: "I need the original photo to recalculate this one.", isUser: false, shouldTypewrite: true))
+            return
+        }
+
+        isWaiting = true
+        messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image))
+        GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in
+            isWaiting = false
+            if let res = result {
+                favorite.name = res.food_name
+                favorite.calories = res.calories
+                favorite.protein = res.protein
+                favorite.carbs = res.carbs
+                favorite.fat = res.fat
+                favorite.ingredients = res.ingredients_breakdown
+                favorite.category = FridgeCategory.resolve(
+                    name: res.food_name,
+                    ingredients: res.ingredients_breakdown,
+                    aiRawValue: res.fridge_category
+                )
+                if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 {
+                    favorite.portionGramsReference = newWeight
+                }
+                favorite.updatePortionBasis(favorite.portionBasis)
+                originalIngredients = favorite.ingredients
+                originalCalories = favorite.calories
+                originalProtein = favorite.protein
+                originalCarbs = favorite.carbs
+                originalFat = favorite.fat
+                messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true))
+            } else {
+                messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
 }
 
 struct MealChatEditView: View {
@@ -294,8 +433,10 @@ struct MealChatEditView: View {
     @State private var attachedImage: UIImage? = nil; @State private var isShowingAttachmentDialog = false; @State private var isShowingAttachmentPicker = false; @State private var attachmentSource: UIImagePickerController.SourceType = .camera
     @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @FocusState private var isInputFocused: Bool
+    let presentationStyle: MyFoodEditPresentationStyle
     var onDelete: () -> Void; var onDone: () -> Void; var onMove: () -> Void
     private var lightTheme: Bool { isLightAppTheme() }
+    private var isFullScreen: Bool { presentationStyle == .screen }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -384,10 +525,49 @@ struct MealChatEditView: View {
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.orange)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.black.opacity(0.38))).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.96) : Color.black.opacity(0.24))
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
-        }.background(LinearGradient(colors: lightTheme ? [Color.appElevated, Color.appSurface] : [Color(red: 18/255, green: 21/255, blue: 28/255), Color.appScrim], startPoint: .topLeading, endPoint: .bottomTrailing)).cornerRadius(28).overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.orange.opacity(lightTheme ? 0.12 : 0.18), lineWidth: 1)).padding(.horizontal, 15).frame(maxHeight: 680)
-        .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat; if messages.isEmpty { messages.append(ChatMessage(text: "Review the initial table above. Need any adjustments?", isUser: false, shouldTypewrite: true)) } }
+        }
+        .background(
+            Group {
+                if isFullScreen {
+                    LinearGradient(
+                        colors: lightTheme
+                            ? [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd]
+                            : [Color(red: 7/255, green: 13/255, blue: 18/255), Color(red: 10/255, green: 16/255, blue: 22/255)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 28)
+                            .fill(lightTheme ? Color.appElevated : Color(red: 10/255, green: 14/255, blue: 20/255))
+                        RoundedRectangle(cornerRadius: 28)
+                            .fill(
+                                LinearGradient(
+                                    colors: lightTheme
+                                        ? [Color.appElevated, Color.appSurface]
+                                        : [Color(red: 17/255, green: 23/255, blue: 30/255), Color(red: 12/255, green: 16/255, blue: 22/255)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: isFullScreen ? 0 : 28, style: .continuous))
+        .overlay(
+            Group {
+                if !isFullScreen {
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.orange.opacity(lightTheme ? 0.12 : 0.18), lineWidth: 1)
+                }
+            }
+        )
+        .padding(.horizontal, isFullScreen ? 0 : 15)
+        .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
+        .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
         .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
@@ -429,7 +609,113 @@ struct MealChatEditView: View {
         }
     }
 
-    func sendMessage() { isInputFocused = false; let text = userMessage; let imageToSend = attachedImage; messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend)); userMessage = ""; withAnimation { attachedImage = nil }; isWaiting = true; let current = FoodResult(food_name: recipe.name, emoji: nil, calories: recipe.calories, protein: recipe.protein, carbs: recipe.carbs, fat: recipe.fat, ingredients_breakdown: recipe.ingredients, ai_response_text: ""); GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in isWaiting = false; if let res = result { recipe.name = res.food_name; recipe.calories = res.calories; recipe.protein = res.protein; recipe.carbs = res.carbs; recipe.fat = res.fat; recipe.ingredients = res.ingredients_breakdown; messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+    func sendMessage() {
+        isInputFocused = false
+        let text = userMessage
+        let imageToSend = attachedImage
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        userMessage = ""
+        withAnimation { attachedImage = nil }
+        isWaiting = true
 
-    func recalculateFresh() { guard let image = recipe.uiImage else { messages.append(ChatMessage(text: "I need the original photo to recalculate this meal.", isUser: false, shouldTypewrite: true)); return }; isWaiting = true; messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image)); GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in isWaiting = false; if let res = result { recipe.name = res.food_name; recipe.calories = res.calories; recipe.protein = res.protein; recipe.carbs = res.carbs; recipe.fat = res.fat; recipe.ingredients = res.ingredients_breakdown; originalIngredients = res.ingredients_breakdown; originalCalories = res.calories; originalProtein = res.protein; originalCarbs = res.carbs; originalFat = res.fat; messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true)) } else { messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true)) } } }
+        let current = FoodResult(
+            food_name: recipe.name,
+            emoji: nil,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            ingredients_breakdown: recipe.ingredients,
+            fridge_category: nil,
+            meal_category: recipe.category.aiKey,
+            ai_response_text: ""
+        )
+
+        GeminiService.shared.refineAnalysis(
+            image: imageToSend,
+            currentData: current,
+            userComment: text,
+            userName: AuthService.shared.displayName
+        ) { result, error in
+            isWaiting = false
+            if let res = result {
+                recipe.name = res.food_name
+                recipe.calories = res.calories
+                recipe.protein = res.protein
+                recipe.carbs = res.carbs
+                recipe.fat = res.fat
+                recipe.ingredients = res.ingredients_breakdown
+                recipe.category = MealCategory.fromAI(res.meal_category)
+                    ?? MealCategory.infer(name: res.food_name, ingredients: res.ingredients_breakdown, dateSaved: recipe.dateSaved)
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
+            } else {
+                messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
+
+    func recalculateFresh() {
+        guard let image = recipe.uiImage else {
+            messages.append(ChatMessage(text: "I need the original photo to recalculate this meal.", isUser: false, shouldTypewrite: true))
+            return
+        }
+
+        isWaiting = true
+        messages.append(ChatMessage(text: "Recalculating fresh, ignoring previous memory...", isUser: true, attachedImage: image))
+        GeminiService.shared.analyzeImages(images: [image], ignoreCache: true) { result, error in
+            isWaiting = false
+            if let res = result {
+                recipe.name = res.food_name
+                recipe.calories = res.calories
+                recipe.protein = res.protein
+                recipe.carbs = res.carbs
+                recipe.fat = res.fat
+                recipe.ingredients = res.ingredients_breakdown
+                recipe.category = MealCategory.fromAI(res.meal_category)
+                    ?? MealCategory.infer(name: res.food_name, ingredients: res.ingredients_breakdown, dateSaved: recipe.dateSaved)
+                originalIngredients = res.ingredients_breakdown
+                originalCalories = res.calories
+                originalProtein = res.protein
+                originalCarbs = res.carbs
+                originalFat = res.fat
+                messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
+            } else {
+                messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true))
+            }
+        }
+    }
+}
+
+struct FavoriteChatEditScreen: View {
+    @Bindable var favorite: FavoriteFood
+    var onDelete: () -> Void
+    var onDone: () -> Void
+    var onMove: () -> Void
+
+    var body: some View {
+        FavoriteChatEditView(
+            favorite: favorite,
+            presentationStyle: .screen,
+            onDelete: onDelete,
+            onDone: onDone,
+            onMove: onMove
+        )
+    }
+}
+
+struct MealChatEditScreen: View {
+    @Bindable var recipe: SavedRecipe
+    var onDelete: () -> Void
+    var onDone: () -> Void
+    var onMove: () -> Void
+
+    var body: some View {
+        MealChatEditView(
+            recipe: recipe,
+            presentationStyle: .screen,
+            onDelete: onDelete,
+            onDone: onDone,
+            onMove: onMove
+        )
+    }
 }

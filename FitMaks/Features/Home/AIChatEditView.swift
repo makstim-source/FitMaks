@@ -99,7 +99,7 @@ struct AIChatEditView: View {
                     }
                     .padding()
                 }
-                .onTapGesture { isInputFocused = false }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: messages.count) { _, _ in
                     withAnimation {
                         proxy.scrollTo(messages.last?.id, anchor: .bottom)

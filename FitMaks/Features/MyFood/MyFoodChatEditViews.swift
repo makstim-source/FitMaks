@@ -120,7 +120,9 @@ struct FavoriteChatEditView: View {
                                 .id("TypingIndicator")
                         }
                     }.padding()
-                }.onTapGesture { isInputFocused = false }.onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.neonCyan)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
@@ -521,7 +523,9 @@ struct MealChatEditView: View {
                                 .id("TypingIndicator")
                         }
                     }.padding()
-                }.onTapGesture { isInputFocused = false }.onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.orange)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }

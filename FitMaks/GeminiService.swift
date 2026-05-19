@@ -362,7 +362,24 @@ class GeminiService {
         """
         let imgs = image != nil ? [image!] : []
         sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
-            completion(result.map { self?.stabilizedFoodResult($0) ?? $0 }, error)
+            if let result {
+                completion(self?.stabilizedFoodResult(result) ?? result, nil)
+            } else if let error, error.hasPrefix("AI_TEXT:") {
+                let text = String(error.dropFirst("AI_TEXT:".count))
+                let fallback = FoodResult(
+                    food_name: currentData.food_name,
+                    emoji: currentData.emoji,
+                    calories: currentData.calories,
+                    protein: currentData.protein,
+                    carbs: currentData.carbs,
+                    fat: currentData.fat,
+                    ingredients_breakdown: currentData.ingredients_breakdown,
+                    ai_response_text: text.isEmpty ? "I couldn't process that. Try rephrasing." : text
+                )
+                completion(fallback, nil)
+            } else {
+                completion(nil, error)
+            }
         }
     }
 
@@ -852,7 +869,15 @@ class GeminiService {
                 let decoded = try JSONDecoder().decode(T.self, from: finalData)
                 completion(decoded, nil)
             } catch {
-                completion(nil, "Failed to decode Gemini response.")
+                let fallbackText: String
+                if let json = try? JSONSerialization.jsonObject(with: finalData) as? [String: Any] {
+                    fallbackText = (json["ai_response_text"] as? String)
+                        ?? (json["ai_summary"] as? String)
+                        ?? cleanText
+                } else {
+                    fallbackText = cleanText
+                }
+                completion(nil, "AI_TEXT:\(fallbackText)")
             }
         }.resume()
     }

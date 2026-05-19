@@ -69,6 +69,8 @@ final class HomeViewModel {
     var cachedDailyUploadedSteps: Double = 0
     var cachedDailyFeed: [TimelineItem] = []
     var cachedLoggedPastDaysSignature: String = ""
+    var cachedCopyablePlanDates: [Date] = []
+    var cachedPreviousWeekReport: WeeklyReportData?
 
     private var foodByDate: [String: [FoodEntry]] = [:]
     private var trainingByDate: [String: [TrainingEntry]] = [:]
@@ -104,6 +106,7 @@ final class HomeViewModel {
         }
         rebuildDateIndices()
         rebuildDailyCache()
+        rebuildCopyablePlanDates()
         rebuildLoggedPastDaysSignature()
         rebuildCachedStats(activityLevel: activityLevel)
     }
@@ -133,6 +136,15 @@ final class HomeViewModel {
             default: return lhs.createdAt > rhs.createdAt
             }
         }
+    }
+
+    func rebuildCopyablePlanDates() {
+        let selectedKey = DateFormatter.yyyyMMdd.string(from: selectedDate)
+        cachedCopyablePlanDates = foodByDate.keys
+            .filter { $0 != selectedKey }
+            .sorted(by: >)
+            .prefix(8)
+            .compactMap { DateFormatter.yyyyMMdd.date(from: $0) }
     }
 
     func rebuildLoggedPastDaysSignature() {
@@ -178,6 +190,7 @@ final class HomeViewModel {
             recentSevenDayStats: recent7,
             foodEntries: allFoodEntries
         )
+        cachedPreviousWeekReport = WeeklyReportData.previousWeek(from: cachedLast30Stats, allFoodEntries: allFoodEntries)
     }
 
     func dayMode(for date: Date) -> DayMode {

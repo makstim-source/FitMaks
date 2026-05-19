@@ -30,6 +30,7 @@ struct ContentView: View {
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
     @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
     @AppStorage("hasMigratedCategoriesV3") private var hasMigratedCategories = false
+    @AppStorage("hasRefinedFridgeCategoriesV4") private var hasRefinedFridgeCategoriesV4 = false
     @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()
@@ -171,7 +172,7 @@ struct ContentView: View {
     var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
-    var previousWeekReport: WeeklyReportData? { WeeklyReportData.previousWeek(from: homeLast30Stats, allFoodEntries: allFoodEntries) }
+    var previousWeekReport: WeeklyReportData? { viewModel.cachedPreviousWeekReport }
     var trailingSevenDayReport: WeeklyReportData? {
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
         return WeeklyReportData.trailingDays(
@@ -244,18 +245,7 @@ struct ContentView: View {
             .joined(separator: "|")
     }
 
-    var copyablePlanDates: [Date] {
-        let calendar = Calendar.current
-        let selected = calendar.startOfDay(for: viewModel.selectedDate)
-
-        let foodDates = Set(allFoodEntries.map { calendar.startOfDay(for: $0.date) })
-
-        return foodDates
-            .filter { $0 != selected }
-            .sorted(by: >)
-            .prefix(8)
-            .map { $0 }
-    }
+    var copyablePlanDates: [Date] { viewModel.cachedCopyablePlanDates }
 
     // MARK: - Body
 
@@ -1273,9 +1263,26 @@ struct ContentView: View {
         try? modelContext.save()
     }
 
+    fileprivate func refineFridgeCategoriesIfNeeded() {
+        guard !hasRefinedFridgeCategoriesV4 else { return }
+        hasRefinedFridgeCategoriesV4 = true
+
+        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
+        for fav in favorites {
+            fav.categoryRaw = FridgeCategory.resolve(
+                name: fav.name,
+                ingredients: fav.ingredients,
+                aiRawValue: nil
+            ).rawValue
+        }
+
+        try? modelContext.save()
+    }
+
     fileprivate func handleOnAppear() {
         migrateCarbsFatIfNeeded()
         migrateCategoriesIfNeeded()
+        refineFridgeCategoriesIfNeeded()
         syncViewModel()
         var tempCalories = lastKnownBaseCaloriesGoal
         var tempProtein = lastKnownBaseProteinGoal
@@ -1303,6 +1310,7 @@ struct ContentView: View {
 
     fileprivate func handleDateChange(_ newDate: Date) {
         viewModel.rebuildDailyCache()
+        viewModel.rebuildCopyablePlanDates()
         HealthKitManager.shared.fetchSteps(for: newDate) { steps in
             DispatchQueue.main.async {
                 self.viewModel.dailySteps = steps

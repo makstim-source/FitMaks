@@ -5,10 +5,14 @@ import UIKit
 final class ImageCache {
     static let shared = ImageCache()
     private let cache = NSCache<NSString, UIImage>()
+    private let thumbnailCache = NSCache<NSString, UIImage>()
+    private let queue = DispatchQueue(label: "ImageCache.decode", qos: .userInitiated, attributes: .concurrent)
 
     init() {
         cache.countLimit = 100
         cache.totalCostLimit = 50 * 1024 * 1024
+        thumbnailCache.countLimit = 200
+        thumbnailCache.totalCostLimit = 10 * 1024 * 1024
     }
 
     func image(for key: String, data: Data) -> UIImage? {
@@ -19,8 +23,42 @@ final class ImageCache {
         return image
     }
 
+    func thumbnail(for key: String, data: Data, size: CGFloat = 60) -> UIImage? {
+        let thumbKey = "\(key)_thumb_\(Int(size))" as NSString
+        if let cached = thumbnailCache.object(forKey: thumbKey) { return cached }
+        let options: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: size * UIScreen.main.scale,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let thumb = UIImage(cgImage: cgImage)
+        thumbnailCache.setObject(thumb, forKey: thumbKey, cost: Int(size * size * 4))
+        return thumb
+    }
+
+    func loadThumbnailAsync(for key: String, data: @escaping () -> Data?, size: CGFloat = 60, completion: @escaping (UIImage?) -> Void) {
+        let thumbKey = "\(key)_thumb_\(Int(size))" as NSString
+        if let cached = thumbnailCache.object(forKey: thumbKey) {
+            completion(cached)
+            return
+        }
+        queue.async {
+            guard let data = data() else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            let thumb = self.thumbnail(for: key, data: data, size: size)
+            DispatchQueue.main.async { completion(thumb) }
+        }
+    }
+
     func invalidate(for key: String) {
         cache.removeObject(forKey: key as NSString)
+        for size in [60, 120] {
+            thumbnailCache.removeObject(forKey: "\(key)_thumb_\(size)" as NSString)
+        }
     }
 }
 

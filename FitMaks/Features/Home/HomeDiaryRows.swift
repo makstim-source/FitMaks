@@ -2,10 +2,11 @@ import SwiftUI
 
 struct HomeFoodRow: View {
     var entry: FoodEntry
+    @State private var thumbnail: UIImage?
 
     var body: some View {
         HStack(spacing: 12) {
-            if let image = entry.uiImage {
+            if let image = thumbnail {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -63,15 +64,22 @@ struct HomeFoodRow: View {
                 .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
         )
+        .task(id: entry.id) {
+            let id = entry.id.uuidString
+            ImageCache.shared.loadThumbnailAsync(for: id, data: { [entry] in entry.imageData.isEmpty ? nil : entry.imageData }, size: 50) { thumb in
+                self.thumbnail = thumb
+            }
+        }
     }
 }
 
 struct HomeTrainingRow: View {
     var entry: TrainingEntry
+    @State private var thumbnail: UIImage?
 
     var body: some View {
         HStack(spacing: 13) {
-            if let image = entry.uiImage {
+            if let image = thumbnail {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -112,6 +120,12 @@ struct HomeTrainingRow: View {
                 .fill(Color.neonCyan.opacity(0.08))
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.neonCyan.opacity(0.16), lineWidth: 1))
         )
+        .task(id: entry.id) {
+            let id = entry.id.uuidString
+            ImageCache.shared.loadThumbnailAsync(for: id, data: { [entry] in entry.imageData }, size: 56) { thumb in
+                self.thumbnail = thumb
+            }
+        }
     }
 
     private var trainingSummary: String {

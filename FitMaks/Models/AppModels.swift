@@ -141,33 +141,43 @@ enum FridgeCategory: String, CaseIterable {
         let proteinKeys = ["chicken", "курин", "курица", "beef", "говя", "turkey", "индей",
                            "tuna", "тунец", "salmon", "лосось", "shrimp", "креветк", "fish", "рыб",
                            "egg", "яйц", "mince", "фарш", "steak", "pork", "свинин", "duck", "утк",
-                           "lamb", "баранин", "tofu", "тофу", "protein", "протеин"]
+                           "lamb", "баранин", "tofu", "тофу", "protein", "протеин",
+                           "kana", "kanan", "filee", "pihvi", "liha", "lohi", "katkarapu",
+                           "kalkkuna", "nauta", "sika", "ankka", "karitsa",
+                           "sisäfilee", "ulkofilee", "grilli"]
         let dairyKeys = ["milk", "молок", "yogurt", "йогурт", "skyr", "cheese", "сыр",
                          "творог", "cottage", "кефир", "kefir", "cream", "сливк", "butter", "масло",
-                         "сметан", "alpro", "valio"]
-        let drinkKeys = ["juice", "сок", "cola", "cola zero", "soda", "water", "вода",
-                         "drink", "напиток", "shake", "smoothie", "coffee", "кофе", "tea", "чай",
-                         "monster", "red bull", "компот", "морс"]
+                         "сметан", "alpro", "valio", "quark", "rahka", "maitorahka",
+                         "maito", "juusto", "kerma", "jogurtti", "piimä",
+                         "milbona", "ehrmann"]
+        let carbKeys = ["rice", "рис", "pasta", "макарон", "bread", "хлеб", "oat", "овся",
+                        "potato", "картош", "noodle", "лапш", "cereal", "мюсли", "granola",
+                        "buckwheat", "гречк", "couscous", "кускус", "quinoa", "киноа", "булк",
+                        "tortilla", "тортилья", "flatbread", "лаваш", "wrap",
+                        "kaura", "peruna", "riisi", "leipä", "penne", "spagetti", "nuudeli"]
         let fruitVegKeys = ["apple", "яблок", "banana", "банан", "berr", "ягод", "orange", "апельсин",
                             "grape", "виноград", "tomato", "помидор", "cucumber", "огурец", "pepper", "перец",
                             "carrot", "морков", "onion", "лук", "avocado", "авокадо", "lettuce", "салат",
                             "spinach", "шпинат", "broccoli", "брокколи", "mango", "манго", "kiwi", "киви",
                             "lemon", "лимон", "peach", "персик", "pear", "груш", "cabbage", "капуст",
-                            "zucchini", "кабачок", "eggplant", "баклажан", "mushroom", "гриб"]
-        let carbKeys = ["rice", "рис", "pasta", "макарон", "bread", "хлеб", "oat", "овся",
-                        "potato", "картош", "noodle", "лапш", "cereal", "мюсли", "granola",
-                        "buckwheat", "гречк", "couscous", "кускус", "quinoa", "киноа", "булк",
-                        "tortilla", "тортилья", "flatbread", "лаваш", "wrap"]
+                            "zucchini", "кабачок", "eggplant", "баклажан", "mushroom", "гриб",
+                            "omena", "banaani", "tomaatti", "kurkku", "porkkana", "sipuli",
+                            "sieni", "parsakaali", "paprika", "passata"]
         let snackKeys = ["bar", "батончик", "chocolate", "шоколад", "chips", "чипс", "nuts", "орех",
                          "cookie", "печень", "candy", "конфет", "waffle", "вафл", "cracker",
-                         "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад"]
+                         "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад",
+                         "suklaa", "keksi", "pähkinä"]
+        let drinkKeys = ["juice", "сок", "cola", "cola zero", "soda", "water", "вода",
+                         "drink", "напиток", "shake", "smoothie", "coffee", "кофе", "tea", "чай",
+                         "monster", "red bull", "компот", "морс",
+                         "mehu", "kahvi", "tee", "limonadi"]
 
-        if drinkKeys.contains(where: { text.contains($0) }) { return .drinks }
+        if proteinKeys.contains(where: { text.contains($0) }) { return .protein }
         if dairyKeys.contains(where: { text.contains($0) }) { return .dairy }
+        if carbKeys.contains(where: { text.contains($0) }) { return .carbs }
         if fruitVegKeys.contains(where: { text.contains($0) }) { return .fruitVeg }
         if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
-        if proteinKeys.contains(where: { text.contains($0) }) { return .protein }
-        if carbKeys.contains(where: { text.contains($0) }) { return .carbs }
+        if drinkKeys.contains(where: { text.contains($0) }) { return .drinks }
         return .other
     }
 }

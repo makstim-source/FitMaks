@@ -96,13 +96,11 @@ struct MyFoodView: View {
     }
 
     private var activeFridgeCategories: [FridgeCategory] {
-        let used = Set(favorites.map { $0.category })
-        return FridgeCategory.allCases.filter { used.contains($0) }
+        FridgeCategory.allCases
     }
 
     private var activeMealCategories: [MealCategory] {
-        let used = Set(savedRecipes.map { $0.category })
-        return MealCategory.allCases.filter { used.contains($0) }
+        MealCategory.allCases
     }
 
     @ViewBuilder
@@ -130,8 +128,6 @@ struct MyFoodView: View {
 
                     selectedTabContent
                 }
-                
-                editOverlay
             }
             .navigationTitle(isBuildingMeal ? "Build Meal" : isSelectionMode ? (initialTab == 0 ? "Pick from Fridge" : "Pick from Meals") : "My Food 🍱")
             .navigationBarTitleDisplayMode(.inline)
@@ -173,6 +169,22 @@ struct MyFoodView: View {
                 Text(aiErrorMessage ?? "The AI request failed.")
             }
             .fullScreenCover(isPresented: $isShowingCamera) { ImagePicker(selectedImage: $selectedCameraImage, sourceType: .camera) }
+            .fullScreenCover(item: $selectedFavoriteForEdit) { fav in
+                FavoriteChatEditScreen(
+                    favorite: fav,
+                    onDelete: { deleteFavorite(fav); selectedFavoriteForEdit = nil },
+                    onDone: { selectedFavoriteForEdit = nil },
+                    onMove: { moveFavToMeals(fav); selectedFavoriteForEdit = nil }
+                )
+            }
+            .fullScreenCover(item: $selectedMealForEdit) { meal in
+                MealChatEditScreen(
+                    recipe: meal,
+                    onDelete: { deleteMeal(meal); selectedMealForEdit = nil },
+                    onDone: { selectedMealForEdit = nil },
+                    onMove: { moveMealToFav(meal); selectedMealForEdit = nil }
+                )
+            }
             .onChange(of: selectedCameraImage) { _, newValue in
                 if let img = newValue {
                     let preparedImage = img.preparedForAIIntake()
@@ -298,7 +310,7 @@ struct MyFoodView: View {
         }
         .padding(.horizontal, 18)
         .padding(.top, 10)
-        .padding(.bottom, 12)
+        .padding(.bottom, 10)
     }
 
     private var foodTabSwitcher: some View {
@@ -367,10 +379,8 @@ struct MyFoodView: View {
                 color: .neonCyan
             )
         } else {
-            if !isBuildingMeal {
-                foodSearchBar(color: .neonCyan)
-                fridgeCategoryChips
-            }
+            foodSearchBar(color: .neonCyan)
+            fridgeCategoryChips
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(processingItems(for: 0)) { item in loadingRow(item: item) }
@@ -388,9 +398,12 @@ struct MyFoodView: View {
                                 .swipeToDelete { withAnimation { deleteFavorite(fav) } }
                         }
                     }
-                }.padding()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 0)
+                .padding(.bottom, 16)
                 if isBuildingMeal { Spacer().frame(height: 80) }
-            }.blur(radius: selectedFavoriteForEdit != nil ? 15 : 0)
+            }
         }
 
         processingBanner(for: 0, color: .neonCyan)
@@ -420,10 +433,8 @@ struct MyFoodView: View {
                 color: .fitOrange
             )
         } else {
-            if !isBuildingMeal {
-                foodSearchBar(color: .fitOrange)
-                mealCategoryChips
-            }
+            foodSearchBar(color: .fitOrange)
+            mealCategoryChips
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(processingItems(for: 1)) { item in loadingRow(item: item) }
@@ -442,9 +453,12 @@ struct MyFoodView: View {
                             .swipeToDelete { withAnimation { deleteMeal(r) } }
                         }
                     }
-                }.padding()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 0)
+                .padding(.bottom, 16)
                 if isBuildingMeal { Spacer().frame(height: 80) }
-            }.blur(radius: selectedMealForEdit != nil ? 15 : 0)
+            }
         }
 
         processingBanner(for: 1, color: .orange)
@@ -705,30 +719,6 @@ struct MyFoodView: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var editOverlay: some View {
-        if let fav = selectedFavoriteForEdit {
-            Color.appScrim.edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedFavoriteForEdit = nil } }
-            FavoriteChatEditView(
-                favorite: fav,
-                onDelete: { deleteFavorite(fav); withAnimation { selectedFavoriteForEdit = nil } },
-                onDone: { withAnimation { selectedFavoriteForEdit = nil } },
-                onMove: { moveFavToMeals(fav); withAnimation { selectedFavoriteForEdit = nil } }
-            )
-            .transition(.scale(scale: 0.9).combined(with: .opacity))
-        }
-        if let meal = selectedMealForEdit {
-            Color.appScrim.edgesIgnoringSafeArea(.all).onTapGesture { withAnimation { selectedMealForEdit = nil } }
-            MealChatEditView(
-                recipe: meal,
-                onDelete: { deleteMeal(meal); withAnimation { selectedMealForEdit = nil } },
-                onDone: { withAnimation { selectedMealForEdit = nil } },
-                onMove: { moveMealToFav(meal); withAnimation { selectedMealForEdit = nil } }
-            )
-            .transition(.scale(scale: 0.9).combined(with: .opacity))
         }
     }
 
@@ -1100,57 +1090,56 @@ struct MyFoodView: View {
         .background(Capsule().fill(themeChromeGradient()))
         .overlay(Capsule().stroke(Color.appBorder, lineWidth: 1))
         .padding(.horizontal, 18)
-        .padding(.bottom, 6)
+        .padding(.bottom, 10)
     }
 
     private var fridgeCategoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                categoryChip(title: "All", emoji: nil, isSelected: selectedFridgeCategory == nil, color: .neonCyan) {
-                    withAnimation(.spring(response: 0.25)) { selectedFridgeCategory = nil }
-                }
-                ForEach(activeFridgeCategories, id: \.rawValue) { cat in
-                    categoryChip(title: cat.rawValue, emoji: cat.emoji, isSelected: selectedFridgeCategory == cat, color: .neonCyan) {
-                        withAnimation(.spring(response: 0.25)) {
-                            selectedFridgeCategory = selectedFridgeCategory == cat ? nil : cat
-                        }
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
+            categoryChip(title: "All", emoji: nil, isSelected: selectedFridgeCategory == nil, color: .neonCyan, fillsWidth: true) {
+                withAnimation(.spring(response: 0.25)) { selectedFridgeCategory = nil }
+            }
+            ForEach(activeFridgeCategories, id: \.rawValue) { cat in
+                categoryChip(title: cat.compactDisplayTitle, emoji: cat.emoji, isSelected: selectedFridgeCategory == cat, color: .neonCyan, fillsWidth: true) {
+                    withAnimation(.spring(response: 0.25)) {
+                        selectedFridgeCategory = selectedFridgeCategory == cat ? nil : cat
                     }
                 }
             }
-            .padding(.horizontal, 18)
         }
-        .padding(.bottom, 6)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
     }
 
     private var mealCategoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                categoryChip(title: "All", emoji: nil, isSelected: selectedMealCategory == nil, color: .fitOrange) {
-                    withAnimation(.spring(response: 0.25)) { selectedMealCategory = nil }
-                }
-                ForEach(activeMealCategories, id: \.rawValue) { cat in
-                    categoryChip(title: cat.rawValue, emoji: cat.emoji, isSelected: selectedMealCategory == cat, color: .fitOrange) {
-                        withAnimation(.spring(response: 0.25)) {
-                            selectedMealCategory = selectedMealCategory == cat ? nil : cat
-                        }
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            categoryChip(title: "All", emoji: nil, isSelected: selectedMealCategory == nil, color: .fitOrange, fillsWidth: true) {
+                withAnimation(.spring(response: 0.25)) { selectedMealCategory = nil }
+            }
+            ForEach(activeMealCategories, id: \.rawValue) { cat in
+                categoryChip(title: cat.compactDisplayTitle, emoji: cat.emoji, isSelected: selectedMealCategory == cat, color: .fitOrange, fillsWidth: true) {
+                    withAnimation(.spring(response: 0.25)) {
+                        selectedMealCategory = selectedMealCategory == cat ? nil : cat
                     }
                 }
             }
-            .padding(.horizontal, 18)
         }
-        .padding(.bottom, 6)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
     }
 
-    private func categoryChip(title: String, emoji: String?, isSelected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+    private func categoryChip(title: String, emoji: String?, isSelected: Bool, color: Color, fillsWidth: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                if let emoji { Text(emoji).font(.system(size: 12)) }
+            HStack(spacing: 3) {
+                if let emoji { Text(emoji).font(.system(size: 11)) }
                 Text(title)
-                    .font(.system(size: 11, weight: .heavy))
+                    .font(.system(size: 10, weight: .heavy))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
             .foregroundColor(isSelected ? .appAccentText : .appMuted)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
             .background(
                 Capsule().fill(isSelected ? color : Color.appSurface)
             )
@@ -1316,7 +1305,8 @@ struct MyFoodView: View {
                 carbs: fav.carbs * multiplier,
                 fat: fav.fat * multiplier,
                 ingredients: scaleIngredientBreakdown(fav.ingredients, by: multiplier),
-                date: selectedDate
+                date: selectedDate,
+                location: "favorite"
             ))
         }
     }
@@ -1338,7 +1328,8 @@ struct MyFoodView: View {
                 carbs: recipe.carbs,
                 fat: recipe.fat,
                 ingredients: ingredients,
-                date: selectedDate
+                date: selectedDate,
+                location: "recipe"
             ))
         }
     }

@@ -176,21 +176,20 @@ struct FavoriteChatEditView: View {
     }
 
     private var fridgeCategoryPicker: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
             ForEach(FridgeCategory.allCases, id: \.rawValue) { cat in
                 Button {
                     favorite.category = cat
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     Text("\(cat.emoji) \(cat.compactDisplayTitle)")
-                        .font(.system(size: 11, weight: .heavy))
+                        .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(favorite.category == cat ? .appAccentText : .appMuted)
-                        .multilineTextAlignment(.center)
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 6)
                         .background(Capsule().fill(favorite.category == cat ? Color.neonCyan : Color.appSurface))
                         .overlay(Capsule().stroke(favorite.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
                 }
@@ -198,7 +197,7 @@ struct FavoriteChatEditView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 
     private var favoriteBasisCard: some View {
@@ -581,21 +580,20 @@ struct MealChatEditView: View {
     }
 
     private var mealCategoryPicker: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
             ForEach(MealCategory.allCases, id: \.rawValue) { cat in
                 Button {
                     recipe.category = cat
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     Text("\(cat.emoji) \(cat.compactDisplayTitle)")
-                        .font(.system(size: 11, weight: .heavy))
+                        .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(recipe.category == cat ? .appAccentText : .appMuted)
-                        .multilineTextAlignment(.center)
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 6)
                         .background(Capsule().fill(recipe.category == cat ? Color.orange : Color.appSurface))
                         .overlay(Capsule().stroke(recipe.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
                 }
@@ -603,7 +601,7 @@ struct MealChatEditView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 
     private func setAsDishPhoto(_ image: UIImage) {

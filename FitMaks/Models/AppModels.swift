@@ -343,6 +343,7 @@ enum MealCategory: String, CaseIterable {
     case sides = "Sides"
     case salads = "Salads & Starters"
     case breakfast = "Breakfast"
+    case soups = "Soups"
     case snacks = "Snacks"
     case other = "Other"
 
@@ -352,6 +353,7 @@ enum MealCategory: String, CaseIterable {
         case .sides: return "🥘"
         case .salads: return "🥗"
         case .breakfast: return "🌅"
+        case .soups: return "🍲"
         case .snacks: return "🍿"
         case .other: return "🍽️"
         }
@@ -374,6 +376,7 @@ enum MealCategory: String, CaseIterable {
         case .sides: return "sides"
         case .salads: return "salads_starters"
         case .breakfast: return "breakfast"
+        case .soups: return "soups"
         case .snacks: return "snacks"
         case .other: return "other"
         }
@@ -390,6 +393,8 @@ enum MealCategory: String, CaseIterable {
             return .salads
         case "breakfast":
             return .breakfast
+        case "soup", "soups":
+            return .soups
         case "snack", "snacks":
             return .snacks
         case "other":
@@ -405,8 +410,11 @@ enum MealCategory: String, CaseIterable {
         let breakfastKeys = ["breakfast", "завтрак", "oatmeal", "каша", "porridge", "pancake", "блин",
                              "waffle", "вафл", "cereal", "мюсли", "granola", "гранола", "toast", "тост",
                              "омлет", "omelette", "scrambled", "яичниц", "aamiainen", "puuro"]
-        let saladKeys = ["salad", "салат", "soup", "суп", "борщ", "borscht", "starter", "закуск",
-                         "appetizer", "bruschetta", "брускетт", "gazpacho", "keitto", "salaatti",
+        let soupKeys = ["soup", "суп", "борщ", "borscht", "gazpacho", "keitto", "stew", "рагу",
+                        "chowder", "bisque", "бульон", "broth", "chili con", "солянк", "щи",
+                        "minestrone", "tom yum", "pho", "ramen", "лагман"]
+        let saladKeys = ["salad", "салат", "starter", "закуск",
+                         "appetizer", "bruschetta", "брускетт", "salaatti",
                          "hummus", "хумус", "bowl", "боул"]
         let snackKeys = ["snack", "перекус", "shake", "шейк", "smoothie", "смузи", "bar", "батончик",
                          "yogurt", "йогурт", "fruit cup", "фрукт", "protein ball",
@@ -424,6 +432,7 @@ enum MealCategory: String, CaseIterable {
                         "riisi", "leipä", "kaura"]
 
         if breakfastKeys.contains(where: { text.contains($0) }) { return .breakfast }
+        if soupKeys.contains(where: { text.contains($0) }) { return .soups }
         if saladKeys.contains(where: { text.contains($0) }) { return .salads }
         if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
 

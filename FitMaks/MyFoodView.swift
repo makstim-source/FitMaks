@@ -1094,7 +1094,7 @@ struct MyFoodView: View {
     }
 
     private var fridgeCategoryChips: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
             categoryChip(title: "All", emoji: nil, isSelected: selectedFridgeCategory == nil, color: .neonCyan, fillsWidth: true) {
                 withAnimation(.spring(response: 0.25)) { selectedFridgeCategory = nil }
             }

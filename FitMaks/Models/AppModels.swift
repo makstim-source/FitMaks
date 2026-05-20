@@ -120,7 +120,6 @@ enum FridgeCategory: String, CaseIterable {
     case fruitVeg = "Fruit & Veg"
     case dairy = "Dairy"
     case drinks = "Drinks"
-    case snacks = "Snacks"
     case sauces = "Sauces & Extras"
     case other = "Other"
 
@@ -131,62 +130,211 @@ enum FridgeCategory: String, CaseIterable {
         case .fruitVeg: return "🥬"
         case .dairy: return "🧀"
         case .drinks: return "🥤"
-        case .snacks: return "🍫"
         case .sauces: return "🫙"
         case .other: return "📦"
         }
     }
 
-    static func infer(name: String, ingredients: String) -> FridgeCategory {
+    var displayTitle: String {
+        switch self {
+        case .healthyCarbs:
+            return "Carbs"
+        default:
+            return rawValue
+        }
+    }
+
+    var compactDisplayTitle: String {
+        switch self {
+        case .healthyCarbs:
+            return "Carbs"
+        case .fruitVeg:
+            return "Fruit+Veg"
+        case .sauces:
+            return "Sauces"
+        default:
+            return rawValue
+        }
+    }
+
+    var aiKey: String {
+        switch self {
+        case .proteins: return "proteins"
+        case .healthyCarbs: return "healthy_carbs"
+        case .fruitVeg: return "fruit_veg"
+        case .dairy: return "dairy"
+        case .drinks: return "drinks"
+        case .sauces: return "sauces_extras"
+        case .other: return "other"
+        }
+    }
+
+    static func fromAI(_ rawValue: String?) -> FridgeCategory? {
+        let normalized = normalizeAIKey(rawValue)
+        switch normalized {
+        case "protein", "proteins":
+            return .proteins
+        case "healthycarbs", "healthy_carb", "healthy_carbs", "carb", "carbs":
+            return .healthyCarbs
+        case "fruitveg", "fruit_veg", "fruitandveg", "fruit_veggie", "fruit_veggies", "fruitvegetable", "fruitvegetables", "veg":
+            return .fruitVeg
+        case "dairy":
+            return .dairy
+        case "drink", "drinks", "beverage", "beverages":
+            return .drinks
+        case "snack", "snacks":
+            return .other
+        case "sauce", "sauces", "extras", "saucesextras", "sauces_extras", "sauce_extras":
+            return .sauces
+        case "other":
+            return .other
+        default:
+            return nil
+        }
+    }
+
+    static func resolve(name: String, ingredients: String, aiRawValue: String?) -> FridgeCategory {
         let text = (name + " " + ingredients).lowercased()
+        let tokens = normalizedTokens(from: text)
+        let isPowderProtein = containsAny(powderProteinKeys, in: text, tokens: tokens)
+        let hasDrink = containsAny(explicitDrinkKeys, in: text, tokens: tokens)
+        let hasDairy = containsAny(explicitDairyKeys, in: text, tokens: tokens)
+        let hasSauce = containsAny(sauceKeys, in: text, tokens: tokens)
+        let hasProtein = containsAny(explicitProteinKeys, in: text, tokens: tokens)
+        let hasCarb = containsAny(carbKeys, in: text, tokens: tokens)
+        let hasFruitVeg = containsAny(fruitVegKeys, in: text, tokens: tokens)
 
-        let proteinKeys = ["chicken", "курин", "курица", "beef", "говя", "turkey", "индей",
-                           "tuna", "тунец", "salmon", "лосось", "shrimp", "креветк", "fish", "рыб",
-                           "egg", "яйц", "mince", "фарш", "steak", "pork", "свинин", "duck", "утк",
-                           "lamb", "баранин", "tofu", "тофу", "protein", "протеин",
-                           "kana", "kanan", "filee", "pihvi", "liha", "lohi", "katkarapu",
-                           "kalkkuna", "nauta", "sika", "ankka", "karitsa",
-                           "sisäfilee", "ulkofilee", "grilli"]
-        let dairyKeys = ["milk", "молок", "yogurt", "йогурт", "skyr", "cheese", "сыр",
-                         "творог", "cottage", "кефир", "kefir", "cream", "сливк", "butter", "масло",
-                         "сметан", "alpro", "valio", "quark", "rahka", "maitorahka",
-                         "maito", "juusto", "kerma", "jogurtti", "piimä",
-                         "milbona", "ehrmann"]
-        let carbKeys = ["rice", "рис", "pasta", "макарон", "bread", "хлеб", "oat", "овся",
-                        "potato", "картош", "noodle", "лапш", "cereal", "мюсли", "granola",
-                        "buckwheat", "гречк", "couscous", "кускус", "quinoa", "киноа", "булк",
-                        "tortilla", "тортилья", "flatbread", "лаваш", "wrap",
-                        "kaura", "peruna", "riisi", "leipä", "penne", "spagetti", "nuudeli"]
-        let fruitVegKeys = ["apple", "яблок", "banana", "банан", "berr", "ягод", "orange", "апельсин",
-                            "grape", "виноград", "tomato", "помидор", "cucumber", "огурец", "pepper", "перец",
-                            "carrot", "морков", "onion", "лук", "avocado", "авокадо", "lettuce", "салат",
-                            "spinach", "шпинат", "broccoli", "брокколи", "mango", "манго", "kiwi", "киви",
-                            "lemon", "лимон", "peach", "персик", "pear", "груш", "cabbage", "капуст",
-                            "zucchini", "кабачок", "eggplant", "баклажан", "mushroom", "гриб",
-                            "omena", "banaani", "tomaatti", "kurkku", "porkkana", "sipuli",
-                            "sieni", "parsakaali", "paprika", "passata"]
-        let snackKeys = ["bar", "батончик", "chocolate", "шоколад", "chips", "чипс", "nuts", "орех",
-                         "cookie", "печень", "candy", "конфет", "waffle", "вафл", "cracker",
-                         "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад",
-                         "suklaa", "keksi", "pähkinä"]
-        let sauceKeys = ["sauce", "соус", "ketchup", "кетчуп", "mayo", "майонез", "mustard", "горчиц",
-                         "dressing", "заправк", "vinegar", "уксус", "oil", "олив", "honey", "мёд", "мед",
-                         "syrup", "сироп", "jam", "джем", "варень", "pesto", "песто", "soy sauce",
-                         "sriracha", "hummus", "хумус", "salsa", "сальса", "spice", "специ",
-                         "sinappi", "kastike", "hunaja", "öljy"]
-        let drinkKeys = ["juice", "сок", "cola", "cola zero", "soda", "water", "вода",
-                         "drink", "напиток", "shake", "smoothie", "coffee", "кофе", "tea", "чай",
-                         "monster", "red bull", "компот", "морс",
-                         "mehu", "kahvi", "tee", "limonadi"]
+        if hasDrink && !isPowderProtein {
+            return .drinks
+        }
+        if hasDairy {
+            return .dairy
+        }
+        if hasProtein && !hasDrink && !hasDairy {
+            return .proteins
+        }
+        if hasCarb && !hasProtein {
+            return .healthyCarbs
+        }
+        if hasSauce && !hasProtein && !hasCarb {
+            return .sauces
+        }
 
-        if proteinKeys.contains(where: { text.contains($0) }) { return .proteins }
-        if dairyKeys.contains(where: { text.contains($0) }) { return .dairy }
-        if carbKeys.contains(where: { text.contains($0) }) { return .healthyCarbs }
-        if fruitVegKeys.contains(where: { text.contains($0) }) { return .fruitVeg }
-        if snackKeys.contains(where: { text.contains($0) }) { return .snacks }
-        if sauceKeys.contains(where: { text.contains($0) }) { return .sauces }
-        if drinkKeys.contains(where: { text.contains($0) }) { return .drinks }
+        if let aiCategory = fromAI(aiRawValue) {
+            switch aiCategory {
+            case .proteins where containsAny(proteinMarketingOnlyKeys, in: text, tokens: tokens):
+                if hasDrink {
+                    return .drinks
+                }
+                if hasDairy {
+                    return .dairy
+                }
+                return aiCategory
+            default:
+                return aiCategory
+            }
+        }
+
+        if hasFruitVeg { return .fruitVeg }
         return .other
+    }
+
+    static func infer(name: String, ingredients: String) -> FridgeCategory {
+        resolve(name: name, ingredients: ingredients, aiRawValue: nil)
+    }
+
+    private static let explicitProteinKeys = [
+        "chicken", "курин", "курица", "beef", "говя", "turkey", "индей",
+        "tuna", "тунец", "salmon", "лосось", "shrimp", "креветк", "fish", "рыб",
+        "egg", "яйц", "mince", "фарш", "steak", "pork", "свинин", "duck", "утк",
+        "lamb", "баранин", "tofu", "тофу", "kana", "kanan", "filee", "pihvi", "liha",
+        "lohi", "katkarapu", "kalkkuna", "nauta", "sika", "ankka", "karitsa",
+        "tonfisk", "tonnikala", "skipjack", "filet", "fillet",
+        "sisäfilee", "ulkofilee", "grilli", "whey", "isolate", "isolaatti", "casein",
+        "hera", "whey isolate", "protein powder", "mass gainer", "gainer", "amino",
+        "bcaa", "eaa", "creatine", "kreatiini"
+    ]
+
+    private static let powderProteinKeys = [
+        "whey", "isolate", "isolaatti", "casein", "hera", "protein powder",
+        "powder", "jauhe", "mass gainer", "gainer", "bcaa", "eaa", "creatine", "kreatiini"
+    ]
+
+    private static let proteinMarketingOnlyKeys = [
+        "protein", "high protein", "protein+", "profeel", "protein drink", "protein yogurt",
+        "high protein drink", "high protein yogurt", "proteiin", "proteiini"
+    ]
+
+    private static let explicitDairyKeys = [
+        "yogurt", "yoghurt", "йогурт", "skyr", "cheese", "сыр", "творог", "cottage cheese",
+        "cottage", "кефир", "kefir", "cream", "сливк", "butter", "масло", "сметан",
+        "quark", "rahka", "maitorahka", "maito", "juusto", "kerma", "jogurtti", "piimä",
+        "milbona", "ehrmann", "protein quark", "protein yogurt", "pudding", "protein pudding",
+        "kvarg", "kvark", "curd", "raejuusto"
+    ]
+
+    private static let carbKeys = [
+        "rice", "рис", "pasta", "макарон", "bread", "хлеб", "oat", "овся",
+        "potato", "картош", "noodle", "лапш", "cereal", "мюсли", "granola",
+        "buckwheat", "гречк", "couscous", "кускус", "quinoa", "киноа", "булк",
+        "tortilla", "тортилья", "flatbread", "лаваш", "wrap",
+        "kaura", "peruna", "riisi", "leipä", "penne", "spagetti", "nuudeli"
+    ]
+
+    private static let fruitVegKeys = [
+        "apple", "яблок", "banana", "банан", "berr", "ягод", "orange", "апельсин",
+        "grape", "виноград", "tomato", "помидор", "cucumber", "огурец", "pepper", "перец",
+        "carrot", "морков", "onion", "лук", "avocado", "авокадо", "lettuce", "салат",
+        "spinach", "шпинат", "broccoli", "брокколи", "mango", "манго", "kiwi", "киви",
+        "lemon", "лимон", "peach", "персик", "pear", "груш", "cabbage", "капуст",
+        "zucchini", "кабачок", "eggplant", "баклажан", "mushroom", "гриб",
+        "omena", "banaani", "tomaatti", "kurkku", "porkkana", "sipuli",
+        "sieni", "parsakaali", "paprika"
+    ]
+
+    private static let snackKeys = [
+        "bar", "батончик", "chocolate", "шоколад", "chips", "чипс", "nuts", "орех",
+        "cookie", "печень", "candy", "конфет", "waffle", "вафл", "cracker",
+        "dried", "сухофрукт", "popcorn", "попкорн", "халва", "мармелад",
+        "suklaa", "keksi", "pähkinä"
+    ]
+
+    private static let sauceKeys = [
+        "sauce", "соус", "ketchup", "кетчуп", "mayo", "майонез", "mustard", "горчиц",
+        "dressing", "заправк", "vinegar", "уксус", "oil", "олив", "honey", "мёд", "мед",
+        "syrup", "сироп", "jam", "джем", "варень", "pesto", "песто", "soy sauce",
+        "sriracha", "hummus", "хумус", "salsa", "сальса", "spice", "специ",
+        "sinappi", "kastike", "hunaja", "öljy", "passata"
+    ]
+
+    private static let explicitDrinkKeys = [
+        "drink", "напиток", "juoma", "shake", "smoothie", "juice", "сок", "mehu",
+        "cola", "cola zero", "soda", "sparkling water", "mineral water", "kivennäisvesi", "coffee", "кофе", "kahvi",
+        "tea", "чай", "tee", "monster", "red bull", "beverage", "beverages",
+        "limonadi", "energy drink", "iced coffee", "iced latte"
+    ]
+
+    private static func normalizedTokens(from text: String) -> Set<String> {
+        Set(text.split { !$0.isLetter && !$0.isNumber }.map { String($0).lowercased() })
+    }
+
+    private static func containsAny(_ keywords: [String], in text: String, tokens: Set<String>) -> Bool {
+        keywords.contains { containsKeyword($0, in: text, tokens: tokens) }
+    }
+
+    private static func containsKeyword(_ keyword: String, in text: String, tokens: Set<String>) -> Bool {
+        let needle = keyword.lowercased()
+
+        if needle.contains(" ") || needle.contains("-") {
+            return text.contains(needle)
+        }
+
+        let isShortASCIIWord = needle.count <= 6 && needle.unicodeScalars.allSatisfy { $0.isASCII && $0.properties.isAlphabetic }
+        if isShortASCIIWord {
+            return tokens.contains(needle)
+        }
+
+        return text.contains(needle)
     }
 }
 
@@ -206,6 +354,48 @@ enum MealCategory: String, CaseIterable {
         case .breakfast: return "🌅"
         case .snacks: return "🍿"
         case .other: return "🍽️"
+        }
+    }
+
+    var compactDisplayTitle: String {
+        switch self {
+        case .mainDish:
+            return "Main dish"
+        case .salads:
+            return "Salads"
+        default:
+            return rawValue
+        }
+    }
+
+    var aiKey: String {
+        switch self {
+        case .mainDish: return "main_dish"
+        case .sides: return "sides"
+        case .salads: return "salads_starters"
+        case .breakfast: return "breakfast"
+        case .snacks: return "snacks"
+        case .other: return "other"
+        }
+    }
+
+    static func fromAI(_ rawValue: String?) -> MealCategory? {
+        let normalized = normalizeAIKey(rawValue)
+        switch normalized {
+        case "maindish", "main_dish", "dish", "main":
+            return .mainDish
+        case "side", "sides":
+            return .sides
+        case "salad", "salads", "starter", "starters", "saladsstarters", "salads_starters", "saladsandstarters":
+            return .salads
+        case "breakfast":
+            return .breakfast
+        case "snack", "snacks":
+            return .snacks
+        case "other":
+            return .other
+        default:
+            return nil
         }
     }
 
@@ -246,6 +436,14 @@ enum MealCategory: String, CaseIterable {
 
         return .other
     }
+}
+
+private func normalizeAIKey(_ rawValue: String?) -> String {
+    (rawValue ?? "")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+        .replacingOccurrences(of: "[^a-z0-9]+", with: "_", options: .regularExpression)
+        .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
 }
 
 enum FavoritePortionRules {
@@ -445,6 +643,7 @@ final class FavoriteFood {
         carbs: Double = 0,
         fat: Double = 0,
         ingredients: String,
+        category: FridgeCategory? = nil,
         portionBasis: FavoritePortionBasis? = nil,
         portionGramsReference: Double? = nil
     ) {
@@ -470,7 +669,7 @@ final class FavoriteFood {
         self.ingredients = normalizedNutrition.ingredients
         self.portionBasisRaw = resolvedBasis.rawValue
         self.portionGramsReference = resolvedReference
-        self.categoryRaw = FridgeCategory.infer(name: name, ingredients: ingredients).rawValue
+        self.categoryRaw = (category ?? FridgeCategory.resolve(name: name, ingredients: ingredients, aiRawValue: nil)).rawValue
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 
@@ -760,7 +959,8 @@ final class SavedRecipe {
         protein: Double,
         carbs: Double = 0,
         fat: Double = 0,
-        ingredients: String = ""
+        ingredients: String = "",
+        category: MealCategory? = nil
     ) {
         self.name = name.isEmpty ? "Meal" : name
         self.instructions = instructions
@@ -770,7 +970,7 @@ final class SavedRecipe {
         self.fat = max(0, fat)
         self.ingredients = ingredients
         self.dateSaved = Date()
-        self.categoryRaw = MealCategory.infer(name: name, ingredients: ingredients, dateSaved: Date()).rawValue
+        self.categoryRaw = (category ?? MealCategory.infer(name: name, ingredients: ingredients, dateSaved: Date())).rawValue
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
     }
 

@@ -150,7 +150,7 @@ struct IngredientBreakdownCard: View {
         let showCF = items.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
         let showWeight = items.contains { !$0.weight.isEmpty && $0.weight != "0" && $0.weight != "0g" }
 
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Spacer()
                 macroChip(text: "\(Int(calories)) kcal", color: .neonGreen)
@@ -159,73 +159,59 @@ struct IngredientBreakdownCard: View {
                 if fat > 0 { macroChip(text: "\(Int(fat))g F", color: .yellow) }
             }
 
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Item").frame(maxWidth: .infinity, alignment: .leading)
-                    if showWeight {
-                        Text("Wt").frame(width: 48, alignment: .trailing)
-                    }
-                    Text("Kcal").frame(width: 42, alignment: .trailing)
-                    Text("P").frame(width: 36, alignment: .trailing)
-                    if showCF {
-                        Text("C").frame(width: 32, alignment: .trailing)
-                        Text("F").frame(width: 36, alignment: .trailing)
-                    }
+            HStack {
+                Text("Item").frame(maxWidth: .infinity, alignment: .leading)
+                if showWeight {
+                    Text("Wt").frame(width: 48, alignment: .trailing)
                 }
-                .font(.system(size: 10, weight: .heavy))
-                .foregroundColor(.gray)
-                .padding(.bottom, 8)
-
-                ForEach(items) { item in
-                    HStack {
-                        Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
-                            .lineLimit(2)
-                        if showWeight {
-                            Text(item.weight).frame(width: 48, alignment: .trailing)
-                                .foregroundColor(.appMuted)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
-                        Text(Self.roundedDisplay(item.kcal)).frame(width: 42, alignment: .trailing)
-                            .foregroundColor(.neonGreen)
-                        Text(Self.roundedDisplay(item.prot)).frame(width: 36, alignment: .trailing)
-                            .foregroundColor(.neonCyan)
-                        if showCF {
-                            Text(Self.roundedDisplay(item.carbs)).frame(width: 32, alignment: .trailing)
-                                .foregroundColor(.fitOrange)
-                            Text(Self.roundedDisplay(item.fat)).frame(width: 36, alignment: .trailing)
-                                .foregroundColor(.yellow)
-                        }
-                    }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.appText)
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.appSurface)
-                    )
+                Text("Kcal").frame(width: 36, alignment: .trailing)
+                Text("P").frame(width: 32, alignment: .trailing)
+                if showCF {
+                    Text("C").frame(width: 28, alignment: .trailing)
+                    Text("F").frame(width: 32, alignment: .trailing)
                 }
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(Color.appElevated)
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.appBorder, lineWidth: 1))
-            )
+            .font(.system(size: 10, weight: .heavy))
+            .foregroundColor(.gray)
+            .padding(.horizontal, 10)
+
+            ForEach(items) { item in
+                HStack {
+                    Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(2)
+                    if showWeight {
+                        Text(item.weight).frame(width: 48, alignment: .trailing)
+                            .foregroundColor(.appMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    Text(Self.roundedDisplay(item.kcal)).frame(width: 36, alignment: .trailing)
+                        .foregroundColor(.neonGreen)
+                    Text(Self.roundedDisplay(item.prot)).frame(width: 32, alignment: .trailing)
+                        .foregroundColor(.neonCyan)
+                    if showCF {
+                        Text(Self.roundedDisplay(item.carbs)).frame(width: 28, alignment: .trailing)
+                            .foregroundColor(.fitOrange)
+                        Text(Self.roundedDisplay(item.fat)).frame(width: 32, alignment: .trailing)
+                            .foregroundColor(.yellow)
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.appText)
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.appSurface)
+                )
+            }
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(
-                    LinearGradient(
-                        colors: [accentColor.opacity(0.10), Color.appSurface, Color.appElevated],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(RoundedRectangle(cornerRadius: 24).stroke(accentColor.opacity(0.15), lineWidth: 1))
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.appElevated)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(accentColor.opacity(0.15), lineWidth: 1))
         )
         .drawingGroup()
     }

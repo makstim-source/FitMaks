@@ -878,8 +878,12 @@ private struct FitMaksLiveCanvas: View {
                 Spacer()
 
                 payloadCard
-                    .padding(.horizontal, 52)
-                    .padding(.bottom, 66)
+                    .padding(.horizontal, backgroundImage != nil ? 52 : 36)
+                    .padding(.bottom, backgroundImage != nil ? 66 : 0)
+
+                if backgroundImage == nil {
+                    Spacer()
+                }
             }
             .offset(y: contentOffsetY)
         }
@@ -1827,26 +1831,26 @@ private struct FitMaksLiveWeeklyCard: View {
     var body: some View {
         let light = isLightAppTheme()
 
-        VStack(spacing: 14) {
+        VStack(spacing: 20) {
             HStack(spacing: 8) {
                 livePosterTag("WEEKLY REPORT", color: snapshot.scoreColor)
                 livePosterTag(snapshot.dateRange.uppercased(), color: .appMuted)
                 Spacer()
             }
 
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 Text("\(snapshot.score)%")
-                    .font(.system(size: 58, weight: .black))
+                    .font(.system(size: 72, weight: .black))
                     .foregroundColor(snapshot.scoreColor)
                     .lineLimit(1)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(snapshot.scoreLabel)
-                        .font(.system(size: 20, weight: .heavy))
+                        .font(.system(size: 26, weight: .heavy))
                         .foregroundColor(light ? .appText : .white)
 
                     Text("\(snapshot.perfectDays)/\(snapshot.dayResults.count) perfect days · \(snapshot.totalSteps) steps")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.65))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -1854,8 +1858,8 @@ private struct FitMaksLiveWeeklyCard: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
             .background(
                 RoundedRectangle(cornerRadius: 24)
                     .fill(
@@ -1875,13 +1879,13 @@ private struct FitMaksLiveWeeklyCard: View {
                     .stroke(light ? Color.appBorder.opacity(0.68) : snapshot.scoreColor.opacity(0.22), lineWidth: 1)
             )
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(snapshot.dayResults) { day in
                     weeklyDayCard(day, light: light)
                 }
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 weeklyStatCard(title: "CALORIES", value: snapshot.avgCalories, accent: .neonGreen, light: light)
                 weeklyStatCard(title: "PROTEIN", value: snapshot.avgProtein, accent: .neonCyan, light: light)
                 weeklyStatCard(title: "CARBS", value: snapshot.avgCarbs, accent: .fitOrange, light: light)
@@ -1891,12 +1895,12 @@ private struct FitMaksLiveWeeklyCard: View {
             HStack(spacing: 14) {
                 ForEach(trainingParts, id: \.self) { part in
                     Text(part)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(light ? .appMuted : .white.opacity(0.6))
                 }
             }
         }
-        .padding(24)
+        .padding(32)
         .background(liveCardBackground)
     }
 
@@ -1926,20 +1930,20 @@ private struct FitMaksLiveWeeklyCard: View {
         accent: Color,
         light: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 13, weight: .heavy))
+                .font(.system(size: 16, weight: .heavy))
                 .foregroundColor(accent)
                 .tracking(0.7)
 
             Text(value)
-                .font(.system(size: 24, weight: .black))
+                .font(.system(size: 30, weight: .black))
                 .foregroundColor(light ? .appText : .white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 18)
@@ -1952,22 +1956,22 @@ private struct FitMaksLiveWeeklyCard: View {
     }
 
     private func weeklyDayCard(_ day: FitMaksShareWeeklyDay, light: Bool) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             Text(day.label)
-                .font(.system(size: 14, weight: .heavy))
+                .font(.system(size: 17, weight: .heavy))
                 .foregroundColor(light ? .appMuted : .white.opacity(0.56))
 
             Text(day.modeEmoji)
-                .font(.system(size: 28))
+                .font(.system(size: 34))
 
-            HStack(spacing: 4) {
-                Circle().fill(day.calorieWin ? Color.neonGreen : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
-                Circle().fill(day.proteinWin ? Color.neonCyan : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
-                Circle().fill(day.stepWin ? Color.fitOrange : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 8, height: 8)
+            HStack(spacing: 5) {
+                Circle().fill(day.calorieWin ? Color.neonGreen : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 10, height: 10)
+                Circle().fill(day.proteinWin ? Color.neonCyan : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 10, height: 10)
+                Circle().fill(day.stepWin ? Color.fitOrange : (light ? Color.appBorder : Color.white.opacity(0.15))).frame(width: 10, height: 10)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(day.isPerfect ? snapshot.scoreColor.opacity(light ? 0.14 : 0.18) : (light ? Color.appElevated.opacity(0.8) : Color.white.opacity(0.03)))

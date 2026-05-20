@@ -580,7 +580,7 @@ struct MealChatEditView: View {
     }
 
     private var mealCategoryPicker: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
             ForEach(MealCategory.allCases, id: \.rawValue) { cat in
                 Button {
                     recipe.category = cat

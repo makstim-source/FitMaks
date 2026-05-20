@@ -140,6 +140,11 @@ struct IngredientBreakdownCard: View {
         fillMissingMacros(parseIngredientBreakdown(ingredients), totalCarbs: carbs, totalFat: fat)
     }
 
+    private static func roundedDisplay(_ value: String) -> String {
+        guard let v = Double(value.filter { $0.isNumber || $0 == "." }) else { return value }
+        return v.rounded() == v ? "\(Int(v))" : String(format: "%.1f", v)
+    }
+
     var body: some View {
         let items = parsedItems
         let showCF = items.contains { (Double($0.carbs) ?? 0) > 0 || (Double($0.fat) ?? 0) > 0 }
@@ -147,10 +152,6 @@ struct IngredientBreakdownCard: View {
 
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Label(title, systemImage: "wand.and.stars")
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(accentColor)
-                    .tracking(0.6)
                 Spacer()
                 macroChip(text: "\(Int(calories)) kcal", color: .neonGreen)
                 macroChip(text: "\(Int(protein))g P", color: .neonCyan)
@@ -162,13 +163,13 @@ struct IngredientBreakdownCard: View {
                 HStack {
                     Text("Item").frame(maxWidth: .infinity, alignment: .leading)
                     if showWeight {
-                        Text("Wt").frame(width: 42, alignment: .trailing)
+                        Text("Wt").frame(width: 48, alignment: .trailing)
                     }
                     Text("Kcal").frame(width: 42, alignment: .trailing)
-                    Text("P").frame(width: 30, alignment: .trailing)
+                    Text("P").frame(width: 36, alignment: .trailing)
                     if showCF {
-                        Text("C").frame(width: 30, alignment: .trailing)
-                        Text("F").frame(width: 30, alignment: .trailing)
+                        Text("C").frame(width: 32, alignment: .trailing)
+                        Text("F").frame(width: 36, alignment: .trailing)
                     }
                 }
                 .font(.system(size: 10, weight: .heavy))
@@ -180,22 +181,25 @@ struct IngredientBreakdownCard: View {
                         Text(item.name).frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(2)
                         if showWeight {
-                            Text(item.weight).frame(width: 42, alignment: .trailing)
+                            Text(item.weight).frame(width: 48, alignment: .trailing)
                                 .foregroundColor(.appMuted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                         }
-                        Text(item.kcal).frame(width: 42, alignment: .trailing)
+                        Text(Self.roundedDisplay(item.kcal)).frame(width: 42, alignment: .trailing)
                             .foregroundColor(.neonGreen)
-                        Text(item.prot).frame(width: 30, alignment: .trailing)
+                        Text(Self.roundedDisplay(item.prot)).frame(width: 36, alignment: .trailing)
                             .foregroundColor(.neonCyan)
                         if showCF {
-                            Text(item.carbs).frame(width: 30, alignment: .trailing)
+                            Text(Self.roundedDisplay(item.carbs)).frame(width: 32, alignment: .trailing)
                                 .foregroundColor(.fitOrange)
-                            Text(item.fat).frame(width: 30, alignment: .trailing)
+                            Text(Self.roundedDisplay(item.fat)).frame(width: 36, alignment: .trailing)
                                 .foregroundColor(.yellow)
                         }
                     }
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.appText)
+                    .lineLimit(1)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 9)
                     .background(

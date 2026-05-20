@@ -106,12 +106,12 @@ struct FavoriteChatEditView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 20) {
-                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonCyan)
+                        IngredientBreakdownCard(title: "BREAKDOWN", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonCyan)
                         favoriteBasisCard
-                        ForEach(messages) { msg in
+                            ForEach(messages) { msg in
                             VStack(spacing: 10) {
                                 CoachMessageBubble(message: msg, accentColor: .neonCyan, assistantName: "FitMaks AI")
-                                if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan).padding(.trailing, 20) }
+                                if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan).padding(.trailing, 20) }
                             }
                             .id(msg.id)
                         }
@@ -126,7 +126,7 @@ struct FavoriteChatEditView: View {
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.neonCyan)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
         }
         .background(
@@ -176,27 +176,29 @@ struct FavoriteChatEditView: View {
     }
 
     private var fridgeCategoryPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(FridgeCategory.allCases, id: \.rawValue) { cat in
-                    Button {
-                        favorite.category = cat
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        Text("\(cat.emoji) \(cat.rawValue)")
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundColor(favorite.category == cat ? .appAccentText : .appMuted)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(favorite.category == cat ? Color.neonCyan : Color.appSurface))
-                            .overlay(Capsule().stroke(favorite.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            ForEach(FridgeCategory.allCases, id: \.rawValue) { cat in
+                Button {
+                    favorite.category = cat
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    Text("\(cat.emoji) \(cat.compactDisplayTitle)")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(favorite.category == cat ? .appAccentText : .appMuted)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(favorite.category == cat ? Color.neonCyan : Color.appSurface))
+                        .overlay(Capsule().stroke(favorite.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     private var favoriteBasisCard: some View {
@@ -510,11 +512,11 @@ struct MealChatEditView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 20) {
-                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .orange)
-                        ForEach(messages) { msg in
+                        IngredientBreakdownCard(title: "BREAKDOWN", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .orange)
+                            ForEach(messages) { msg in
                             VStack(spacing: 10) {
                                 CoachMessageBubble(message: msg, accentColor: .orange, assistantName: "FitMaks AI")
-                                if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .orange).padding(.trailing, 20) }
+                                if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .orange).padding(.trailing, 20) }
                             }
                             .id(msg.id)
                         }
@@ -529,7 +531,7 @@ struct MealChatEditView: View {
             }
             VStack(spacing: 0) {
                 if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.orange)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI or attach label...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
         }
         .background(
@@ -579,27 +581,29 @@ struct MealChatEditView: View {
     }
 
     private var mealCategoryPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(MealCategory.allCases, id: \.rawValue) { cat in
-                    Button {
-                        recipe.category = cat
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        Text("\(cat.emoji) \(cat.rawValue)")
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundColor(recipe.category == cat ? .appAccentText : .appMuted)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(recipe.category == cat ? Color.orange : Color.appSurface))
-                            .overlay(Capsule().stroke(recipe.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+            ForEach(MealCategory.allCases, id: \.rawValue) { cat in
+                Button {
+                    recipe.category = cat
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    Text("\(cat.emoji) \(cat.compactDisplayTitle)")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(recipe.category == cat ? .appAccentText : .appMuted)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(recipe.category == cat ? Color.orange : Color.appSurface))
+                        .overlay(Capsule().stroke(recipe.category == cat ? Color.clear : Color.appBorder, lineWidth: 1))
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     private func setAsDishPhoto(_ image: UIImage) {
@@ -697,13 +701,22 @@ struct FavoriteChatEditScreen: View {
     var onMove: () -> Void
 
     var body: some View {
-        FavoriteChatEditView(
-            favorite: favorite,
-            presentationStyle: .screen,
-            onDelete: onDelete,
-            onDone: onDone,
-            onMove: onMove
-        )
+        ZStack {
+            LinearGradient(
+                colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            FavoriteChatEditView(
+                favorite: favorite,
+                presentationStyle: .screen,
+                onDelete: onDelete,
+                onDone: onDone,
+                onMove: onMove
+            )
+        }
     }
 }
 
@@ -714,12 +727,21 @@ struct MealChatEditScreen: View {
     var onMove: () -> Void
 
     var body: some View {
-        MealChatEditView(
-            recipe: recipe,
-            presentationStyle: .screen,
-            onDelete: onDelete,
-            onDone: onDone,
-            onMove: onMove
-        )
+        ZStack {
+            LinearGradient(
+                colors: [Color.appBackgroundStart, Color.appBackgroundMid, Color.appBackgroundEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            MealChatEditView(
+                recipe: recipe,
+                presentationStyle: .screen,
+                onDelete: onDelete,
+                onDone: onDone,
+                onMove: onMove
+            )
+        }
     }
 }

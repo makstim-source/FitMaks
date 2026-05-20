@@ -8,10 +8,12 @@ struct AIChatEditView: View {
     @State private var isWaiting = false
     @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""
+    @State private var originalName = ""
     @State private var originalCalories: Double = 0
     @State private var originalProtein: Double = 0
     @State private var originalCarbs: Double = 0
     @State private var originalFat: Double = 0
+    @State private var originalImageData = Data()
     @State private var attachedImage: UIImage? = nil
     @State private var isShowingAttachmentDialog = false
     @State private var isShowingAttachmentPicker = false
@@ -23,6 +25,58 @@ struct AIChatEditView: View {
     var onShare: (() -> Void)? = nil
     var onDelete: () -> Void
     var onDone: () -> Void
+
+    private enum LibraryOrigin {
+        case none
+        case fridge
+        case meals
+    }
+
+    private var libraryOrigin: LibraryOrigin {
+        if entry.location == "favorite" || entry.name.hasPrefix("❄️") {
+            return .fridge
+        }
+
+        if entry.location == "recipe" || entry.name.hasPrefix("👨‍🍳") {
+            return .meals
+        }
+
+        return .none
+    }
+
+    private var shouldShowSaveButton: Bool {
+        switch libraryOrigin {
+        case .none:
+            return true
+        case .fridge, .meals:
+            return hasMeaningfulChanges
+        }
+    }
+
+    private var saveButtonTitle: String {
+        libraryOrigin == .none ? "Save to My Food" : "Save Changes"
+    }
+
+    private var saveDialogTitle: String {
+        switch libraryOrigin {
+        case .none:
+            return "Save to My Food"
+        case .fridge:
+            return "Update Fridge Item"
+        case .meals:
+            return "Update Meal"
+        }
+    }
+
+    private var hasMeaningfulChanges: Bool {
+        normalizedLibraryName(entry.name) != normalizedLibraryName(originalName)
+            || abs(entry.calories - originalCalories) > 0.05
+            || abs(entry.protein - originalProtein) > 0.05
+            || abs(entry.carbs - originalCarbs) > 0.05
+            || abs(entry.fat - originalFat) > 0.05
+            || entry.ingredients != originalIngredients
+            || entry.imageData != originalImageData
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -80,12 +134,12 @@ struct AIChatEditView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 16) {
-                        IngredientBreakdownCard(title: "INITIAL CALCULATION", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonGreen.opacity(0.8))
+                        IngredientBreakdownCard(title: "BREAKDOWN", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonGreen.opacity(0.8))
                         ForEach(messages) { msg in
                             VStack(spacing: 10) {
                                 CoachMessageBubble(message: msg, accentColor: .neonGreen, assistantName: "FitMaks AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein {
-                                    IngredientBreakdownCard(title: "UPDATED CALCULATION", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan)
+                                    IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan)
                                         .padding(.trailing, 20)
                                 }
                             }
@@ -113,43 +167,61 @@ struct AIChatEditView: View {
                 }
             }
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Button(action: recalculateFresh) {
-                        Text("Recalculate")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.appAccentText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity)
-                            .background(Capsule().fill(Color.neonGreen.opacity(isWaiting ? 0.45 : 1)))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isWaiting)
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        utilityActionButton(
+                            title: "Recalculate",
+                            systemImage: "arrow.clockwise",
+                            tint: .neonGreen,
+                            action: recalculateFresh
+                        )
+                        .disabled(isWaiting)
 
-                    if SubscriptionManager.shared.isPro {
-                        Button(action: fetchHealthComment) {
-                            Text("Review")
-                                .font(.system(size: 12, weight: .black))
-                                .foregroundColor(.appAccentText)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 9)
-                                .frame(maxWidth: .infinity)
-                                .background(Capsule().fill(Color.fitOrange.opacity(isWaiting ? 0.45 : 1)))
+                        if SubscriptionManager.shared.isPro {
+                            utilityActionButton(
+                                title: "Review",
+                                systemImage: "sparkles",
+                                tint: .fitOrange,
+                                action: fetchHealthComment
+                            )
+                            .disabled(isWaiting)
+                        }
+                    }
+
+                    if shouldShowSaveButton {
+                        Button(action: { isShowingSaveDialog = true }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: libraryOrigin == .none ? "tray.and.arrow.down.fill" : "square.and.arrow.down.on.square.fill")
+                                    .font(.system(size: 13, weight: .black))
+
+                                Text(saveButtonTitle)
+                                    .lineLimit(1)
+                            }
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(Color.appBackgroundEnd.opacity(0.94))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.neonCyan.opacity(0.94),
+                                                Color.neonCyan.opacity(0.78)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                            .shadow(color: Color.neonCyan.opacity(0.18), radius: 12, x: 0, y: 6)
                         }
                         .buttonStyle(.plain)
-                        .disabled(isWaiting)
                     }
-
-                    Button(action: { isShowingSaveDialog = true }) {
-                        Text("Save to My Food")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.appAccentText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity)
-                            .background(Capsule().fill(Color.neonCyan))
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -233,11 +305,13 @@ struct AIChatEditView: View {
         .padding(.horizontal, 15)
         .frame(maxHeight: 680)
         .onAppear {
+            originalName = entry.name
             originalIngredients = entry.ingredients
             originalCalories = entry.calories
             originalProtein = entry.protein
             originalCarbs = entry.carbs
             originalFat = entry.fat
+            originalImageData = entry.imageData
         }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
             Button("Camera") {
@@ -258,9 +332,20 @@ struct AIChatEditView: View {
                 sourceType: attachmentSource
             )
         }
-        .confirmationDialog("Save to My Food", isPresented: $isShowingSaveDialog) {
-            Button("Fridge") { saveAs(isMeal: false) }
-            Button("Meals") { saveAs(isMeal: true) }
+        .confirmationDialog(saveDialogTitle, isPresented: $isShowingSaveDialog) {
+            switch libraryOrigin {
+            case .none:
+                Button("Fridge") { saveAs(isMeal: false) }
+                Button("Meals") { saveAs(isMeal: true) }
+            case .fridge:
+                Button("Update in Fridge") { updateExistingFavorite() }
+                Button("Save as New in Fridge") { saveAs(isMeal: false) }
+                Button("Save as New in Meals") { saveAs(isMeal: true) }
+            case .meals:
+                Button("Update in Meals") { updateExistingMeal() }
+                Button("Save as New in Meals") { saveAs(isMeal: true) }
+                Button("Save as New in Fridge") { saveAs(isMeal: false) }
+            }
         }
         .overlay(alignment: .top) {
             if let saveConfirmationText {
@@ -284,11 +369,12 @@ struct AIChatEditView: View {
 
     func saveAs(isMeal: Bool) {
         let destination = isMeal ? "Meals" : "Fridge"
+        let cleanName = normalizedLibraryName(entry.name)
 
         if isMeal {
-            modelContext.insert(SavedRecipe(image: entry.uiImage, name: entry.name, instructions: "", calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
+            modelContext.insert(SavedRecipe(image: entry.uiImage, name: cleanName, instructions: "", calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
         } else {
-            modelContext.insert(FavoriteFood(image: entry.uiImage, name: entry.name, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
+            modelContext.insert(FavoriteFood(image: entry.uiImage, name: cleanName, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients: entry.ingredients))
         }
 
         do {
@@ -299,6 +385,88 @@ struct AIChatEditView: View {
         } catch {
             messages.append(ChatMessage(text: "Could not save to \(destination). Please try again.", isUser: false, shouldTypewrite: true))
         }
+    }
+
+    private func updateExistingFavorite() {
+        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
+        let target = favorites.first(where: matchesOriginalFavorite(_:))
+
+        guard let target else {
+            saveAs(isMeal: false)
+            return
+        }
+
+        target.name = normalizedLibraryName(entry.name)
+        target.calories = entry.calories
+        target.protein = entry.protein
+        target.carbs = entry.carbs
+        target.fat = entry.fat
+        target.ingredients = entry.ingredients
+        target.imageData = entry.imageData
+
+        persistLibraryUpdate(successText: "Updated in Fridge", failureText: "Could not update Fridge item.")
+    }
+
+    private func updateExistingMeal() {
+        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
+        let target = recipes.first(where: matchesOriginalMeal(_:))
+
+        guard let target else {
+            saveAs(isMeal: true)
+            return
+        }
+
+        target.name = normalizedLibraryName(entry.name)
+        target.calories = entry.calories
+        target.protein = entry.protein
+        target.carbs = entry.carbs
+        target.fat = entry.fat
+        target.ingredients = entry.ingredients
+        target.imageData = entry.imageData
+
+        persistLibraryUpdate(successText: "Updated in Meals", failureText: "Could not update Meal.")
+    }
+
+    private func persistLibraryUpdate(successText: String, failureText: String) {
+        do {
+            try modelContext.save()
+            originalName = entry.name
+            originalCalories = entry.calories
+            originalProtein = entry.protein
+            originalCarbs = entry.carbs
+            originalFat = entry.fat
+            originalIngredients = entry.ingredients
+            originalImageData = entry.imageData
+            messages.append(ChatMessage(text: successText, isUser: false, shouldTypewrite: true))
+            showSaveConfirmation(successText)
+        } catch {
+            messages.append(ChatMessage(text: failureText, isUser: false, shouldTypewrite: true))
+        }
+    }
+
+    private func matchesOriginalFavorite(_ favorite: FavoriteFood) -> Bool {
+        normalizedLibraryName(favorite.name) == normalizedLibraryName(originalName)
+            && favorite.ingredients == originalIngredients
+            && abs(favorite.calories - originalCalories) <= 0.05
+            && abs(favorite.protein - originalProtein) <= 0.05
+            && abs(favorite.carbs - originalCarbs) <= 0.05
+            && abs(favorite.fat - originalFat) <= 0.05
+    }
+
+    private func matchesOriginalMeal(_ recipe: SavedRecipe) -> Bool {
+        normalizedLibraryName(recipe.name) == normalizedLibraryName(originalName)
+            && recipe.ingredients == originalIngredients
+            && abs(recipe.calories - originalCalories) <= 0.05
+            && abs(recipe.protein - originalProtein) <= 0.05
+            && abs(recipe.carbs - originalCarbs) <= 0.05
+            && abs(recipe.fat - originalFat) <= 0.05
+    }
+
+    private func normalizedLibraryName(_ name: String) -> String {
+        name
+            .replacingOccurrences(of: "👨‍🍳 ", with: "")
+            .replacingOccurrences(of: "❄️ ", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func showSaveConfirmation(_ text: String) {
@@ -330,6 +498,40 @@ struct AIChatEditView: View {
             messages.append(ChatMessage(text: "📸 Dish photo updated!", isUser: false, shouldTypewrite: true))
             showSaveConfirmation("Photo updated")
         }
+    }
+
+    @ViewBuilder
+    private func utilityActionButton(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundColor(tint)
+
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.appText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(
+                Capsule()
+                    .fill(Color.appSurface)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(tint.opacity(0.34), lineWidth: 1)
+            )
+            .shadow(color: tint.opacity(0.10), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .opacity(isWaiting ? 0.58 : 1)
     }
 
     func sendMessage() {

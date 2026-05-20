@@ -569,16 +569,19 @@ struct AchievementsView: View {
             ZStack {
                 HomeBackground()
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 18) {
-                        StatsAchievementsCard(
-                            collection: achievementCollection,
-                            selectedAchievement: $selectedAchievement
-                        )
+                GeometryReader { geo in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 18) {
+                            StatsAchievementsCard(
+                                collection: achievementCollection,
+                                selectedAchievement: $selectedAchievement
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 42)
+                        .frame(width: geo.size.width)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 42)
                 }
             }
             .navigationTitle("Achievements")

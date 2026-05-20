@@ -128,6 +128,7 @@ struct StatsAchievementsCard: View {
                                     StatsAchievementTile(achievement: leading, layout: .chaosCompact)
                                 }
                                 .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
 
                                 Button {
                                     selectedAchievement = trailing
@@ -135,6 +136,7 @@ struct StatsAchievementsCard: View {
                                     StatsAchievementTile(achievement: trailing, layout: .chaosCompact)
                                 }
                                 .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
                             }
                         }
                     }
@@ -486,6 +488,7 @@ struct StatsAchievementTile: View {
                 Text(achievement.progressText)
                     .font(.system(size: isWide ? 11 : 10, weight: .heavy))
                     .foregroundColor(achievement.isUnlocked ? .appAccentText : .appMuted)
+                    .lineLimit(1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(achievement.isUnlocked ? achievement.color : achievement.color.opacity(0.07)))

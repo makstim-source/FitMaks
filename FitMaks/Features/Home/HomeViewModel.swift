@@ -92,7 +92,8 @@ final class HomeViewModel {
         allFoodEntries: [FoodEntry],
         allTrainingEntries: [TrainingEntry],
         activityLevel: String,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        includeStats: Bool = true
     ) {
         self.currentWeight = weight
         self.baseCaloriesGoal = baseCaloriesGoal
@@ -108,7 +109,9 @@ final class HomeViewModel {
         rebuildDailyCache()
         rebuildCopyablePlanDates()
         rebuildLoggedPastDaysSignature()
-        rebuildCachedStats(activityLevel: activityLevel)
+        if includeStats {
+            rebuildCachedStats(activityLevel: activityLevel)
+        }
     }
 
     func rebuildDailyCache() {
@@ -191,6 +194,10 @@ final class HomeViewModel {
             foodEntries: allFoodEntries
         )
         cachedPreviousWeekReport = WeeklyReportData.previousWeek(from: cachedLast30Stats, allFoodEntries: allFoodEntries)
+    }
+
+    func rebuildStats(activityLevel: String) {
+        rebuildCachedStats(activityLevel: activityLevel)
     }
 
     func dayMode(for date: Date) -> DayMode {

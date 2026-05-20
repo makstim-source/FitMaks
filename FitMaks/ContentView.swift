@@ -30,13 +30,15 @@ struct ContentView: View {
     @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
     @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
     @AppStorage("hasMigratedCategoriesV3") private var hasMigratedCategories = false
-    @AppStorage("hasRefinedFridgeCategoriesV4") private var hasRefinedFridgeCategoriesV4 = false
+    @AppStorage("hasRefinedFridgeCategoriesV7") private var hasRefinedFridgeCategoriesV7 = false
     @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
 
     @State var viewModel = HomeViewModel()
     @State private var syncWorkItem: DispatchWorkItem?
     @State private var isShowingCopyDayDialog = false
     @State private var isShowingClearDayConfirm = false
+    @State fileprivate var hasCompletedStartupHydration = false
+    @State fileprivate var isPerformingStartupHydration = false
 
     // MARK: - Day Mode
 
@@ -250,7 +252,7 @@ struct ContentView: View {
     // MARK: - Body
 
     
-    fileprivate func syncViewModel() {
+    fileprivate func syncViewModel(includeStats: Bool = true) {
         viewModel.sync(
             weight: weight,
             baseCaloriesGoal: baseCaloriesGoal,
@@ -259,13 +261,14 @@ struct ContentView: View {
             allFoodEntries: allFoodEntries,
             allTrainingEntries: allTrainingEntries,
             activityLevel: activityLevel,
-            modelContext: modelContext
+            modelContext: modelContext,
+            includeStats: includeStats
         )
     }
 
-    fileprivate func debouncedSync() {
+    fileprivate func debouncedSync(includeStats: Bool = true) {
         syncWorkItem?.cancel()
-        let item = DispatchWorkItem { [self] in syncViewModel() }
+        let item = DispatchWorkItem { [self] in syncViewModel(includeStats: includeStats) }
         syncWorkItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
     }
@@ -1213,82 +1216,126 @@ struct ContentView: View {
     }
 
 
-    fileprivate func migrateCarbsFatIfNeeded() {
+    private func yieldIfNeeded(_ index: Int, every batchSize: Int = 40) async {
+        if index > 0 && index.isMultiple(of: batchSize) {
+            await Task.yield()
+        }
+    }
+
+    fileprivate func migrateCarbsFatIfNeeded() async {
         guard !hasMigratedCarbsFat else { return }
-        hasMigratedCarbsFat = true
 
         func estimate(_ calories: Double, _ protein: Double) -> (carbs: Double, fat: Double) {
             let remaining = max(calories - protein * 4, 0)
             return (remaining * 0.55 / 4, remaining * 0.45 / 9)
         }
 
+        var didChange = false
         let foodEntries = (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        for entry in foodEntries where entry.carbs == 0 && entry.fat == 0 && entry.calories > 0 {
+        for (index, entry) in foodEntries.enumerated() where entry.carbs == 0 && entry.fat == 0 && entry.calories > 0 {
             let (c, f) = estimate(entry.calories, entry.protein)
             entry.carbs = c
             entry.fat = f
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
         let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for fav in favorites where fav.carbs == 0 && fav.fat == 0 && fav.calories > 0 {
+        for (index, fav) in favorites.enumerated() where fav.carbs == 0 && fav.fat == 0 && fav.calories > 0 {
             let (c, f) = estimate(fav.calories, fav.protein)
             fav.carbs = c
             fav.fat = f
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
         let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for recipe in recipes where recipe.carbs == 0 && recipe.fat == 0 && recipe.calories > 0 {
+        for (index, recipe) in recipes.enumerated() where recipe.carbs == 0 && recipe.fat == 0 && recipe.calories > 0 {
             let (c, f) = estimate(recipe.calories, recipe.protein)
             recipe.carbs = c
             recipe.fat = f
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
-        try? modelContext.save()
+        if didChange {
+            try? modelContext.save()
+        }
+        hasMigratedCarbsFat = true
     }
 
-    fileprivate func migrateCategoriesIfNeeded() {
+    fileprivate func migrateCategoriesIfNeeded() async {
         guard !hasMigratedCategories else { return }
-        hasMigratedCategories = true
 
+        var didChange = false
         let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for fav in favorites {
+        for (index, fav) in favorites.enumerated() {
             fav.categoryRaw = FridgeCategory.infer(name: fav.name, ingredients: fav.ingredients).rawValue
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
         let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for recipe in recipes {
+        for (index, recipe) in recipes.enumerated() {
             recipe.categoryRaw = MealCategory.infer(name: recipe.name, ingredients: recipe.ingredients, dateSaved: recipe.dateSaved).rawValue
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
-        try? modelContext.save()
+        if didChange {
+            try? modelContext.save()
+        }
+        hasMigratedCategories = true
     }
 
-    fileprivate func refineFridgeCategoriesIfNeeded() {
-        guard !hasRefinedFridgeCategoriesV4 else { return }
-        hasRefinedFridgeCategoriesV4 = true
+    fileprivate func refineFridgeCategoriesIfNeeded() async {
+        guard !hasRefinedFridgeCategoriesV7 else { return }
 
+        var didChange = false
         let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for fav in favorites {
+        for (index, fav) in favorites.enumerated() {
             fav.categoryRaw = FridgeCategory.resolve(
                 name: fav.name,
                 ingredients: fav.ingredients,
                 aiRawValue: nil
             ).rawValue
+            didChange = true
+            await yieldIfNeeded(index)
         }
 
-        try? modelContext.save()
+        if didChange {
+            try? modelContext.save()
+        }
+        hasRefinedFridgeCategoriesV7 = true
     }
 
     fileprivate func handleOnAppear() {
-        migrateCarbsFatIfNeeded()
-        migrateCategoriesIfNeeded()
-        refineFridgeCategoriesIfNeeded()
-        syncViewModel()
-        var tempCalories = lastKnownBaseCaloriesGoal
-        var tempProtein = lastKnownBaseProteinGoal
-        viewModel.initializeGoalSnapshotTracking(lastKnownCalories: &tempCalories, lastKnownProtein: &tempProtein)
-        lastKnownBaseCaloriesGoal = tempCalories
-        lastKnownBaseProteinGoal = tempProtein
+        if hasCompletedStartupHydration {
+            syncViewModel()
+        } else {
+            hasCompletedStartupHydration = true
+            isPerformingStartupHydration = true
+            syncViewModel(includeStats: false)
+
+            Task { @MainActor in
+                await Task.yield()
+                await migrateCarbsFatIfNeeded()
+                await migrateCategoriesIfNeeded()
+                await refineFridgeCategoriesIfNeeded()
+
+                syncViewModel(includeStats: false)
+
+                var tempCalories = lastKnownBaseCaloriesGoal
+                var tempProtein = lastKnownBaseProteinGoal
+                viewModel.initializeGoalSnapshotTracking(lastKnownCalories: &tempCalories, lastKnownProtein: &tempProtein)
+                lastKnownBaseCaloriesGoal = tempCalories
+                lastKnownBaseProteinGoal = tempProtein
+
+                await Task.yield()
+                viewModel.rebuildStats(activityLevel: activityLevel)
+                isPerformingStartupHydration = false
+            }
+        }
         
         viewModel.syncWeightFromHealthKit(allBodyMetrics: allBodyMetrics) { newWeight in weight = newWeight }
         
@@ -1399,9 +1446,9 @@ extension View {
 
     private func applyQueryObservers(_ view: ContentView) -> some View {
         self
-            .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync() }
-            .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync() }
-            .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync() }
+            .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
+            .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
+            .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
     }
 
     private func applyEventObservers(_ view: ContentView) -> some View {

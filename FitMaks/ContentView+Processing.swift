@@ -5,6 +5,19 @@ import PhotosUI
 // MARK: - AI Processing & Queue Management
 extension HomeViewModel {
 
+    func resolvedFridgeCategory(for result: FoodResult) -> FridgeCategory {
+        FridgeCategory.resolve(
+            name: result.food_name,
+            ingredients: result.ingredients_breakdown,
+            aiRawValue: result.fridge_category
+        )
+    }
+
+    func resolvedMealCategory(for result: FoodResult) -> MealCategory {
+        MealCategory.fromAI(result.meal_category)
+            ?? MealCategory.infer(name: result.food_name, ingredients: result.ingredients_breakdown, dateSaved: Date())
+    }
+
     func submitManualFoodText() {
         guard !manualText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -590,7 +603,12 @@ extension HomeViewModel {
                         protein: item.protein,
                         carbs: item.carbs,
                         fat: item.fat,
-                        ingredients: item.ingredients
+                        ingredients: item.ingredients,
+                        category: FridgeCategory.resolve(
+                            name: item.name,
+                            ingredients: item.ingredients,
+                            aiRawValue: item.fridgeCategoryKey
+                        )
                     ))
                 case .meals:
                     modelContext?.insert(SavedRecipe(
@@ -601,7 +619,9 @@ extension HomeViewModel {
                         protein: item.protein,
                         carbs: item.carbs,
                         fat: item.fat,
-                        ingredients: item.ingredients
+                        ingredients: item.ingredients,
+                        category: MealCategory.fromAI(item.mealCategoryKey)
+                            ?? MealCategory.infer(name: item.name, ingredients: item.ingredients, dateSaved: Date())
                     ))
                 }
             }
@@ -661,7 +681,8 @@ extension HomeViewModel {
                         protein: result.protein,
                         carbs: result.carbs,
                         fat: result.fat,
-                        ingredients: result.ingredients_breakdown
+                        ingredients: result.ingredients_breakdown,
+                        category: resolvedMealCategory(for: result)
                     ))
                 } else {
                     modelContext?.insert(FavoriteFood(
@@ -671,7 +692,8 @@ extension HomeViewModel {
                         protein: result.protein,
                         carbs: result.carbs,
                         fat: result.fat,
-                        ingredients: result.ingredients_breakdown
+                        ingredients: result.ingredients_breakdown,
+                        category: resolvedFridgeCategory(for: result)
                     ))
                 }
             }
@@ -705,7 +727,8 @@ extension HomeViewModel {
                     protein: result.protein,
                     carbs: result.carbs,
                     fat: result.fat,
-                    ingredients: result.ingredients_breakdown
+                    ingredients: result.ingredients_breakdown,
+                    category: resolvedFridgeCategory(for: result)
                 ))
             }
         }

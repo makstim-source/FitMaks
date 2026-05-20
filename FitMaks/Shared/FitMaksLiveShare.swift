@@ -878,12 +878,8 @@ private struct FitMaksLiveCanvas: View {
                 Spacer()
 
                 payloadCard
-                    .padding(.horizontal, backgroundImage != nil ? 52 : 36)
-                    .padding(.bottom, backgroundImage != nil ? 66 : 0)
-
-                if backgroundImage == nil {
-                    Spacer()
-                }
+                    .padding(.horizontal, 52)
+                    .padding(.bottom, 66)
             }
             .offset(y: contentOffsetY)
         }

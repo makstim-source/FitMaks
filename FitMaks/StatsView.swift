@@ -565,11 +565,11 @@ struct AchievementsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 HomeBackground()
 
-                ScrollView(showsIndicators: false) {
+                ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 18) {
                         StatsAchievementsCard(
                             collection: achievementCollection,

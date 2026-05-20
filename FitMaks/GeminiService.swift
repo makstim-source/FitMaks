@@ -31,10 +31,12 @@ struct FoodResult: Codable {
     let carbs: Double
     let fat: Double
     let ingredients_breakdown: String
+    let fridge_category: String?
+    let meal_category: String?
     let ai_response_text: String
 
     private enum CodingKeys: String, CodingKey {
-        case food_name, emoji, source_photo_number, calories, protein, carbs, fat, ingredients_breakdown, ai_response_text
+        case food_name, emoji, source_photo_number, calories, protein, carbs, fat, ingredients_breakdown, fridge_category, meal_category, ai_response_text
     }
 
     init(
@@ -46,6 +48,8 @@ struct FoodResult: Codable {
         carbs: Double = 0,
         fat: Double = 0,
         ingredients_breakdown: String,
+        fridge_category: String? = nil,
+        meal_category: String? = nil,
         ai_response_text: String
     ) {
         self.food_name = food_name
@@ -56,6 +60,8 @@ struct FoodResult: Codable {
         self.carbs = carbs
         self.fat = fat
         self.ingredients_breakdown = ingredients_breakdown
+        self.fridge_category = fridge_category
+        self.meal_category = meal_category
         self.ai_response_text = ai_response_text
     }
 
@@ -69,6 +75,8 @@ struct FoodResult: Codable {
         carbs = (try? c.flexibleDouble(forKey: .carbs)) ?? 0
         fat = (try? c.flexibleDouble(forKey: .fat)) ?? 0
         ingredients_breakdown = (try c.decodeIfPresent(String.self, forKey: .ingredients_breakdown)) ?? ""
+        fridge_category = try c.decodeIfPresent(String.self, forKey: .fridge_category)
+        meal_category = try c.decodeIfPresent(String.self, forKey: .meal_category)
         ai_response_text = (try c.decodeIfPresent(String.self, forKey: .ai_response_text)) ?? ""
     }
 }
@@ -204,6 +212,37 @@ class GeminiService {
     private var foodImageItemsKeys: [String] = []
     private var foodTextEstimateCache: [String: FoodResult] = [:]
     private var foodTextEstimateKeys: [String] = []
+
+    private let fridgeCategoryKeys = "proteins, healthy_carbs, fruit_veg, dairy, drinks, snacks, sauces_extras, other"
+    private let mealCategoryKeys = "main_dish, sides, salads_starters, breakfast, snacks, other"
+
+    private var categoryPromptBlock: String {
+        """
+        CATEGORY RULES:
+        - fridge_category is the best reusable PRODUCT / FRIDGE bucket for this item.
+        - meal_category is the best reusable MEAL bucket for this item.
+        - fridge_category MUST be exactly one of: \(fridgeCategoryKeys).
+        - meal_category MUST be exactly one of: \(mealCategoryKeys).
+        - Never invent new category values. If unsure, use "other".
+        - Choose fridge_category by PRODUCT TYPE, not by marketing claims like "high protein".
+        - Yogurt / quark / skyr / pudding / cottage cheese belong to "dairy".
+        - Ready-to-drink shakes, cartons, bottled protein drinks, juices, sodas, and coffees belong to "drinks".
+        - Whey / isolate powders and raw meat / fish / eggs belong to "proteins".
+        - Bars, cookies, candy, and similar grab-and-go items belong to "snacks".
+        """
+    }
+
+    private var singleFoodJSONShape: String {
+        """
+        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "fridge_category": "proteins", "meal_category": "main_dish", "ai_response_text": ""}
+        """
+    }
+
+    private var multiFoodJSONShape: String {
+        """
+        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"carbs":0,"fat":0,"ingredients_breakdown":"Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0","fridge_category":"proteins","meal_category":"main_dish","ai_response_text":""}]}
+        """
+    }
     
     func analyzeImages(images: [UIImage], ignoreCache: Bool = false, completion: @escaping (FoodResult?, String?) -> Void) {
         let cacheKey = foodImageCacheKey(images: images)
@@ -232,10 +271,11 @@ class GeminiService {
         - The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
         - If the same image is analyzed again, return the same ingredient weights and totals.
         - If you can identify the product brand/name but cannot read nutrition values from the label, search for its official nutrition data online.
+        \(categoryPromptBlock)
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
+        \(singleFoodJSONShape)
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -265,10 +305,11 @@ class GeminiService {
         If the user names a specific brand or product, search for its real nutrition data online but use a generic dish name, not the brand name.
         NAMING RULE: food_name must be a short appetizing description (2-4 words), not a brand or product label. Use generic names like "Herb Chicken & Rice" not "Kanan Ohut Fileeleike".
         LANGUAGE RULE: Detect the language the user wrote in. Write food_name, ingredient names, and ai_response_text in that same language.
+        \(categoryPromptBlock)
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "ai_response_text": ""}
+        \(singleFoodJSONShape)
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
         sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
@@ -322,10 +363,11 @@ class GeminiService {
         - The top-level calories, protein, carbs, and fat for each item MUST equal the sum of its ingredient rows.
         - If the same images are analyzed again, return the same items, ingredient weights, and totals.
         - If a nutrition label is partially unreadable, or the product weight/nutrition info is missing, search the internet for the exact product name to find accurate nutrition data.
+        \(categoryPromptBlock)
 
         Return ONLY a single JSON object.
         CRITICAL RULE: You MUST use exactly this structure:
-        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"carbs":0,"fat":0,"ingredients_breakdown":"Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0","ai_response_text":""}]}
+        \(multiFoodJSONShape)
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
         """
 
@@ -357,7 +399,8 @@ class GeminiService {
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
         If you need accurate nutrition data for a product, search the internet.
         LANGUAGE RULE: Detect the language of USER COMMAND. Write food_name, ingredients_breakdown names, and ai_response_text in that same language.
-        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;12;3\\nItem2;50g;50;5;8;2", "ai_response_text": "your answer"}
+        \(categoryPromptBlock)
+        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;12;3\\nItem2;50g;50;5;8;2", "fridge_category": "proteins", "meal_category": "main_dish", "ai_response_text": "your answer"}
         Every ingredients_breakdown row MUST have exactly 6 semicolon-separated fields: Item;Weight;Kcal;Protein;Carbs;Fat.
         """
         let imgs = image != nil ? [image!] : []
@@ -374,6 +417,8 @@ class GeminiService {
                     carbs: currentData.carbs,
                     fat: currentData.fat,
                     ingredients_breakdown: currentData.ingredients_breakdown,
+                    fridge_category: currentData.fridge_category,
+                    meal_category: currentData.meal_category,
                     ai_response_text: text.isEmpty ? "I couldn't process that. Try rephrasing." : text
                 )
                 completion(fallback, nil)
@@ -592,7 +637,8 @@ class GeminiService {
         Extract all individual food items from this grocery receipt or image. 
         For each item, estimate calories, protein, carbs, and fat per 100g. 
         Return ONLY JSON: 
-        {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item;100g;0;0;0;0", "ai_response_text": ""}]}
+        \(categoryPromptBlock)
+        {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item;100g;0;0;0;0", "fridge_category": "fruit_veg", "meal_category": "other", "ai_response_text": ""}]}
         """
         sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self, temperature: 0.1, topP: 0.3, topK: 1) { result, err in completion(result?.items, err) }
     }
@@ -941,6 +987,8 @@ class GeminiService {
                 carbs: result.carbs,
                 fat: result.fat,
                 ingredients_breakdown: paddedBreakdown,
+                fridge_category: result.fridge_category,
+                meal_category: result.meal_category,
                 ai_response_text: result.ai_response_text
             ))
         }
@@ -964,6 +1012,8 @@ class GeminiService {
                 carbs: carbs,
                 fat: fat,
                 ingredients_breakdown: paddedBreakdown,
+                fridge_category: result.fridge_category,
+                meal_category: result.meal_category,
                 ai_response_text: result.ai_response_text
             )
         )
@@ -979,6 +1029,8 @@ class GeminiService {
             carbs: max(0, result.carbs.rounded()),
             fat: max(0, result.fat.rounded()),
             ingredients_breakdown: result.ingredients_breakdown,
+            fridge_category: result.fridge_category,
+            meal_category: result.meal_category,
             ai_response_text: result.ai_response_text
         )
     }

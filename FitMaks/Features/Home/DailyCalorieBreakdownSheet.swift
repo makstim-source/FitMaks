@@ -408,7 +408,9 @@ struct DailyCalorieBreakdownSheet: View {
     }
 
     func legendRow(title: String, detail: String, description: String, color: Color, darkText: Bool = false) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        let chipWidth: CGFloat = title == "In range" ? 108 : 74
+
+        return HStack(alignment: .center, spacing: 12) {
             Text(title)
                 .font(.caption2)
                 .fontWeight(.black)
@@ -416,7 +418,9 @@ struct DailyCalorieBreakdownSheet: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(color))
-                .frame(width: 84, alignment: .center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(width: chipWidth, alignment: .center)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(detail)
@@ -431,8 +435,9 @@ struct DailyCalorieBreakdownSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.appSurface)

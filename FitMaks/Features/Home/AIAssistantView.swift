@@ -210,17 +210,23 @@ struct AIAssistantView: View {
         .shadow(color: Color.neonCyan.opacity(0.12), radius: 18, x: 0, y: 10)
     }
 
-    private var quickActionItems: [(icon: String, title: String, subtitle: String, color: Color, prompt: String)] {
+    private enum QuickActionBehavior {
+        case autoSummary
+        case sendPrompt(String)
+        case focusInput
+    }
+
+    private var quickActionItems: [(icon: String, title: String, subtitle: String, color: Color, behavior: QuickActionBehavior)] {
         Calendar.current.isDateInTomorrow(selectedDate)
             ? [
-                ("calendar.badge.plus", "Plan tomorrow", "Build a meal plan for the day", .neonCyan, ""),
-                ("lightbulb.fill", "Suggest meals", "What should I eat based on my fridge?", .fitOrange, "What should I eat tomorrow based on what's in my fridge? Suggest 3 meal options with calories and protein."),
-                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, ""),
+                ("calendar.badge.plus", "Plan tomorrow", "Build a meal plan for the day", .neonCyan, .autoSummary),
+                ("lightbulb.fill", "Suggest meals", "What should I eat based on my fridge?", .fitOrange, .sendPrompt("What should I eat tomorrow based on what's in my fridge? Suggest 3 meal options with calories and protein.")),
+                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, .focusInput),
             ]
             : [
-                ("waveform.path.ecg", "Analyze my day", "Full breakdown with tips", .neonCyan, ""),
-                ("fork.knife", "Critique my meals", "Honest feedback on food choices", .fitOrange, "Give me honest, specific feedback on my food choices today. What was good, what could be better, and what should I change?"),
-                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, ""),
+                ("waveform.path.ecg", "Analyze my day", "Full breakdown with tips", .neonCyan, .autoSummary),
+                ("fork.knife", "Critique my meals", "Honest feedback on food choices", .fitOrange, .sendPrompt("Give me honest, specific feedback on my food choices today. What was good, what could be better, and what should I change?")),
+                ("questionmark.bubble.fill", "Ask a question", "Anything about nutrition or fitness", .fitPurple, .focusInput),
             ]
     }
 
@@ -228,11 +234,16 @@ struct AIAssistantView: View {
         VStack(spacing: 10) {
             ForEach(quickActionItems, id: \.title) { action in
                 Button {
-                    if action.prompt.isEmpty {
+                    switch action.behavior {
+                    case .autoSummary:
                         fetchSummary(isInitial: true, message: "", image: nil)
-                    } else {
-                        messages.append(ChatMessage(text: action.prompt, isUser: true))
-                        fetchSummary(isInitial: false, message: action.prompt, image: nil)
+                    case let .sendPrompt(prompt):
+                        messages.append(ChatMessage(text: prompt, isUser: true))
+                        fetchSummary(isInitial: false, message: prompt, image: nil)
+                    case .focusInput:
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isInputFocused = true
+                        }
                     }
                 } label: {
                     HStack(spacing: 14) {

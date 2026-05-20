@@ -71,6 +71,8 @@ struct AIReviewFoodItem: Identifiable {
     var carbs: Double
     var fat: Double
     var ingredients: String
+    var fridgeCategoryKey: String?
+    var mealCategoryKey: String?
     var isSelected = true
 }
 
@@ -104,7 +106,9 @@ struct AIResultReview: Identifiable {
                 protein: result.protein,
                 carbs: result.carbs,
                 fat: result.fat,
-                ingredients: result.ingredients_breakdown
+                ingredients: result.ingredients_breakdown,
+                fridgeCategoryKey: result.fridge_category,
+                mealCategoryKey: result.meal_category
             )
         }
 

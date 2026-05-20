@@ -18,6 +18,65 @@ struct StatsMetricGrid: View {
     }
 }
 
+struct StatsLast7DaysReportButton: View {
+    let dateRange: String
+    let weeklyScore: Int
+    let perfectDays: Int
+    let calorieWins: Int
+    let proteinWins: Int
+    let stepWins: Int
+    let scoreColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Last 7 days report")
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text(dateRange)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.appMuted)
+
+                    Text("\(weeklyScore)% score · \(perfectDays)/7 perfect days")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(scoreColor)
+                }
+
+                Spacer(minLength: 10)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(scoreColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                scoreColor.opacity(0.16),
+                                Color.appSurface,
+                                Color.appSurface.opacity(0.96)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(scoreColor.opacity(0.24), lineWidth: 1)
+                    )
+            )
+            .shadow(color: scoreColor.opacity(0.12), radius: 10, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct StatsChallengeCard: View {
     let currentPerfectStreak: Int
     let remainingChecks: Int

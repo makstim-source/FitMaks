@@ -13,7 +13,9 @@ struct NewEntrySheet: View {
     var onCancel: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        let light = isLightAppTheme()
+
+        VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NEW ENTRY")
@@ -37,29 +39,26 @@ struct NewEntrySheet: View {
 
             newEntrySection("YOUR STUFF", color: .neonGreen) {
                 HStack(spacing: 10) {
-                    newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, surfaceTint: .neonCyan, action: onFromFridge)
-                    newEntryButton("From Meals", icon: "fork.knife", color: .fitOrange, surfaceTint: .neonCyan, action: onFromMeals)
-                    newEntryButton("Build Meal", icon: "link", color: .yellow, surfaceTint: .neonCyan, action: onBuildMeal)
+                    newEntryButton("From Fridge", icon: "refrigerator.fill", color: .neonCyan, action: onFromFridge)
+                    newEntryButton("From Meals", icon: "fork.knife", color: .fitOrange, action: onFromMeals)
+                    newEntryButton("Build Meal", icon: "link", color: .neonGreen, action: onBuildMeal)
                 }
             }
 
             newEntrySection("CAPTURE FOOD", color: .fitOrange) {
                 HStack(spacing: 10) {
-                    newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, surfaceTint: .neonGreen, action: onCamera)
-                    newEntryButton("Library", icon: "photo.on.rectangle", color: .yellow, surfaceTint: .neonGreen, action: onLibrary)
-                    newEntryButton("Type Food", icon: "pencil", color: .fitPurple, surfaceTint: .neonGreen, action: onTypeText)
+                    newEntryButton("Camera", icon: "camera.fill", color: .neonGreen, action: onCamera)
+                    newEntryButton("Library", icon: "photo.on.rectangle", color: .fitOrange, action: onLibrary)
+                    newEntryButton("Type Food", icon: "pencil", color: .fitPurple, action: onTypeText)
                 }
             }
 
-            HStack {
-                newEntrySection("TRAINING", color: .neonCyan) { EmptyView() }
-                Spacer()
-                newEntrySection("HELP", color: .fitPurple) { EmptyView() }
-            }
-            HStack(spacing: 10) {
-                newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, surfaceTint: .fitOrange, action: onTraining)
-                newEntryButton("Type Training", icon: "pencil.line", color: .fitPurple, surfaceTint: .fitOrange, action: onTypeTraining)
-                newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .fitPurple, surfaceTint: .fitPurple, action: onFAQ)
+            newEntrySection("TRAINING & HELP", color: .neonCyan) {
+                HStack(spacing: 10) {
+                    newEntryButton("Training Screenshot", icon: "dumbbell.fill", color: .neonCyan, action: onTraining)
+                    newEntryButton("Type Training", icon: "pencil.line", color: .fitOrange, action: onTypeTraining)
+                    newEntryButton("F.A.Q.", icon: "questionmark.circle.fill", color: .fitPurple, action: onFAQ)
+                }
             }
 
             Button(action: onCancel) {
@@ -77,42 +76,64 @@ struct NewEntrySheet: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.appBackgroundMid, Color.appBackgroundEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(Color.appElevated.opacity(light ? 0.985 : 0.975))
+
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(themeCardGradient())
+                    .opacity(light ? 0.50 : 0.66)
+
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(light ? 0.22 : 0.06),
+                                Color.clear,
+                                Color.black.opacity(light ? 0.02 : 0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 28)
+                    .stroke(Color.appBorder.opacity(light ? 0.95 : 1.15), lineWidth: 1)
+            )
         )
+        .shadow(color: themeShadowColor().opacity(0.9), radius: 22, x: 0, y: 14)
     }
 
     private func newEntrySection<Content: View>(_ title: String, color: Color, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 9, weight: .heavy))
-                .foregroundColor(.appMuted)
-                .tracking(0.8)
-                .overlay(
-                    Rectangle()
-                        .fill(color)
-                        .frame(height: 2)
-                        .offset(y: 8),
-                    alignment: .bottom
-                )
-                .padding(.bottom, 4)
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(1.4)
+
+                Capsule()
+                    .fill(color.opacity(0.82))
+                    .frame(width: 58, height: 2)
+                    .shadow(color: color.opacity(0.35), radius: 6)
+            }
+            .padding(.bottom, 1)
+
             content()
         }
     }
 
-    private func newEntryButton(_ title: String, icon: String, color: Color, surfaceTint: Color, action: @escaping () -> Void) -> some View {
+    private func newEntryButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
-                            colors: [color.opacity(0.18), color.opacity(0.08)],
+                            colors: [
+                                color.opacity(isLightAppTheme() ? 0.18 : 0.24),
+                                Color.appSurface.opacity(isLightAppTheme() ? 0.95 : 0.58)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -125,8 +146,9 @@ struct NewEntrySheet: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(color.opacity(0.25), lineWidth: 1)
+                            .stroke(color.opacity(isLightAppTheme() ? 0.24 : 0.34), lineWidth: 1)
                     )
+                    .shadow(color: color.opacity(isLightAppTheme() ? 0.10 : 0.22), radius: 9, x: 0, y: 5)
 
                 Text(title)
                     .font(.system(size: 10, weight: .heavy))
@@ -141,8 +163,9 @@ struct NewEntrySheet: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                surfaceTint.opacity(0.11),
-                                Color.appSurface.opacity(0.72)
+                                color.opacity(isLightAppTheme() ? 0.055 : 0.075),
+                                Color.appSurface.opacity(isLightAppTheme() ? 0.92 : 0.76),
+                                Color.appElevated.opacity(isLightAppTheme() ? 0.98 : 0.88)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -150,10 +173,16 @@ struct NewEntrySheet: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(surfaceTint.opacity(0.18), lineWidth: 1)
+                            .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
                     )
             )
-            .shadow(color: surfaceTint.opacity(0.08), radius: 10, x: 0, y: 6)
+            .overlay(alignment: .top) {
+                Capsule()
+                    .fill(color.opacity(0.55))
+                    .frame(width: 28, height: 2)
+                    .offset(y: 1)
+            }
+            .shadow(color: themeShadowColor().opacity(0.32), radius: 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
     }

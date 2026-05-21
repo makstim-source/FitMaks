@@ -57,7 +57,7 @@ struct SignInView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("FitMaks")
+                    Text("ShapeForge")
                         .font(.system(size: 32, weight: .black))
                         .foregroundColor(.appText)
                         .tracking(1.2)

@@ -276,7 +276,7 @@ struct HomeProcessingRow: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : item.isTraining ? "FitMaks AI analyzing training..." : "FitMaks AI analyzing food..."))
+                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : item.isTraining ? "ShapeForge AI analyzing training..." : "ShapeForge AI analyzing food..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.appText)

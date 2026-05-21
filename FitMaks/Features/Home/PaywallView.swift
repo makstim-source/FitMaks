@@ -39,7 +39,7 @@ struct PaywallView: View {
                     .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("FitMaks Pro")
+            .navigationTitle("ShapeForge Pro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

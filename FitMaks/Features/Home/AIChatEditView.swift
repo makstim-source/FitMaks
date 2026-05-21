@@ -137,7 +137,7 @@ struct AIChatEditView: View {
                         IngredientBreakdownCard(title: "BREAKDOWN", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .neonGreen.opacity(0.8))
                         ForEach(messages) { msg in
                             VStack(spacing: 10) {
-                                CoachMessageBubble(message: msg, accentColor: .neonGreen, assistantName: "FitMaks AI")
+                                CoachMessageBubble(message: msg, accentColor: .neonGreen, assistantName: "ShapeForge AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein {
                                     IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan)
                                         .padding(.trailing, 20)

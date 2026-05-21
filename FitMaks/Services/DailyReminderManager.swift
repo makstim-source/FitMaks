@@ -142,7 +142,7 @@ final class DailyReminderManager {
             return "\(Int(stepsMissing)) steps left before the streak is safe. Tiny walk, big dignity."
         }
 
-        return "Looks close. Open FitMaks and lock the day in."
+        return "Looks close. Open ShapeForge and lock the day in."
     }
 
     private func reminderIdentifiers(startingAt date: Date) -> [String] {

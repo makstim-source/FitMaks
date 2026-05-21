@@ -110,7 +110,7 @@ struct FavoriteChatEditView: View {
                         favoriteBasisCard
                             ForEach(messages) { msg in
                             VStack(spacing: 10) {
-                                CoachMessageBubble(message: msg, accentColor: .neonCyan, assistantName: "FitMaks AI")
+                                CoachMessageBubble(message: msg, accentColor: .neonCyan, assistantName: "ShapeForge AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .neonCyan).padding(.trailing, 20) }
                             }
                             .id(msg.id)
@@ -514,7 +514,7 @@ struct MealChatEditView: View {
                         IngredientBreakdownCard(title: "BREAKDOWN", ingredients: originalIngredients, calories: originalCalories, protein: originalProtein, carbs: originalCarbs, fat: originalFat, accentColor: .orange)
                             ForEach(messages) { msg in
                             VStack(spacing: 10) {
-                                CoachMessageBubble(message: msg, accentColor: .orange, assistantName: "FitMaks AI")
+                                CoachMessageBubble(message: msg, accentColor: .orange, assistantName: "ShapeForge AI")
                                 if let ing = msg.ingredients, let cal = msg.calories, let prot = msg.protein { IngredientBreakdownCard(title: "UPDATED", ingredients: ing, calories: cal, protein: prot, carbs: msg.carbs ?? 0, fat: msg.fat ?? 0, accentColor: .orange).padding(.trailing, 20) }
                             }
                             .id(msg.id)

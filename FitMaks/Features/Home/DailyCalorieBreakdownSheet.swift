@@ -117,7 +117,7 @@ struct DailyCalorieBreakdownSheet: View {
             if dayMode != .chill {
                 VStack(alignment: .leading, spacing: 6) {
                     if trainingCalories > 0 {
-                        Text("Workout burned \(Int(trainingCalories)) kcal. FitMaks first credits 70% of that burn, then trims the day bonus if your profile is already set to a higher weekly activity level, so the same training is not counted twice.")
+                        Text("Workout burned \(Int(trainingCalories)) kcal. ShapeForge first credits 70% of that burn, then trims the day bonus if your profile is already set to a higher weekly activity level, so the same training is not counted twice.")
                     } else {
                         switch dayMode {
                         case .cardio:
@@ -363,7 +363,7 @@ struct DailyCalorieBreakdownSheet: View {
             }
 
             if uploadedSteps > actualSteps {
-                Text("Workout screenshots act as provisional steps while Apple Health catches up. When Health later shows a higher number, FitMaks uses that instead so the day is not double-counted.")
+                Text("Workout screenshots act as provisional steps while Apple Health catches up. When Health later shows a higher number, ShapeForge uses that instead so the day is not double-counted.")
                     .font(.caption)
                     .foregroundColor(.appMuted)
                     .lineSpacing(3)

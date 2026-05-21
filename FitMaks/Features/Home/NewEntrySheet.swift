@@ -224,7 +224,7 @@ struct FAQSheet: View {
                         .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(.yellow)
                         .tracking(1)
-                    Text("How to use FitMaks")
+                    Text("How to use ShapeForge")
                         .font(.system(size: 22, weight: .black))
                         .foregroundColor(.appText)
                 }

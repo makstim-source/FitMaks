@@ -364,7 +364,7 @@ extension HomeViewModel {
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else { return }
             let content = UNMutableNotificationContent()
-            content.title = "FitMaks"
+            content.title = "ShapeForge"
             content.body = "Synced from Apple Health: \(String(format: "%.1f", snapshot.weightKg)) kg"
             content.sound = .default
             center.add(UNNotificationRequest(identifier: "fitmaks.weight.sync.\(Date().timeIntervalSince1970)", content: content, trigger: nil))

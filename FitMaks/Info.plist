@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>FitMaks saves shared images to your photo library</string>
+	<string>ShapeForge saves shared images to your photo library</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -80,7 +80,7 @@ struct TypewriterText: View {
 struct CoachMessageBubble: View {
     var message: ChatMessage
     var accentColor: Color = .neonCyan
-    var assistantName: String = "FitMaks Coach"
+    var assistantName: String = "ShapeForge Coach"
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {

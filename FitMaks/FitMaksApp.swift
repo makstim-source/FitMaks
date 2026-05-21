@@ -140,7 +140,7 @@ private struct LaunchSplashView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("FitMaks")
+                    Text("ShapeForge")
                         .font(.system(size: 34, weight: .black))
                         .foregroundColor(palette.text)
                         .tracking(1.2)
@@ -198,21 +198,21 @@ private struct OnboardingView: View {
 
     private let introPages: [OnboardingPage] = [
         OnboardingPage(
-            eyebrow: "FitMaks",
+            eyebrow: "ShapeForge",
             title: "LOG YOUR DAY",
             subtitle: "Just snap your food or upload a workout screenshot.",
             systemName: "sparkles",
             color: .neonGreen
         ),
         OnboardingPage(
-            eyebrow: "FitMaks",
+            eyebrow: "ShapeForge",
             title: "AI DOES THE BORING PART.",
             subtitle: "AI detects items, estimates calories and protein.",
             systemName: "camera.macro",
             color: .neonCyan
         ),
         OnboardingPage(
-            eyebrow: "FitMaks",
+            eyebrow: "ShapeForge",
             title: "CONSISTENCY WINS.",
             subtitle: "Close your targets, build streaks, and unlock achievements.",
             systemName: "flame.fill",
@@ -275,7 +275,7 @@ private struct OnboardingView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("FitMaks")
+                    Text("ShapeForge")
                         .font(.system(size: 15, weight: .black))
                         .foregroundColor(.appText)
                         .tracking(1.4)
@@ -464,7 +464,7 @@ private struct OnboardingView: View {
                 setupHeader(
                     eyebrow: "FINAL TOUCH",
                     title: "Choose your launch look.",
-                    subtitle: "Pick how FitMaks should feel on day one. You can always change it later.",
+                    subtitle: "Pick how ShapeForge should feel on day one. You can always change it later.",
                     systemName: "paintpalette.fill",
                     color: selectedTheme.palette.primary
                 )
@@ -544,7 +544,7 @@ private struct OnboardingView: View {
                 setupHeader(
                     eyebrow: "YOUR STARTING POINT",
                     title: "Set your body data.",
-                    subtitle: "FitMaks uses this to calculate calories and protein before your first scan.",
+                    subtitle: "ShapeForge uses this to calculate calories and protein before your first scan.",
                     systemName: "person.crop.circle.badge.checkmark",
                     color: .fitPurple
                 )

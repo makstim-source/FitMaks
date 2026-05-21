@@ -185,7 +185,7 @@ struct FavoritePortionSettingsSheet: View {
                     .fontWeight(.black)
                     .foregroundColor(.appText)
 
-                Text("Choose how FitMaks should count this product in Fridge.")
+                Text("Choose how ShapeForge should count this product in Fridge.")
                     .font(.subheadline)
                     .foregroundColor(.appMuted)
 

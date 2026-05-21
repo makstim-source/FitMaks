@@ -47,7 +47,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
             return AppPalette(
                 name: "Original",
                 subtitle: "High energy neon",
-                description: "The current FitMaks look: bright, sporty, very readable.",
+                description: "The current ShapeForge look: bright, sporty, very readable.",
                 primary: Color(red: 173/255, green: 255/255, blue: 47/255),
                 secondary: Color(red: 6/255, green: 156/255, blue: 232/255),
                 action: Color(red: 1.0, green: 0.48, blue: 0.12),
@@ -68,7 +68,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
             return AppPalette(
                 name: "Neon Core",
                 subtitle: "Premium neon sport",
-                description: "Same FitMaks DNA, but more polished: richer depth, cleaner glow, more premium contrast.",
+                description: "Same ShapeForge DNA, but more polished: richer depth, cleaner glow, more premium contrast.",
                 primary: Color(red: 190/255, green: 255/255, blue: 70/255),
                 secondary: Color(red: 48/255, green: 191/255, blue: 255/255),
                 action: Color(red: 255/255, green: 148/255, blue: 52/255),
@@ -416,7 +416,7 @@ struct ThemeSelectionView: View {
                         .foregroundColor(.neonGreen)
                         .tracking(1.1)
 
-                    Text(isFirstRun ? "Make FitMaks feel like yours." : "Change the mood anytime.")
+                    Text(isFirstRun ? "Make ShapeForge feel like yours." : "Change the mood anytime.")
                         .font(.system(size: 34, weight: .black))
                         .foregroundColor(.appText)
                         .lineSpacing(0)

@@ -47,9 +47,7 @@ struct ProfileView: View {
     @State private var isInteractingWithBodyChart = false
     @State private var lastBodyChartSelectionAt = Date.distantPast
     @State private var isShowingBodyMetricHistory = false
-    @State private var isShowingSignOutConfirm = false
-    @State private var isShowingDeleteConfirm = false
-    @State private var isShowingThemeSelection = false
+    @State private var isShowingAppSettings = false
     @State private var isShowingPaywall = false
     @State private var goalSnapshot: GoalSnapshot?
     @State private var livePayload: FitMaksSharePayload?
@@ -192,10 +190,8 @@ struct ProfileView: View {
                         changeGoalsButton
                         profileSectionDivider(title: "Body tracking")
                         weightTrackerCard
-                        profileSectionDivider(title: "Subscription")
-                        subscriptionCard
-                        profileSectionDivider(title: "Account")
-                        accountCard
+                        profileSectionDivider(title: "App")
+                        appSettingsButton
                     }
                     .padding()
                     .padding(.bottom, 20)
@@ -253,10 +249,8 @@ struct ProfileView: View {
         .fullScreenCover(item: $livePayload) { payload in
             FitMaksLiveView(payload: payload, options: mergedPostOptions())
         }
-        .fullScreenCover(isPresented: $isShowingThemeSelection) {
-            ThemeSelectionView(isFirstRun: false) {
-                isShowingThemeSelection = false
-            }
+        .fullScreenCover(isPresented: $isShowingAppSettings) {
+            AppSettingsView()
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView()
@@ -275,278 +269,65 @@ struct ProfileView: View {
             guard let image else { return }
             analyzeBodyImage(image)
         }
-        .alert("Sign Out", isPresented: $isShowingSignOutConfirm) {
-            Button("Sign Out", role: .destructive) {
-                AuthService.shared.signOut()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Your data stays on this device, but iCloud sync will stop until you sign in again.")
-        }
-        .alert("Delete Account", isPresented: $isShowingDeleteConfirm) {
-            Button("Delete", role: .destructive) {
-                AuthService.shared.signOut()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes your Apple ID link from FitMaks. Your local data stays on this device. To fully delete iCloud data, go to Settings → Apple ID → iCloud → Manage Storage.")
-        }
     }
 
-    private var subscriptionCard: some View {
+    private var appSettingsButton: some View {
         let sub = SubscriptionManager.shared
 
-        return VStack(spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Image(systemName: sub.isPro ? "crown.fill" : "lock.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(sub.isPro ? .neonGreen : .fitOrange)
-
-                        Text(sub.isPro ? "FitMaks Pro" : "Free Plan")
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundColor(.appText)
-                    }
-
-                    if sub.isPro {
-                        Text("All features unlocked")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.appMuted)
-                    } else {
-                        Text("\(AIUsageLimiter.scansRemaining) AI scans left today")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.appMuted)
-                    }
-                }
-
-                Spacer()
-
-                if !sub.isPro {
-                    Button {
-                        isShowingPaywall = true
-                    } label: {
-                        Text("Upgrade")
-                            .font(.system(size: 13, weight: .black))
-                            .foregroundColor(.appAccentText)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(Capsule().fill(Color.neonGreen))
-                            .shadow(color: .neonGreen.opacity(0.3), radius: 10, y: 5)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            if sub.isPro {
-                Button {
-                    Task {
-                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                            try? await AppStore.showManageSubscriptions(in: windowScene)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "creditcard")
-                            .font(.system(size: 13, weight: .bold))
-                        Text("Manage Subscription")
-                            .font(.system(size: 13, weight: .heavy))
-                    }
-                    .foregroundColor(.appMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.appSurface))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    Task { await sub.restorePurchases() }
-                } label: {
-                    Text("Restore Purchases")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(.appMuted)
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(themeCardGradient())
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(sub.isPro ? Color.neonGreen.opacity(0.22) : Color.appBorder, lineWidth: 1))
-        )
-        .shadow(color: sub.isPro ? .neonGreen.opacity(0.1) : .clear, radius: 14, y: 7)
-    }
-
-    private var accountCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        return Button {
+            isShowingAppSettings = true
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(AuthService.shared.isSignedIn ? Color.neonGreen.opacity(0.18) : Color.appSurface)
+                        .fill(neonPurple.opacity(0.18))
 
-                    Image(systemName: AuthService.shared.isSignedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(AuthService.shared.isSignedIn ? .neonGreen : .appMuted)
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(neonPurple)
                 }
                 .frame(width: 48, height: 48)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    if AuthService.shared.isSignedIn {
-                        Text(AuthService.shared.displayName ?? "Apple ID connected")
-                            .font(.headline)
-                            .fontWeight(.heavy)
-                            .foregroundColor(.appText)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("App settings")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appText)
 
-                        Text("iCloud sync active")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.neonGreen)
-                    } else {
-                        Text("Not signed in")
-                            .font(.headline)
-                            .fontWeight(.heavy)
-                            .foregroundColor(.appText)
-
-                        Text("Data is local only")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.appMuted)
-                    }
+                    Text("Theme, subscription, account and privacy.")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
-            }
 
-            HStack(spacing: 8) {
-                Image(systemName: "number")
-                    .font(.system(size: 12, weight: .bold))
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(sub.isPro ? "PRO" : "FREE")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(sub.isPro ? .appAccentText : .fitOrange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(sub.isPro ? Color.neonGreen : Color.fitOrange.opacity(0.16))
+                        )
+
+                    Text(AuthService.shared.isSignedIn ? "iCloud sync" : "Local only")
+                        .font(.caption2)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appMuted)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
                     .foregroundColor(.appMuted)
-                Text(appVersionLabel)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.appMuted)
             }
-
-            HStack(spacing: 16) {
-                Link(destination: URL(string: "https://www.notion.so/Privacy-Policy-for-FitMaks-34bd5554b61f80a49697e680e256a038")!) {
-                    Text("Privacy Policy")
-                }
-                Text("·").foregroundColor(.appMuted.opacity(0.4))
-                Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
-                    Text("Terms of Use")
-                }
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.appMuted)
-
-            if AppTheme.areAlternateThemesEnabled {
-                Button {
-                    isShowingThemeSelection = true
-                } label: {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.neonGreen.opacity(0.18))
-
-                            Image(systemName: "paintpalette.fill")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.neonGreen)
-                        }
-                        .frame(width: 42, height: 42)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("App theme")
-                                .font(.subheadline)
-                                .fontWeight(.heavy)
-                                .foregroundColor(.appText)
-
-                            Text(selectedThemeName)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.appMuted)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption.bold())
-                            .foregroundColor(.appMuted)
-                    }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 14)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            }
-
-            if AuthService.shared.isSignedIn {
-                Button {
-                    isShowingSignOutConfirm = true
-                } label: {
-                    HStack {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Sign Out")
-                            .font(.subheadline)
-                            .fontWeight(.heavy)
-                    }
-                    .foregroundColor(.appMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.appSurface))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    isShowingDeleteConfirm = true
-                } label: {
-                    HStack {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Delete Account")
-                            .font(.subheadline)
-                            .fontWeight(.heavy)
-                    }
-                    .foregroundColor(.red)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.red.opacity(0.08)))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.red.opacity(0.18), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    AuthService.shared.startSignIn()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "apple.logo")
-                            .font(.system(size: 16, weight: .bold))
-                        Text("Sign in with Apple")
-                            .font(.system(size: 15, weight: .bold))
-                    }
-                    .foregroundColor(.appAccentText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(.white))
-                }
-                .buttonStyle(.plain)
-
-                if let error = AuthService.shared.lastError {
-                    Text(error)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                }
-            }
+            .padding(16)
+            .background(cardBackground)
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.appBorder, lineWidth: 1))
-        )
+        .buttonStyle(.plain)
     }
 
     private var goalsHeader: some View {
@@ -719,7 +500,7 @@ struct ProfileView: View {
                 goalsPreviewMiniStat(title: "Week", value: "x\(String(format: "%.3g", selectedActivity.multiplier))")
             }
 
-            Text(useCustomGoals ? "Custom goals are on, so FitMaks will use your manual calorie and protein targets." : "\(selectedActivity.title) · \(adjustmentText) · \(proteinDetail)")
+            Text(useCustomGoals ? "Custom goals are on, so ShapeForge will use your manual calorie and protein targets." : "\(selectedActivity.title) · \(adjustmentText) · \(proteinDetail)")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.appMuted)
@@ -861,7 +642,7 @@ struct ProfileView: View {
                 .fontWeight(.heavy)
                 .foregroundColor(.appText)
 
-            Text("Type your weight, import Apple Health, upload a smart-scale screenshot, or photograph the scale. FitMaks will build the trend and body-composition story here.")
+            Text("Type your weight, import Apple Health, upload a smart-scale screenshot, or photograph the scale. ShapeForge will build the trend and body-composition story here.")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.appMuted)

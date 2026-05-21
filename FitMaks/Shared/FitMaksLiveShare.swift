@@ -962,7 +962,7 @@ private struct FitMaksLiveCanvas: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            Text("ShapeForge")
+            Text("ShapeForge App")
                 .font(.system(size: 14, weight: .black))
                 .foregroundColor(light ? .appMuted : .white.opacity(0.42))
                 .padding(.horizontal, 10)
@@ -1000,7 +1000,7 @@ private struct FitMaksLiveExportCard: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            Text("ShapeForge")
+            Text("ShapeForge App")
                 .font(.system(size: 14, weight: .black))
                 .foregroundColor(light ? .appMuted : .white.opacity(0.42))
                 .padding(.horizontal, 10)

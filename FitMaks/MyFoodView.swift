@@ -946,11 +946,26 @@ struct MyFoodView: View {
         )
         modelContext.insert(recipe)
 
+        let safeName = name.hasPrefix("👨‍🍳") ? name : "👨‍🍳 " + name
+        modelContext.insert(FoodEntry(
+            image: firstImage ?? UIImage(systemName: "fork.knife") ?? UIImage(),
+            name: safeName,
+            calories: totalCal,
+            protein: totalProt,
+            carbs: totalCarbs,
+            fat: totalFat,
+            ingredients: combinedIngredients,
+            date: selectedDate,
+            location: "recipe"
+        ))
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
         withAnimation(.spring()) {
             selectedForMeal.removeAll()
             isBuildingMeal = false
-            currentTab = 1
         }
+        dismiss()
     }
 
     func clearShoppingList() {

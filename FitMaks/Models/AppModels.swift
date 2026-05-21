@@ -362,7 +362,7 @@ enum MealCategory: String, CaseIterable {
     var compactDisplayTitle: String {
         switch self {
         case .mainDish:
-            return "Main dish"
+            return "Main"
         case .salads:
             return "Salads"
         default:

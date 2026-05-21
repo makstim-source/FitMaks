@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct AIChatEditView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,10 +15,10 @@ struct AIChatEditView: View {
     @State private var originalCarbs: Double = 0
     @State private var originalFat: Double = 0
     @State private var originalImageData = Data()
-    @State private var attachedImage: UIImage? = nil
+    @State private var attachedImages: [UIImage] = []
     @State private var isShowingAttachmentDialog = false
-    @State private var isShowingAttachmentPicker = false
-    @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var isShowingCameraPicker = false
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingSaveDialog = false
     @State private var saveConfirmationText: String?
     @FocusState private var isInputFocused: Bool
@@ -227,40 +228,7 @@ struct AIChatEditView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 10)
 
-                if let img = attachedImage {
-                    HStack(spacing: 12) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(uiImage: img)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 60, height: 60)
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen, lineWidth: 2))
-                            Button(action: { withAnimation { attachedImage = nil } }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.appText)
-                                    .background(Circle().fill(Color.appElevated))
-                            }
-                            .offset(x: 8, y: -8)
-                        }
-
-                        Button {
-                            setAsDishPhoto(img)
-                        } label: {
-                            Label("Set as photo", systemImage: "photo.badge.checkmark")
-                                .font(.system(size: 11, weight: .heavy))
-                                .foregroundColor(.appAccentText)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Capsule().fill(Color.neonGreen))
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                }
+                attachedImagesPreview
                 HStack(spacing: 10) {
                     Button(action: { isShowingAttachmentDialog = true }) {
                         Image(systemName: "paperclip")
@@ -284,9 +252,9 @@ struct AIChatEditView: View {
                             .font(.system(size: 15, weight: .black))
                             .foregroundColor(.appAccentText)
                             .frame(width: 42, height: 42)
-                            .background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonGreen))
+                            .background(Circle().fill((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting ? Color.gray.opacity(0.45) : Color.neonGreen))
                     }
-                    .disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting)
+                    .disabled((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting)
                 }
                 .padding(14)
                 .background(Color.appElevated)
@@ -314,23 +282,22 @@ struct AIChatEditView: View {
             originalImageData = entry.imageData
         }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
-            Button("Camera") {
-                self.attachmentSource = .camera
-                self.isShowingAttachmentPicker = true
-            }
-            Button("Library") {
-                self.attachmentSource = .photoLibrary
-                self.isShowingAttachmentPicker = true
+            Button("Camera") { isShowingCameraPicker = true }
+            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) {
+                Text("Library")
             }
         }
-        .fullScreenCover(isPresented: $isShowingAttachmentPicker) {
+        .fullScreenCover(isPresented: $isShowingCameraPicker) {
             ImagePicker(
                 selectedImage: Binding(
-                    get: { self.attachedImage },
-                    set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }
+                    get: { nil },
+                    set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }
                 ),
-                sourceType: attachmentSource
+                sourceType: .camera
             )
+        }
+        .onChange(of: selectedPhotoItems) { _, items in
+            loadSelectedPhotos(items)
         }
         .confirmationDialog(saveDialogTitle, isPresented: $isShowingSaveDialog) {
             switch libraryOrigin {
@@ -488,18 +455,6 @@ struct AIChatEditView: View {
         }
     }
 
-    private func setAsDishPhoto(_ image: UIImage) {
-        let prepared = image.preparedForAppStorage()
-        if let data = prepared.jpegData(compressionQuality: 0.72) {
-            ImageCache.shared.invalidate(for: entry.id.uuidString)
-            entry.imageData = data
-            withAnimation { attachedImage = nil }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            messages.append(ChatMessage(text: "📸 Dish photo updated!", isUser: false, shouldTypewrite: true))
-            showSaveConfirmation("Photo updated")
-        }
-    }
-
     @ViewBuilder
     private func utilityActionButton(
         title: String,
@@ -534,16 +489,62 @@ struct AIChatEditView: View {
         .opacity(isWaiting ? 0.58 : 1)
     }
 
+    @ViewBuilder
+    private var attachedImagesPreview: some View {
+        if !attachedImages.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(attachedImages.enumerated()), id: \.offset) { (index: Int, img: UIImage) in
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 56, height: 56)
+                                .cornerRadius(10)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonGreen.opacity(0.5), lineWidth: 1.5))
+                            Button {
+                                let i = index
+                                withAnimation { attachedImages.remove(at: i) }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.appText)
+                                    .background(Circle().fill(Color.appElevated))
+                            }
+                            .offset(x: 6, y: -6)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 10)
+        }
+    }
+
+    private func loadSelectedPhotos(_ items: [PhotosPickerItem]) {
+        Task {
+            for item in items {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    await MainActor.run {
+                        withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) }
+                    }
+                }
+            }
+            await MainActor.run { selectedPhotoItems = [] }
+        }
+    }
+
     func sendMessage() {
         isInputFocused = false
         let text = userMessage
-        let imageToSend = attachedImage
-        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        let imagesToSend = attachedImages
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imagesToSend.first))
         userMessage = ""
-        withAnimation { attachedImage = nil }
+        withAnimation { attachedImages.removeAll() }
         isWaiting = true
         let current = FoodResult(food_name: entry.name, emoji: nil, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, ingredients_breakdown: entry.ingredients, ai_response_text: "")
-        GeminiService.shared.refineAnalysis(image: imageToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in
+        GeminiService.shared.refineAnalysis(images: imagesToSend, currentData: current, userComment: text, userName: AuthService.shared.displayName) { result, error in
             isWaiting = false
             if let res = result {
                 let prefix = entry.name.hasPrefix("👨‍🍳") ? "👨‍🍳 " : (entry.name.hasPrefix("❄️") ? "❄️ " : "")

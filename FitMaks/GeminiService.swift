@@ -383,8 +383,12 @@ class GeminiService {
     }
     
     func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, userName: String? = nil, completion: @escaping (FoodResult?, String?) -> Void) {
+        refineAnalysis(images: image.map { [$0] } ?? [], currentData: currentData, userComment: userComment, userName: userName, completion: completion)
+    }
+
+    func refineAnalysis(images: [UIImage], currentData: FoodResult, userComment: String, userName: String? = nil, completion: @escaping (FoodResult?, String?) -> Void) {
         let comment = userComment.trimmingCharacters(in: .whitespacesAndNewlines)
-        let effectiveCommand = comment.isEmpty && image != nil
+        let effectiveCommand = comment.isEmpty && !images.isEmpty
             ? "Read the attached nutrition label / package and update the data with exact values from it."
             : comment
 
@@ -403,8 +407,7 @@ class GeminiService {
         Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;12;3\\nItem2;50g;50;5;8;2", "fridge_category": "proteins", "meal_category": "main_dish", "ai_response_text": "your answer"}
         Every ingredients_breakdown row MUST have exactly 6 semicolon-separated fields: Item;Weight;Kcal;Protein;Carbs;Fat.
         """
-        let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
+        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             if let result {
                 completion(self?.stabilizedFoodResult(result) ?? result, nil)
             } else if let error, error.hasPrefix("AI_TEXT:") {

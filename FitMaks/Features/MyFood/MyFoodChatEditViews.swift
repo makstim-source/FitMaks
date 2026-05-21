@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 enum MyFoodEditPresentationStyle {
     case card
@@ -10,7 +11,7 @@ struct FavoriteChatEditView: View {
     @Bindable var favorite: FavoriteFood
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
-    @State private var attachedImage: UIImage? = nil; @State private var isShowingAttachmentDialog = false; @State private var isShowingAttachmentPicker = false; @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @State private var isEditingBasis = false
     @State private var selectedBasis: FavoritePortionBasis
@@ -125,8 +126,8 @@ struct FavoriteChatEditView: View {
                 .onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
-                if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.neonCyan)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
+                favoriteAttachedImagesPreview
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.neonCyan).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting ? Color.gray.opacity(0.45) : Color.neonCyan)) }.disabled((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
         }
         .background(
@@ -169,8 +170,9 @@ struct FavoriteChatEditView: View {
         .padding(.horizontal, isFullScreen ? 0 : 15)
         .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
         .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat }
-        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
-        .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
+        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { isShowingCameraPicker = true }; PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") } }
+        .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
+        .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
@@ -314,6 +316,31 @@ struct FavoriteChatEditView: View {
         )
     }
 
+    @ViewBuilder
+    private var favoriteAttachedImagesPreview: some View {
+        if !attachedImages.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(attachedImages.enumerated()), id: \.offset) { (index: Int, img: UIImage) in
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: img)
+                                .resizable().scaledToFill()
+                                .frame(width: 56, height: 56).cornerRadius(10)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.neonCyan.opacity(0.5), lineWidth: 1.5))
+                            Button {
+                                let i = index
+                                withAnimation { attachedImages.remove(at: i) }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill").font(.system(size: 16))
+                                    .foregroundColor(.appText).background(Circle().fill(Color.appElevated))
+                            }.offset(x: 6, y: -6)
+                        }
+                    }
+                }.padding(.horizontal, 16)
+            }.padding(.top, 10)
+        }
+    }
+
     private func basisDescription(for basis: FavoritePortionBasis) -> String {
         switch basis {
         case .per100g:
@@ -332,7 +359,6 @@ struct FavoriteChatEditView: View {
         if let data = prepared.jpegData(compressionQuality: 0.72) {
             ImageCache.shared.invalidate(for: favorite.id.uuidString)
             favorite.imageData = data
-            withAnimation { attachedImage = nil }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             messages.append(ChatMessage(text: "📸 Dish photo updated!", isUser: false, shouldTypewrite: true))
         }
@@ -341,10 +367,10 @@ struct FavoriteChatEditView: View {
     func sendMessage() {
         isInputFocused = false
         let text = userMessage
-        let imageToSend = attachedImage
-        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        let imagesToSend = attachedImages
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imagesToSend.first))
         userMessage = ""
-        withAnimation { attachedImage = nil }
+        withAnimation { attachedImages.removeAll() }
         isWaiting = true
 
         let current = FoodResult(
@@ -361,7 +387,7 @@ struct FavoriteChatEditView: View {
         )
 
         GeminiService.shared.refineAnalysis(
-            image: imageToSend,
+            images: imagesToSend,
             currentData: current,
             userComment: text,
             userName: AuthService.shared.displayName
@@ -433,7 +459,7 @@ struct MealChatEditView: View {
     @Bindable var recipe: SavedRecipe
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
-    @State private var attachedImage: UIImage? = nil; @State private var isShowingAttachmentDialog = false; @State private var isShowingAttachmentPicker = false; @State private var attachmentSource: UIImagePickerController.SourceType = .camera
+    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @FocusState private var isInputFocused: Bool
     let presentationStyle: MyFoodEditPresentationStyle
@@ -529,8 +555,8 @@ struct MealChatEditView: View {
                 .onChange(of: messages.count) { _, _ in withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) } }.onChange(of: isWaiting) { _, waiting in if waiting { withAnimation { proxy.scrollTo("TypingIndicator", anchor: .bottom) } } }
             }
             VStack(spacing: 0) {
-                if let img = attachedImage { HStack(spacing: 12) { ZStack(alignment: .topTrailing) { Image(uiImage: img).resizable().scaledToFill().frame(width: 60, height: 60).cornerRadius(10).overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange, lineWidth: 2)); Button(action: { withAnimation { attachedImage = nil } }) { Image(systemName: "xmark.circle.fill").foregroundColor(.appText).background(Circle().fill(Color.appElevated)) }.offset(x: 8, y: -8) }; Button { setAsDishPhoto(img) } label: { Label("Set as photo", systemImage: "photo.badge.checkmark").font(.system(size: 11, weight: .heavy)).foregroundColor(.appAccentText).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Color.orange)) }.buttonStyle(.plain); Spacer() }.padding(.horizontal).padding(.top, 10) }
-                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImage == nil) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImage == nil) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
+                mealAttachedImagesPreview
+                HStack(spacing: 10) { Button(action: { isShowingAttachmentDialog = true }) { Image(systemName: "paperclip").font(.system(size: 17, weight: .black)).foregroundColor(.orange).frame(width: 42, height: 42).background(Circle().fill(lightTheme ? Color.appSurface : Color.appBorder)).overlay(Circle().stroke(lightTheme ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)) }; TextField("Ask AI to change...", text: $userMessage).focused($isInputFocused).font(.system(size: 14, weight: .semibold)).padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(lightTheme ? Color.appSurface.opacity(0.96) : Color.appSurface)).overlay(Capsule().stroke(Color.appBorder, lineWidth: 1)).foregroundColor(.appText); Button(action: sendMessage) { Image(systemName: "paperplane.fill").font(.system(size: 15, weight: .black)).foregroundColor(.appAccentText).frame(width: 42, height: 42).background(Circle().fill((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting ? Color.gray.opacity(0.45) : Color.orange)) }.disabled((userMessage.isEmpty && attachedImages.isEmpty) || isWaiting) }.padding(14).background(lightTheme ? Color.appElevated.opacity(0.98) : Color.appElevated)
             }
         }
         .background(
@@ -573,8 +599,9 @@ struct MealChatEditView: View {
         .padding(.horizontal, isFullScreen ? 0 : 15)
         .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
         .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat }
-        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { self.attachmentSource = .camera; self.isShowingAttachmentPicker = true }; Button("Library") { self.attachmentSource = .photoLibrary; self.isShowingAttachmentPicker = true } }
-        .fullScreenCover(isPresented: $isShowingAttachmentPicker) { ImagePicker(selectedImage: Binding(get: { self.attachedImage }, set: { if let img = $0 { withAnimation { self.attachedImage = img.preparedForAIIntake() } } }), sourceType: attachmentSource) }
+        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { isShowingCameraPicker = true }; PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") } }
+        .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
+        .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
@@ -604,12 +631,36 @@ struct MealChatEditView: View {
         .padding(.vertical, 4)
     }
 
+    @ViewBuilder
+    private var mealAttachedImagesPreview: some View {
+        if !attachedImages.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(attachedImages.enumerated()), id: \.offset) { (index: Int, img: UIImage) in
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: img)
+                                .resizable().scaledToFill()
+                                .frame(width: 56, height: 56).cornerRadius(10)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(0.5), lineWidth: 1.5))
+                            Button {
+                                let i = index
+                                withAnimation { attachedImages.remove(at: i) }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill").font(.system(size: 16))
+                                    .foregroundColor(.appText).background(Circle().fill(Color.appElevated))
+                            }.offset(x: 6, y: -6)
+                        }
+                    }
+                }.padding(.horizontal, 16)
+            }.padding(.top, 10)
+        }
+    }
+
     private func setAsDishPhoto(_ image: UIImage) {
         let prepared = image.preparedForAppStorage()
         if let data = prepared.jpegData(compressionQuality: 0.72) {
             ImageCache.shared.invalidate(for: recipe.id.uuidString)
             recipe.imageData = data
-            withAnimation { attachedImage = nil }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             messages.append(ChatMessage(text: "📸 Dish photo updated!", isUser: false, shouldTypewrite: true))
         }
@@ -618,10 +669,10 @@ struct MealChatEditView: View {
     func sendMessage() {
         isInputFocused = false
         let text = userMessage
-        let imageToSend = attachedImage
-        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imageToSend))
+        let imagesToSend = attachedImages
+        messages.append(ChatMessage(text: text, isUser: true, attachedImage: imagesToSend.first))
         userMessage = ""
-        withAnimation { attachedImage = nil }
+        withAnimation { attachedImages.removeAll() }
         isWaiting = true
 
         let current = FoodResult(
@@ -638,7 +689,7 @@ struct MealChatEditView: View {
         )
 
         GeminiService.shared.refineAnalysis(
-            image: imageToSend,
+            images: imagesToSend,
             currentData: current,
             userComment: text,
             userName: AuthService.shared.displayName

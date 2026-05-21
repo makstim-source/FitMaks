@@ -145,7 +145,7 @@ private struct LaunchSplashView: View {
                         .foregroundColor(palette.text)
                         .tracking(1.2)
 
-                    Text("loading your day")
+                    Text("AI-powered discipline.")
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundColor(palette.muted)
                         .tracking(1.6)

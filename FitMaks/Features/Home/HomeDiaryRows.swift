@@ -143,9 +143,16 @@ struct TrainingDetailOverlay: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Workout Details")
-                    .font(.headline)
-                    .foregroundColor(.appText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.name)
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundColor(.appText)
+                    if !entry.duration.isEmpty {
+                        Text(entry.duration)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.appMuted)
+                    }
+                }
                 Spacer()
                 if let onShare {
                     Button(action: onShare) {
@@ -170,54 +177,44 @@ struct TrainingDetailOverlay: View {
             .padding(.bottom, 14)
 
             ScrollView {
-                VStack(spacing: 16) {
-                    if let image = entry.uiImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 280)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.2), lineWidth: 1))
-                    }
-
-                    Text(entry.name)
-                        .font(.title3)
-                        .fontWeight(.black)
-                        .foregroundColor(.appText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HStack(spacing: 12) {
-                        trainingMetric(value: "\(Int(entry.caloriesBurned))", unit: "kcal", icon: "flame.fill", color: .orange)
-                        if !entry.duration.isEmpty {
-                            trainingMetric(value: entry.duration, unit: "", icon: "clock.fill", color: .blue)
-                        }
+                VStack(spacing: 14) {
+                    HStack(spacing: 10) {
+                        trainingMetric(value: "\(Int(entry.caloriesBurned))", unit: "kcal", icon: "flame.fill", color: .neonGreen)
                         if let steps = entry.steps, steps > 0 {
-                            trainingMetric(value: "\(Int(steps))", unit: "steps", icon: "figure.walk", color: .green)
+                            trainingMetric(value: "\(Int(steps))", unit: "steps", icon: "figure.walk", color: .neonCyan)
                         }
                         if let tonnage = entry.tonnageKg, tonnage > 0 {
-                            trainingMetric(value: "\(Int(tonnage))", unit: "kg", icon: "dumbbell.fill", color: .purple)
+                            trainingMetric(value: "\(Int(tonnage))", unit: "kg", icon: "dumbbell.fill", color: .fitPurple)
                         }
                     }
 
                     if let summary = entry.aiSummary, !summary.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Label("AI Summary", systemImage: "sparkles")
-                                .font(.caption)
-                                .fontWeight(.heavy)
-                                .foregroundColor(.blue)
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundColor(.neonCyan)
 
                             Text(summary)
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.85))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.appText.opacity(0.85))
                                 .lineSpacing(4)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.neonCyan.opacity(0.10))
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.15), lineWidth: 1))
+                                .fill(Color.appSurface)
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.12), lineWidth: 1))
                         )
+                    }
+
+                    if let image = entry.uiImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder.opacity(0.3), lineWidth: 1))
                     }
                 }
                 .padding(.horizontal, 20)
@@ -226,8 +223,8 @@ struct TrainingDetailOverlay: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color(red: 28/255, green: 28/255, blue: 32/255))
-                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
+                .fill(Color.appElevated)
+                .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonCyan.opacity(0.14), lineWidth: 1))
         )
         .padding(.horizontal, 20)
         .frame(maxHeight: UIScreen.main.bounds.height * 0.7)
@@ -236,24 +233,24 @@ struct TrainingDetailOverlay: View {
     private func trainingMetric(value: String, unit: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.title3)
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(color)
 
             Text(value)
-                .font(.system(size: 17, weight: .black))
+                .font(.system(size: 18, weight: .black))
                 .foregroundColor(.appText)
 
             if !unit.isEmpty {
                 Text(unit)
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.appMuted)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(color.opacity(0.10))
+                .fill(Color.appSurface)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.15), lineWidth: 1))
         )
     }

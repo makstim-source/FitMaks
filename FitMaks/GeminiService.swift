@@ -410,8 +410,14 @@ class GeminiService {
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             if let result {
                 completion(self?.stabilizedFoodResult(result) ?? result, nil)
-            } else if let error, error.hasPrefix("AI_TEXT:") {
-                let text = String(error.dropFirst("AI_TEXT:".count))
+            } else {
+                let responseText: String
+                if let error, error.hasPrefix("AI_TEXT:") {
+                    let text = String(error.dropFirst("AI_TEXT:".count))
+                    responseText = text.isEmpty ? "I couldn't process that. Try rephrasing." : text
+                } else {
+                    responseText = "I couldn't process that request. Try rephrasing or send a different photo."
+                }
                 let fallback = FoodResult(
                     food_name: currentData.food_name,
                     emoji: currentData.emoji,
@@ -422,11 +428,9 @@ class GeminiService {
                     ingredients_breakdown: currentData.ingredients_breakdown,
                     fridge_category: currentData.fridge_category,
                     meal_category: currentData.meal_category,
-                    ai_response_text: text.isEmpty ? "I couldn't process that. Try rephrasing." : text
+                    ai_response_text: responseText
                 )
                 completion(fallback, nil)
-            } else {
-                completion(nil, error)
             }
         }
     }
@@ -901,34 +905,79 @@ class GeminiService {
                 cleanText = cleanText.replacingOccurrences(of: mdQuotes, with: "")
             }
 
-            let finalData: Data
+            let jsonCandidates = self.extractJSONBlocks(from: cleanText)
+
+            for candidate in jsonCandidates {
+                if let data = candidate.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(T.self, from: data) {
+                    completion(decoded, nil)
+                    return
+                }
+            }
+
+            // None of the JSON blocks decoded — try the full first-to-last brace range
+            let finalData: Data?
             if let start = cleanText.firstIndex(of: "{"),
-               let end = cleanText.lastIndex(of: "}"),
-               let extracted = String(cleanText[start...end]).data(using: .utf8) {
-                finalData = extracted
-            } else if !cleanText.isEmpty,
-                      let wrapped = self.wrapPlainTextAsJSON(cleanText) {
-                finalData = wrapped
+               let end = cleanText.lastIndex(of: "}") {
+                finalData = String(cleanText[start...end]).data(using: .utf8)
+            } else {
+                finalData = nil
+            }
+
+            if let finalData, let decoded = try? JSONDecoder().decode(T.self, from: finalData) {
+                completion(decoded, nil)
+                return
+            }
+
+            // Extract any useful text for the fallback
+            let fallbackText: String
+            if let finalData,
+               let json = try? JSONSerialization.jsonObject(with: finalData) as? [String: Any] {
+                fallbackText = (json["ai_response_text"] as? String)
+                    ?? (json["ai_summary"] as? String)
+                    ?? cleanText
+            } else if !cleanText.isEmpty {
+                fallbackText = cleanText
             } else {
                 completion(nil, "Gemini returned invalid JSON.")
                 return
             }
-
-            do {
-                let decoded = try JSONDecoder().decode(T.self, from: finalData)
-                completion(decoded, nil)
-            } catch {
-                let fallbackText: String
-                if let json = try? JSONSerialization.jsonObject(with: finalData) as? [String: Any] {
-                    fallbackText = (json["ai_response_text"] as? String)
-                        ?? (json["ai_summary"] as? String)
-                        ?? cleanText
-                } else {
-                    fallbackText = cleanText
-                }
-                completion(nil, "AI_TEXT:\(fallbackText)")
-            }
+            completion(nil, "AI_TEXT:\(fallbackText)")
         }.resume()
+    }
+
+    private func extractJSONBlocks(from text: String) -> [String] {
+        var blocks: [String] = []
+        let chars = Array(text)
+        var i = 0
+        while i < chars.count {
+            if chars[i] == "{" {
+                var depth = 0
+                var inString = false
+                var escaped = false
+                let start = i
+                for j in i..<chars.count {
+                    if escaped { escaped = false; continue }
+                    if chars[j] == "\\" && inString { escaped = true; continue }
+                    if chars[j] == "\"" { inString.toggle(); continue }
+                    if inString { continue }
+                    if chars[j] == "{" { depth += 1 }
+                    if chars[j] == "}" {
+                        depth -= 1
+                        if depth == 0 {
+                            blocks.append(String(chars[start...j]))
+                            i = j + 1
+                            break
+                        }
+                    }
+                }
+                if depth != 0 { i += 1 }
+            } else {
+                i += 1
+            }
+        }
+        // Try largest blocks first (most likely to be the full response)
+        return blocks.sorted { $0.count > $1.count }
     }
 
     private func wrapPlainTextAsJSON(_ text: String) -> Data? {
@@ -996,14 +1045,29 @@ class GeminiService {
             ))
         }
 
-        let calorieDifference = abs(rowTotals.calories - result.calories)
-        let proteinDifference = abs(rowTotals.protein - result.protein)
-        let carbsDifference = abs(rowTotals.carbs - result.carbs)
-        let fatDifference = abs(rowTotals.fat - result.fat)
-        let calories = calorieDifference > max(50, result.calories * 0.12) ? rowTotals.calories : result.calories
-        let protein = proteinDifference > max(5, result.protein * 0.15) ? rowTotals.protein : result.protein
-        let carbs = carbsDifference > max(8, max(result.carbs, 20) * 0.18) ? rowTotals.carbs : result.carbs
-        let fat = fatDifference > max(4, max(result.fat, 10) * 0.18) ? rowTotals.fat : result.fat
+        // If row totals are much lower than top-level, the breakdown is incomplete — trust top-level
+        let breakdownIncomplete = result.calories > 0 && rowTotals.calories < result.calories * 0.55
+
+        let calories: Double
+        let protein: Double
+        let carbs: Double
+        let fat: Double
+
+        if breakdownIncomplete {
+            calories = result.calories
+            protein = result.protein
+            carbs = result.carbs
+            fat = result.fat
+        } else {
+            let calorieDifference = abs(rowTotals.calories - result.calories)
+            let proteinDifference = abs(rowTotals.protein - result.protein)
+            let carbsDifference = abs(rowTotals.carbs - result.carbs)
+            let fatDifference = abs(rowTotals.fat - result.fat)
+            calories = calorieDifference > max(50, result.calories * 0.12) ? rowTotals.calories : result.calories
+            protein = proteinDifference > max(5, result.protein * 0.15) ? rowTotals.protein : result.protein
+            carbs = carbsDifference > max(8, max(result.carbs, 20) * 0.18) ? rowTotals.carbs : result.carbs
+            fat = fatDifference > max(4, max(result.fat, 10) * 0.18) ? rowTotals.fat : result.fat
+        }
 
         return roundedFoodResult(
             FoodResult(

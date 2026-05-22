@@ -196,51 +196,30 @@ enum FridgeCategory: String, CaseIterable {
     static func resolve(name: String, ingredients: String, aiRawValue: String?) -> FridgeCategory {
         let text = (name + " " + ingredients).lowercased()
         let tokens = normalizedTokens(from: text)
-        let isPowderProtein = containsAny(powderProteinKeys, in: text, tokens: tokens)
-        let hasDrink = containsAny(explicitDrinkKeys, in: text, tokens: tokens)
-        let hasDairy = containsAny(explicitDairyKeys, in: text, tokens: tokens)
-        let hasSauce = containsAny(sauceKeys, in: text, tokens: tokens)
-        let hasProtein = containsAny(explicitProteinKeys, in: text, tokens: tokens)
-        let hasCarb = containsAny(carbKeys, in: text, tokens: tokens)
-        let hasFruitVeg = containsAny(fruitVegKeys, in: text, tokens: tokens)
 
-        let isSnackProduct = containsAny(snackProductKeys, in: text, tokens: tokens)
-
-        if hasDrink && !isPowderProtein {
-            return .drinks
-        }
-        if isSnackProduct {
+        // Hard override: unmistakable snack products (chips, crackers, corn cakes)
+        if containsAny(snackProductKeys, in: text, tokens: tokens) {
             return .other
         }
-        if hasDairy {
-            return .dairy
-        }
-        if hasProtein && !hasDrink && !hasDairy {
-            return .proteins
-        }
-        if hasCarb && !hasProtein {
-            return .healthyCarbs
-        }
-        if hasSauce && !hasProtein && !hasCarb {
-            return .sauces
-        }
 
+        // Trust Gemini's category when available, with minimal corrections
         if let aiCategory = fromAI(aiRawValue) {
-            switch aiCategory {
-            case .proteins where containsAny(proteinMarketingOnlyKeys, in: text, tokens: tokens):
-                if hasDrink {
-                    return .drinks
-                }
-                if hasDairy {
-                    return .dairy
-                }
-                return aiCategory
-            default:
-                return aiCategory
+            if aiCategory == .proteins && containsAny(proteinMarketingOnlyKeys, in: text, tokens: tokens) {
+                if containsAny(explicitDrinkKeys, in: text, tokens: tokens) { return .drinks }
+                if containsAny(explicitDairyKeys, in: text, tokens: tokens) { return .dairy }
             }
+            return aiCategory
         }
 
-        if hasFruitVeg { return .fruitVeg }
+        // Fallback: keyword inference when Gemini didn't provide a valid category
+        let isPowderProtein = containsAny(powderProteinKeys, in: text, tokens: tokens)
+        if containsAny(explicitDrinkKeys, in: text, tokens: tokens) && !isPowderProtein { return .drinks }
+        if containsAny(explicitDairyKeys, in: text, tokens: tokens) { return .dairy }
+        if containsAny(explicitProteinKeys, in: text, tokens: tokens) { return .proteins }
+        if containsAny(carbKeys, in: text, tokens: tokens) { return .healthyCarbs }
+        if containsAny(sauceKeys, in: text, tokens: tokens) { return .sauces }
+        if containsAny(fruitVegKeys, in: text, tokens: tokens) { return .fruitVeg }
+        if containsAny(snackKeys, in: text, tokens: tokens) { return .other }
         return .other
     }
 

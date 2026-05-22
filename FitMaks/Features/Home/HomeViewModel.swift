@@ -71,6 +71,7 @@ final class HomeViewModel {
 
     var cachedLast30Stats: [DayProgress] = []
     var cachedPerfectStreak: Int = 0
+    var cachedRecentSevenDayStats: [DayProgress] = []
     var cachedAchievementCollection: StatsAchievementCollection = .empty
 
     var cachedDailyFood: [FoodEntry] = []
@@ -341,6 +342,7 @@ final class HomeViewModel {
         }
 
         let recent7 = Array(cachedLast30Stats.suffix(7))
+        cachedRecentSevenDayStats = recent7
         cachedPerfectStreak = AchievementEngine.homePerfectStreak(in: recent7)
         cachedAchievementCollection = AchievementEngine.achievementCollection(
             last30Stats: cachedLast30Stats,

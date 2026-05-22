@@ -6,11 +6,25 @@ import PhotosUI
 struct ContentView: View {
     @Environment(\.modelContext) var modelContext
     @AppStorage("seenAchievementUnlockIDs") private var seenAchievementUnlockIDs = ""
-    @Query(sort: \FoodEntry.date, order: .forward) var allFoodEntries: [FoodEntry]
-    @Query(sort: \TrainingEntry.date, order: .forward) var allTrainingEntries: [TrainingEntry]
+    @Query var allFoodEntries: [FoodEntry]
+    @Query var allTrainingEntries: [TrainingEntry]
     @Query var allDailySetups: [DailySetup]
     @Query var favorites: [FavoriteFood]
     @Query(sort: \BodyMetricEntry.date, order: .reverse) var allBodyMetrics: [BodyMetricEntry]
+
+    init() {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -120, to: .now)!
+        _allFoodEntries = Query(
+            filter: #Predicate<FoodEntry> { $0.date >= cutoff },
+            sort: \FoodEntry.date,
+            order: .forward
+        )
+        _allTrainingEntries = Query(
+            filter: #Predicate<TrainingEntry> { $0.date >= cutoff },
+            sort: \TrainingEntry.date,
+            order: .forward
+        )
+    }
 
     @AppStorage("userGender") fileprivate var gender: String = "Male"
     @AppStorage("userAge") fileprivate var age: Int = 30
@@ -53,7 +67,7 @@ struct ContentView: View {
     var dailyFoodEntries: [FoodEntry] { viewModel.cachedDailyFood }
     var dailyTrainingEntries: [TrainingEntry] { viewModel.cachedDailyTraining }
     var dailyFeed: [TimelineItem] { viewModel.cachedDailyFeed }
-    var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.sorted { $0.createdAt > $1.createdAt } }
+    var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.reversed() }
     var dailyCaloriesConsumed: Double { viewModel.cachedDailyCalories }
     var dailyCaloriesRemaining: Double { viewModel.dailyCaloriesRemaining }
     var dailyProtein: Double { viewModel.cachedDailyProtein }
@@ -74,7 +88,7 @@ struct ContentView: View {
     var selectedBaseProteinGoal: Double { viewModel.selectedBaseProteinGoal(for: viewModel.selectedDate) }
     var homePerfectStreak: Int { viewModel.cachedPerfectStreak }
     var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
-    var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
+    var homeRecentSevenDayStats: [DayProgress] { viewModel.cachedRecentSevenDayStats }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
     var calculatedCalories: Double { viewModel.calculatedCalories }
     var calculatedProtein: Double { viewModel.calculatedProtein }
@@ -990,7 +1004,7 @@ extension View {
 
     private func applyDataObservers(_ view: ContentView) -> some View {
         self
-            .onChange(of: view.settingsSignature) { _, _ in view.syncViewModel() }
+            .onChange(of: view.settingsSignature) { _, _ in view.debouncedSync() }
             .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }
             .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }
             .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }

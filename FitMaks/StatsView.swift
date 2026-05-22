@@ -203,7 +203,9 @@ struct StatsView: View {
             return "Last 7 days"
         }
 
-        return "\(StatsFormatters.shortDay(first)) — \(StatsFormatters.shortDay(last))"
+        let earlier = min(first, last)
+        let later = max(first, last)
+        return "\(StatsFormatters.shortDay(earlier)) — \(StatsFormatters.shortDay(later))"
     }
 
     private func scoreColor(for score: Int) -> Color {

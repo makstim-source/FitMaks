@@ -1227,7 +1227,7 @@ struct MyFoodView: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "ShapeForge AI analyzing food..."))
+                Text(item.statusTitle ?? (item.textPrompt != nil ? "Reading text..." : "ShapeForge AI analyzing..."))
                     .font(.subheadline)
                     .fontWeight(.heavy)
                     .foregroundColor(.appText)

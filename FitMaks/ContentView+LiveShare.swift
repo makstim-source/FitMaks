@@ -44,7 +44,7 @@ extension ContentView {
             FitMaksPostOption(
                 id: UUID(),
                 title: $0.title,
-                payload: achievementSharePayload(from: $0)
+                payload: viewModel.achievementSharePayload(from: $0)
             )
         }
     }
@@ -158,24 +158,6 @@ extension ContentView {
                         stepsColor: stat.stepBonus > 0 ? .fitOrange : .yellow
                     )
                 }
-            )
-        )
-    }
-
-    func achievementSharePayload(from achievement: StatsAchievement) -> FitMaksSharePayload {
-        .achievement(
-            FitMaksShareAchievementSnapshot(
-                title: achievement.title,
-                familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
-                subtitle: achievement.subtitle,
-                detail: achievement.detail,
-                goalText: achievement.goalText,
-                progressText: achievement.progressText,
-                icon: achievement.icon,
-                color: achievement.color,
-                isUnlocked: achievement.isUnlocked,
-                progress: achievement.progress,
-                hasStarted: achievement.current > 0
             )
         )
     }

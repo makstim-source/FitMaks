@@ -26,227 +26,61 @@ struct ContentView: View {
     @AppStorage("customCarbs") fileprivate var customCarbs: Double = 0.0
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
-    @AppStorage("lastKnownBaseCaloriesGoal") var lastKnownBaseCaloriesGoal: Double = 0
-    @AppStorage("lastKnownBaseProteinGoal") var lastKnownBaseProteinGoal: Double = 0
-    @AppStorage("hasMigratedCarbsFat") private var hasMigratedCarbsFat = false
-    @AppStorage("hasMigratedCategoriesV3") private var hasMigratedCategories = false
-    @AppStorage("hasRefinedFridgeCategoriesV7") private var hasRefinedFridgeCategoriesV7 = false
-    @AppStorage("lastViewedWeeklyReportID") private var lastViewedWeeklyReportID = ""
-
     @State var viewModel = HomeViewModel()
     @State private var syncWorkItem: DispatchWorkItem?
     @State private var isShowingCopyDayDialog = false
     @State private var isShowingClearDayConfirm = false
-    @State fileprivate var hasCompletedStartupHydration = false
-    @State fileprivate var isPerformingStartupHydration = false
 
-    // MARK: - Day Mode
+    // MARK: - Settings Bridge
 
-    var currentDayMode: DayMode { viewModel.dayMode(for: viewModel.selectedDate) }
-
-    func setup(for date: Date) -> DailySetup? {
-        let id = DateFormatter.yyyyMMdd.string(from: date)
-        return viewModel.setupIndex[id]
-    }
-
-    private var canClearSelectedDay: Bool {
-        let calendar = Calendar.current
-        let selectedDay = calendar.startOfDay(for: viewModel.selectedDate)
-        let today = calendar.startOfDay(for: Date())
-
-        guard selectedDay > today else { return false }
-        return !dailyFeed.isEmpty || setup(for: viewModel.selectedDate) != nil
-    }
-
-    // MARK: - Goals & Targets
-
-    var calculatedProtein: Double {
-        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
-    }
-    var calculatedCalories: Double {
-        NutritionCalculator.recommendedCalories(
-            gender: gender,
-            age: age,
-            weight: weight,
-            height: height,
-            activityLevel: activityLevel,
-            goal: goal
+    fileprivate func makeSettings() -> UserSettings {
+        UserSettings(
+            gender: gender, age: age, weight: weight, height: height,
+            goal: goal, activityLevel: activityLevel,
+            useCustomGoals: useCustomGoals,
+            customCalories: customCalories, customProtein: customProtein,
+            customFat: customFat, customCarbs: customCarbs
         )
     }
-    var baseCaloriesGoal: Double { useCustomGoals ? customCalories : calculatedCalories }
-    var baseProteinGoal: Double { useCustomGoals ? customProtein : calculatedProtein }
-    var selectedBaseCaloriesGoal: Double {
-        setup(for: viewModel.selectedDate)?.resolvedBaseCalories(for: viewModel.selectedDate, fallback: baseCaloriesGoal) ?? baseCaloriesGoal
-    }
-    var selectedBaseProteinGoal: Double {
-        setup(for: viewModel.selectedDate)?.resolvedBaseProtein(for: viewModel.selectedDate, fallback: baseProteinGoal) ?? baseProteinGoal
-    }
-    var dailyTargets: DayTargets {
-        DayProgressEngine.targets(
-            baseCalories: selectedBaseCaloriesGoal,
-            baseProtein: selectedBaseProteinGoal,
-            mode: currentDayMode,
-            trainingCalories: dailyTrainingCalories,
-            activityLevel: activityLevel
-        )
-    }
-    var calorieGoalBonus: Double { dailyTargets.calorieBonus }
-    var proteinGoalBonus: Double { dailyTargets.proteinBonus }
-    var targetProtein: Double { dailyTargets.protein }
-    var maxCalories: Double { dailyTargets.calories }
-    let targetSteps: Double = DayProgressEngine.defaultStepTarget
-    var goalSnapshotSignature: String { "\(Int(baseCaloriesGoal.rounded()))#\(Int(baseProteinGoal.rounded()))" }
-    var loggedPastDaysSignature: String { viewModel.cachedLoggedPastDaysSignature }
 
-    // MARK: - Daily Data
+    var settingsSignature: String {
+        "\(gender)|\(age)|\(weight)|\(height)|\(goal)|\(activityLevel)|\(useCustomGoals)|\(customCalories)|\(customProtein)|\(customFat)|\(customCarbs)"
+    }
 
+    // MARK: - Thin Wrappers (body readability)
+
+    var currentDayMode: DayMode { viewModel.currentDayMode }
     var dailyFoodEntries: [FoodEntry] { viewModel.cachedDailyFood }
     var dailyTrainingEntries: [TrainingEntry] { viewModel.cachedDailyTraining }
-    var dailyTrainingCalories: Double { viewModel.cachedDailyTrainingCalories }
-    var dailyUploadedTrainingSteps: Double { viewModel.cachedDailyUploadedSteps }
-    var todayFoodEntries: [FoodEntry] { viewModel.cachedTodayFood }
-    var todayTrainingEntries: [TrainingEntry] { viewModel.cachedTodayTraining }
-    var todayTrainingCalories: Double { todayTrainingEntries.reduce(0) { $0 + $1.caloriesBurned } }
-    var todayUploadedTrainingSteps: Double { todayTrainingEntries.reduce(0) { $0 + max($1.steps ?? 0, 0) } }
-    var todayMode: DayMode {
-        let dateID = DateFormatter.yyyyMMdd.string(from: Date())
-        return DayMode.fromStoredValue(viewModel.setupIndex[dateID]?.mode)
-    }
-    var todayStepsForNotifications: Double {
-        let dateID = DateFormatter.yyyyMMdd.string(from: Date())
-        if let steps = viewModel.homeWeeklySteps[dateID] {
-            return steps
-        }
-        return Calendar.current.isDateInToday(viewModel.selectedDate) ? viewModel.dailySteps : 0
-    }
-    var todayProgressForNotifications: DayProgress {
-        DayProgressEngine.progress(
-            date: Date(),
-            foodEntries: todayFoodEntries,
-            trainingCalories: todayTrainingCalories,
-            mode: todayMode,
-            baseCalories: baseCaloriesGoal,
-            baseProtein: baseProteinGoal,
-            steps: todayStepsForNotifications,
-            uploadedSteps: todayUploadedTrainingSteps,
-            activityLevel: activityLevel,
-            stepTarget: targetSteps
-        )
-    }
-    var dailyReminderSignature: String {
-        let foodSignature = todayFoodEntries.map { "\($0.id.uuidString):\(Int($0.calories)):\(Int($0.protein))" }.joined(separator: "|")
-        let trainingSignature = todayTrainingEntries.map { "\($0.id.uuidString):\(Int($0.caloriesBurned)):\(Int($0.steps ?? 0))" }.joined(separator: "|")
-        return "\(DateFormatter.yyyyMMdd.string(from: Date()))#\(foodSignature)#\(trainingSignature)#\(Int(todayStepsForNotifications))#\(todayMode.rawValue)#\(Int(baseProteinGoal))"
-    }
     var dailyFeed: [TimelineItem] { viewModel.cachedDailyFeed }
     var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.sorted { $0.createdAt > $1.createdAt } }
+    var dailyCaloriesConsumed: Double { viewModel.cachedDailyCalories }
+    var dailyCaloriesRemaining: Double { viewModel.dailyCaloriesRemaining }
     var dailyProtein: Double { viewModel.cachedDailyProtein }
     var dailyCarbs: Double { viewModel.cachedDailyCarbs }
     var dailyFat: Double { viewModel.cachedDailyFat }
-    var baseTargetCarbs: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.55 / 4 }
-    var baseTargetFat: Double { max(selectedBaseCaloriesGoal - selectedBaseProteinGoal * 4, 0) * 0.45 / 9 }
-    var targetCarbs: Double { max(maxCalories - targetProtein * 4, 0) * 0.55 / 4 }
-    var targetFat: Double { max(maxCalories - targetProtein * 4, 0) * 0.45 / 9 }
-    var dailyCaloriesConsumed: Double { viewModel.cachedDailyCalories }
-    var dailyCaloriesRemaining: Double { maxCalories - dailyCaloriesConsumed }
-    var dailyProgress: DayProgress {
-        DayProgressEngine.progress(
-            date: viewModel.selectedDate,
-            consumedCalories: dailyCaloriesConsumed,
-            consumedProtein: dailyProtein,
-            hasFood: !dailyFoodEntries.isEmpty,
-            mode: currentDayMode,
-            trainingCalories: dailyTrainingCalories,
-            baseCalories: selectedBaseCaloriesGoal,
-            baseProtein: selectedBaseProteinGoal,
-            steps: viewModel.dailySteps,
-            uploadedSteps: dailyUploadedTrainingSteps,
-            activityLevel: activityLevel,
-            stepTarget: targetSteps
-        )
-    }
-
-    var isPerfectPastDay: Bool {
-        dailyProgress.isPerfectPastDay()
-    }
-
+    var dailyTrainingCalories: Double { viewModel.cachedDailyTrainingCalories }
+    var maxCalories: Double { viewModel.maxCalories }
+    var targetProtein: Double { viewModel.targetProtein }
+    var targetCarbs: Double { viewModel.targetCarbs }
+    var targetFat: Double { viewModel.targetFat }
+    var targetSteps: Double { viewModel.targetSteps }
+    var baseTargetCarbs: Double { viewModel.baseTargetCarbs }
+    var dailyProgress: DayProgress { viewModel.dailyProgress }
+    var isPerfectPastDay: Bool { viewModel.isPerfectPastDay }
+    var calorieGoalBonus: Double { viewModel.calorieGoalBonus }
+    var proteinGoalBonus: Double { viewModel.proteinGoalBonus }
+    var selectedBaseCaloriesGoal: Double { viewModel.selectedBaseCaloriesGoal(for: viewModel.selectedDate) }
+    var selectedBaseProteinGoal: Double { viewModel.selectedBaseProteinGoal(for: viewModel.selectedDate) }
     var homePerfectStreak: Int { viewModel.cachedPerfectStreak }
     var homeLast30Stats: [DayProgress] { viewModel.cachedLast30Stats }
     var homeRecentSevenDayStats: [DayProgress] { Array(homeLast30Stats.suffix(7)) }
     var homeAchievementCollection: StatsAchievementCollection { viewModel.cachedAchievementCollection }
-    var previousWeekReport: WeeklyReportData? { viewModel.cachedPreviousWeekReport }
-    var trailingSevenDayReport: WeeklyReportData? {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
-        return WeeklyReportData.trailingDays(
-            endingOn: yesterday,
-            count: 7,
-            allFoodEntries: allFoodEntries,
-            allTrainingEntries: allTrainingEntries,
-            setupIndex: viewModel.setupIndex,
-            baseCaloriesGoal: baseCaloriesGoal,
-            baseProteinGoal: baseProteinGoal,
-            stepsIndex: viewModel.homeWeeklySteps,
-            activityLevel: activityLevel
-        )
-    }
-    var shouldShowWeeklyBanner: Bool {
-        let calendar = Calendar.current
-        guard calendar.isDateInToday(viewModel.selectedDate) else { return false }
-        guard calendar.component(.weekday, from: Date()) == 2 else { return false }
-        guard let report = previousWeekReport else { return false }
-        return lastViewedWeeklyReportID != report.weekID
-    }
-    func weekReport(for date: Date) -> WeeklyReportData? {
-        WeeklyReportData.forWeekContaining(
-            date: date,
-            allFoodEntries: allFoodEntries,
-            allTrainingEntries: allTrainingEntries,
-            setupIndex: viewModel.setupIndex,
-            baseCaloriesGoal: baseCaloriesGoal,
-            baseProteinGoal: baseProteinGoal,
-            stepsIndex: viewModel.homeWeeklySteps,
-            activityLevel: activityLevel
-        )
-    }
-    var activeWeeklyReport: WeeklyReportData? {
-        if let calDate = viewModel.calendarReportDate {
-            if Calendar.current.isDateInToday(calDate) {
-                return trailingSevenDayReport
-            }
-            return weekReport(for: calDate)
-        }
-        return trailingSevenDayReport
-    }
-
-    func weightEntriesForReport(_ report: WeeklyReportData) -> [(date: String, weight: Double)] {
-        let calendar = Calendar.current
-        return allBodyMetrics
-            .filter { entry in
-                let d = calendar.startOfDay(for: entry.date)
-                return d >= report.weekStart && d <= report.weekEnd
-            }
-            .sorted { $0.date < $1.date }
-            .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
-    }
-
-    func avgTrainingCaloriesForReport(_ report: WeeklyReportData) -> Double {
-        let calendar = Calendar.current
-        let reportTraining = allTrainingEntries.filter { entry in
-            let d = calendar.startOfDay(for: entry.date)
-            return d >= report.weekStart && d <= report.weekEnd
-        }
-        let total = reportTraining.reduce(0.0) { $0 + $1.caloriesBurned }
-        return total / Double(max(report.days.count, 1))
-    }
-
-    var unlockedAchievementSignature: String {
-        homeAchievementCollection.all
-            .filter(\.isUnlocked)
-            .map(\.id)
-            .sorted()
-            .joined(separator: "|")
-    }
-
+    var calculatedCalories: Double { viewModel.calculatedCalories }
+    var calculatedProtein: Double { viewModel.calculatedProtein }
+    var baseCaloriesGoal: Double { viewModel.baseCaloriesGoal }
+    var baseProteinGoal: Double { viewModel.baseProteinGoal }
+    var dailyUploadedTrainingSteps: Double { viewModel.cachedDailyUploadedSteps }
     var copyablePlanDates: [Date] { viewModel.cachedCopyablePlanDates }
 
     // MARK: - Body
@@ -254,13 +88,11 @@ struct ContentView: View {
     
     fileprivate func syncViewModel(includeStats: Bool = true) {
         viewModel.sync(
-            weight: weight,
-            baseCaloriesGoal: baseCaloriesGoal,
-            baseProteinGoal: baseProteinGoal,
+            settings: makeSettings(),
             allDailySetups: allDailySetups,
             allFoodEntries: allFoodEntries,
             allTrainingEntries: allTrainingEntries,
-            activityLevel: activityLevel,
+            allBodyMetrics: allBodyMetrics,
             modelContext: modelContext,
             includeStats: includeStats
         )
@@ -280,7 +112,7 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 homeHeader
                 dailyCommandCard
-                if shouldShowWeeklyBanner, let report = previousWeekReport {
+                if viewModel.shouldShowWeeklyBanner, let report = viewModel.cachedPreviousWeekReport {
                     WeeklyReportBanner(report: report) {
                         viewModel.calendarReportDate = nil
                         viewModel.isShowingWeeklyReport = true
@@ -302,10 +134,10 @@ struct ContentView: View {
                 StatsAchievementUnlockPopup(
                     achievement: banner,
                     onPost: {
-                        postAchievementBanner()
+                        viewModel.postAchievementBanner()
                     },
                     onDismiss: {
-                        dismissAchievementBanner()
+                        viewModel.dismissAchievementBanner()
                     }
                 )
                 .padding(.horizontal, 24)
@@ -372,13 +204,13 @@ struct ContentView: View {
         .sheet(isPresented: $viewModel.isShowingWeeklyReport, onDismiss: {
             viewModel.calendarReportDate = nil
         }) {
-            if let report = activeWeeklyReport {
+            if let report = viewModel.activeWeeklyReport {
                 WeeklyReportSheet(
                     report: report,
-                    weightEntries: weightEntriesForReport(report),
-                    baseCalories: baseCaloriesGoal,
-                    baseProtein: baseProteinGoal,
-                    avgTrainingCalories: avgTrainingCaloriesForReport(report),
+                    weightEntries: viewModel.weightEntriesForReport(report),
+                    baseCalories: viewModel.baseCaloriesGoal,
+                    baseProtein: viewModel.baseProteinGoal,
+                    avgTrainingCalories: viewModel.avgTrainingCaloriesForReport(report),
                     userName: AuthService.shared.displayName
                 ) {
                     viewModel.isShowingWeeklyReport = false
@@ -409,8 +241,8 @@ struct ContentView: View {
                     viewModel.livePayload = .weeklyReport(snapshot)
                 }
                 .onAppear {
-                    if let prev = previousWeekReport, report.weekID == prev.weekID {
-                        lastViewedWeeklyReportID = report.weekID
+                    if let prev = viewModel.cachedPreviousWeekReport, report.weekID == prev.weekID {
+                        viewModel.markWeeklyReportViewed(report.weekID)
                     }
                 }
                 .presentationDetents([.large])
@@ -422,8 +254,8 @@ struct ContentView: View {
                 allTrainingEntries: allTrainingEntries,
                 allSetups: allDailySetups,
                 bodyMetrics: allBodyMetrics,
-                baseCalories: useCustomGoals ? customCalories : calculatedCalories,
-                baseProtein: baseProteinGoal,
+                baseCalories: viewModel.baseCaloriesGoal,
+                baseProtein: viewModel.baseProteinGoal,
                 postOptions: universalPostOptions(),
                 onLast7DaysReport: {
                     viewModel.isShowingStats = false
@@ -439,8 +271,8 @@ struct ContentView: View {
                 allFoodEntries: allFoodEntries,
                 allTrainingEntries: allTrainingEntries,
                 allSetups: allDailySetups,
-                baseCalories: useCustomGoals ? customCalories : calculatedCalories,
-                baseProtein: baseProteinGoal,
+                baseCalories: viewModel.baseCaloriesGoal,
+                baseProtein: viewModel.baseProteinGoal,
                 postOptions: universalPostOptions()
             )
         }
@@ -495,11 +327,11 @@ struct ContentView: View {
                 dates: copyablePlanDates,
                 allFoodEntries: allFoodEntries
             ) { sourceDate in
-                copyDayEntries(from: sourceDate)
+                viewModel.copyDayEntries(from: sourceDate)
             }
         }
         .confirmationDialog("Clear this day?", isPresented: $isShowingClearDayConfirm, titleVisibility: .visible) {
-            Button("Delete all entries", role: .destructive) { clearSelectedDay() }
+            Button("Delete all entries", role: .destructive) { viewModel.clearSelectedDay() }
         } message: {
             Text("Food, training, and the selected plan for this day will be deleted.")
         }
@@ -892,7 +724,7 @@ struct ContentView: View {
     private var shouldShowPlanPrompt: Bool {
         let cal = Calendar.current
         let date = viewModel.selectedDate
-        return (cal.isDateInToday(date) || cal.isDateInTomorrow(date)) && setup(for: date) == nil
+        return (cal.isDateInToday(date) || cal.isDateInTomorrow(date)) && viewModel.setupIndex[DateFormatter.yyyyMMdd.string(from: date)] == nil
     }
 
     private func modeAccentColor(_ mode: DayMode, iphoneGlass: Bool) -> Color {
@@ -918,7 +750,7 @@ struct ContentView: View {
 
                 Spacer()
 
-                if canClearSelectedDay {
+                if viewModel.canClearSelectedDay {
                     Button {
                         isShowingClearDayConfirm = true
                     } label: {
@@ -1148,286 +980,6 @@ struct ContentView: View {
         )
     }
 
-    fileprivate func refreshAchievementBannerQueue() {
-        let seenIDs = Set(
-            seenAchievementUnlockIDs
-                .split(separator: "|")
-                .map(String.init)
-        )
-        let unlocked = homeAchievementCollection.all.filter(\.isUnlocked)
-        let unseen = unlocked.filter { !seenIDs.contains($0.id) }
-
-        guard !unseen.isEmpty else { return }
-
-        viewModel.pendingAchievementBanners = unseen.sorted { lhs, rhs in
-            if lhs.family != rhs.family {
-                return lhs.family == .core
-            }
-
-            if lhs.rarity.rawValue != rhs.rarity.rawValue {
-                return lhs.rarity.rawValue > rhs.rarity.rawValue
-            }
-
-            return lhs.title < rhs.title
-        }
-
-        if viewModel.achievementBanner == nil {
-            showNextAchievementBanner()
-        }
-    }
-
-    private func showNextAchievementBanner() {
-        guard !viewModel.pendingAchievementBanners.isEmpty else { return }
-
-        let next = viewModel.pendingAchievementBanners.removeFirst()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-            viewModel.achievementBanner = next
-        }
-    }
-
-    private func dismissAchievementBanner() {
-        guard let current = viewModel.achievementBanner else { return }
-
-        var seenIDs = Set(
-            seenAchievementUnlockIDs
-                .split(separator: "|")
-                .map(String.init)
-        )
-        seenIDs.insert(current.id)
-        seenAchievementUnlockIDs = seenIDs.sorted().joined(separator: "|")
-
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
-            viewModel.achievementBanner = nil
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [self] in
-            showNextAchievementBanner()
-        }
-    }
-
-    private func postAchievementBanner() {
-        guard let current = viewModel.achievementBanner else { return }
-        let payload = achievementSharePayload(from: current)
-        dismissAchievementBanner()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            viewModel.livePayload = payload
-        }
-    }
-
-
-    private func yieldIfNeeded(_ index: Int, every batchSize: Int = 40) async {
-        if index > 0 && index.isMultiple(of: batchSize) {
-            await Task.yield()
-        }
-    }
-
-    fileprivate func migrateCarbsFatIfNeeded() async {
-        guard !hasMigratedCarbsFat else { return }
-
-        func estimate(_ calories: Double, _ protein: Double) -> (carbs: Double, fat: Double) {
-            let remaining = max(calories - protein * 4, 0)
-            return (remaining * 0.55 / 4, remaining * 0.45 / 9)
-        }
-
-        var didChange = false
-        let foodEntries = (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        for (index, entry) in foodEntries.enumerated() where entry.carbs == 0 && entry.fat == 0 && entry.calories > 0 {
-            let (c, f) = estimate(entry.calories, entry.protein)
-            entry.carbs = c
-            entry.fat = f
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() where fav.carbs == 0 && fav.fat == 0 && fav.calories > 0 {
-            let (c, f) = estimate(fav.calories, fav.protein)
-            fav.carbs = c
-            fav.fat = f
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for (index, recipe) in recipes.enumerated() where recipe.carbs == 0 && recipe.fat == 0 && recipe.calories > 0 {
-            let (c, f) = estimate(recipe.calories, recipe.protein)
-            recipe.carbs = c
-            recipe.fat = f
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange {
-            try? modelContext.save()
-        }
-        hasMigratedCarbsFat = true
-    }
-
-    fileprivate func migrateCategoriesIfNeeded() async {
-        guard !hasMigratedCategories else { return }
-
-        var didChange = false
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() {
-            fav.categoryRaw = FridgeCategory.infer(name: fav.name, ingredients: fav.ingredients).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for (index, recipe) in recipes.enumerated() {
-            recipe.categoryRaw = MealCategory.infer(name: recipe.name, ingredients: recipe.ingredients, dateSaved: recipe.dateSaved).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange {
-            try? modelContext.save()
-        }
-        hasMigratedCategories = true
-    }
-
-    fileprivate func refineFridgeCategoriesIfNeeded() async {
-        guard !hasRefinedFridgeCategoriesV7 else { return }
-
-        var didChange = false
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() {
-            fav.categoryRaw = FridgeCategory.resolve(
-                name: fav.name,
-                ingredients: fav.ingredients,
-                aiRawValue: nil
-            ).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange {
-            try? modelContext.save()
-        }
-        hasRefinedFridgeCategoriesV7 = true
-    }
-
-    fileprivate func handleOnAppear() {
-        if hasCompletedStartupHydration {
-            syncViewModel()
-        } else {
-            hasCompletedStartupHydration = true
-            isPerformingStartupHydration = true
-            syncViewModel(includeStats: false)
-
-            Task { @MainActor in
-                await Task.yield()
-                await migrateCarbsFatIfNeeded()
-                await migrateCategoriesIfNeeded()
-                await refineFridgeCategoriesIfNeeded()
-
-                syncViewModel(includeStats: false)
-
-                var tempCalories = lastKnownBaseCaloriesGoal
-                var tempProtein = lastKnownBaseProteinGoal
-                viewModel.initializeGoalSnapshotTracking(lastKnownCalories: &tempCalories, lastKnownProtein: &tempProtein)
-                lastKnownBaseCaloriesGoal = tempCalories
-                lastKnownBaseProteinGoal = tempProtein
-
-                await Task.yield()
-                viewModel.rebuildStats(activityLevel: activityLevel)
-                isPerformingStartupHydration = false
-            }
-        }
-        
-        viewModel.syncWeightFromHealthKit(allBodyMetrics: allBodyMetrics) { newWeight in weight = newWeight }
-        
-        HealthKitManager.shared.fetchSteps(for: viewModel.selectedDate) { steps in
-            DispatchQueue.main.async {
-                self.viewModel.dailySteps = steps
-                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
-            }
-        }
-        HealthKitManager.shared.fetchWeeklySteps { steps in
-            DispatchQueue.main.async {
-                self.viewModel.homeWeeklySteps = steps
-                self.refreshAchievementBannerQueue()
-                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
-            }
-        }
-        viewModel.syncDailyReminders(todayProgressForNotifications: todayProgressForNotifications, todayFoodEntries: todayFoodEntries)
-    }
-
-    fileprivate func handleDateChange(_ newDate: Date) {
-        viewModel.rebuildDailyCache()
-        viewModel.rebuildCopyablePlanDates()
-        HealthKitManager.shared.fetchSteps(for: newDate) { steps in
-            DispatchQueue.main.async {
-                self.viewModel.dailySteps = steps
-                self.viewModel.syncDailyReminders(todayProgressForNotifications: self.todayProgressForNotifications, todayFoodEntries: self.todayFoodEntries)
-            }
-        }
-    }
-
-    fileprivate func handleGoalSnapshotChange() {
-        let oldCalories = lastKnownBaseCaloriesGoal
-        let oldProtein = lastKnownBaseProteinGoal
-        viewModel.preserveMissingPastGoalSnapshots(baseCalories: oldCalories, baseProtein: oldProtein)
-        viewModel.snapshotTodayGoals(baseCalories: oldCalories, baseProtein: oldProtein)
-        lastKnownBaseCaloriesGoal = baseCaloriesGoal
-        lastKnownBaseProteinGoal = baseProteinGoal
-        ICloudSettingsSync.pushToICloud()
-    }
-
-    fileprivate func handleLoggedPastDaysChange() {
-        viewModel.preserveMissingPastGoalSnapshots(baseCalories: baseCaloriesGoal, baseProtein: baseProteinGoal)
-    }
-
-    private func copyDayEntries(from sourceDate: Date) {
-        let calendar = Calendar.current
-        let destinationDate = calendar.startOfDay(for: viewModel.selectedDate)
-        let sourceFoods = allFoodEntries
-            .filter { calendar.isDate($0.date, inSameDayAs: sourceDate) }
-            .sorted { ($0.createdAt ?? $0.date) < ($1.createdAt ?? $1.date) }
-
-        for (index, entry) in sourceFoods.enumerated() {
-            let fallbackImage = viewModel.generatePlaceholderIcon(systemName: "fork.knife.circle.fill", color: .neonGreen)
-            let copied = FoodEntry(
-                image: entry.uiImage ?? fallbackImage,
-                name: entry.name,
-                calories: entry.calories,
-                protein: entry.protein,
-                carbs: entry.carbs,
-                fat: entry.fat,
-                ingredients: entry.ingredients,
-                date: destinationDate,
-                location: entry.location
-            )
-            copied.createdAt = Date().addingTimeInterval(Double(index))
-            modelContext.insert(copied)
-        }
-
-        viewModel.setDayMode(viewModel.dayMode(for: sourceDate), for: destinationDate)
-        try? modelContext.save()
-        syncViewModel()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
-
-    private func clearSelectedDay() {
-        let calendar = Calendar.current
-        let date = viewModel.selectedDate
-
-        for entry in allFoodEntries where calendar.isDate(entry.date, inSameDayAs: date) {
-            viewModel.deleteFoodEntry(entry)
-        }
-        for entry in allTrainingEntries where calendar.isDate(entry.date, inSameDayAs: date) {
-            modelContext.delete(entry)
-        }
-        for setup in allDailySetups where setup.dateID == DateFormatter.yyyyMMdd.string(from: date) {
-            modelContext.delete(setup)
-        }
-
-        try? modelContext.save()
-        syncViewModel()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
 }
 extension View {
     func applyStateObservers(_ view: ContentView) -> some View {
@@ -1438,28 +990,26 @@ extension View {
 
     private func applyDataObservers(_ view: ContentView) -> some View {
         self
-            .onChange(of: view.weight) { _, _ in view.syncViewModel() }
-            .onChange(of: view.baseCaloriesGoal) { _, _ in view.syncViewModel() }
-            .onChange(of: view.baseProteinGoal) { _, _ in view.syncViewModel() }
-            .applyQueryObservers(view)
-    }
-
-    private func applyQueryObservers(_ view: ContentView) -> some View {
-        self
-            .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
-            .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
-            .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync(includeStats: !view.isPerformingStartupHydration) }
+            .onChange(of: view.settingsSignature) { _, _ in view.syncViewModel() }
+            .onChange(of: view.allDailySetups) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }
+            .onChange(of: view.allFoodEntries) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }
+            .onChange(of: view.allTrainingEntries) { _, _ in view.debouncedSync(includeStats: !view.viewModel.isPerformingStartupHydration) }
+            .onChange(of: view.allBodyMetrics) { _, _ in view.debouncedSync(includeStats: false) }
     }
 
     private func applyEventObservers(_ view: ContentView) -> some View {
         self
-            .onAppear { view.handleOnAppear() }
-            .onChange(of: view.viewModel.selectedDate) { _, newDate in view.handleDateChange(newDate) }
-            .onChange(of: view.goalSnapshotSignature) { _, _ in view.handleGoalSnapshotChange() }
-            .onChange(of: view.loggedPastDaysSignature) { _, _ in view.handleLoggedPastDaysChange() }
-            .onChange(of: view.dailyReminderSignature) { _, _ in
-                view.viewModel.syncDailyReminders(todayProgressForNotifications: view.todayProgressForNotifications, todayFoodEntries: view.todayFoodEntries)
+            .onAppear {
+                view.viewModel.onWeightChanged = { newWeight in
+                    UserDefaults.standard.set(newWeight, forKey: "userWeight")
+                }
+                view.syncViewModel()
+                view.viewModel.onAppear()
             }
+            .onChange(of: view.viewModel.selectedDate) { _, newDate in view.viewModel.handleDateChange(newDate) }
+            .onChange(of: view.viewModel.goalSnapshotSignature) { _, _ in view.viewModel.handleGoalSnapshotChange() }
+            .onChange(of: view.viewModel.cachedLoggedPastDaysSignature) { _, _ in view.viewModel.handleLoggedPastDaysChange() }
+            .onChange(of: view.viewModel.dailyReminderSignature) { _, _ in view.viewModel.syncDailyReminders() }
     }
 
 }

@@ -313,7 +313,7 @@ extension HomeViewModel {
 
         let durationMinutes = durationMinutes(from: result.duration) ?? fallbackTrainingDurationMinutes(for: result)
         let met = estimatedMET(for: result)
-        let estimatedCalories = met * 3.5 * max(currentWeight, 45) / 200 * durationMinutes
+        let estimatedCalories = met * 3.5 * max(settings.weight, 45) / 200 * durationMinutes
         return max(estimatedCalories.rounded(), 120)
     }
 

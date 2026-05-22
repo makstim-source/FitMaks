@@ -214,7 +214,7 @@ class GeminiService {
     private var foodTextEstimateKeys: [String] = []
 
     private let fridgeCategoryKeys = "proteins, healthy_carbs, fruit_veg, dairy, drinks, snacks, sauces_extras, other"
-    private let mealCategoryKeys = "main_dish, sides, salads_starters, breakfast, snacks, other"
+    private let mealCategoryKeys = "main_dish, sides, salads_starters, breakfast, desserts, snacks, other"
 
     private var categoryPromptBlock: String {
         """
@@ -224,11 +224,13 @@ class GeminiService {
         - fridge_category MUST be exactly one of: \(fridgeCategoryKeys).
         - meal_category MUST be exactly one of: \(mealCategoryKeys).
         - Never invent new category values. If unsure, use "other".
-        - Choose fridge_category by PRODUCT TYPE, not by marketing claims like "high protein".
+        - Choose fridge_category by the PHYSICAL PRODUCT TYPE, not by flavor words in the name.
         - Yogurt / quark / skyr / pudding / cottage cheese belong to "dairy".
         - Ready-to-drink shakes, cartons, bottled protein drinks, juices, sodas, and coffees belong to "drinks".
         - Whey / isolate powders and raw meat / fish / eggs belong to "proteins".
-        - Bars, cookies, candy, and similar grab-and-go items belong to "snacks".
+        - Chips, crisps, corn cakes, rice cakes, crackers, bars, cookies, candy, nachos, pretzels, and similar packaged grab-and-go items belong to "snacks" — even if the flavor name contains a vegetable or dairy word (e.g. "Paprika Chips" → snacks, "Sour Cream Corn Cakes" → snacks, "Tomato Basil Chips" → snacks).
+        - Fresh or frozen whole fruits, berries, and vegetables belong to "fruit_veg" — even when sold in plastic containers or packages (e.g. blueberries in a punnet, kumquats in a bag).
+        - For meal_category: noodle dishes and pasta dishes with protein (chicken noodle, beef pasta, etc.) are "main_dish", not "salads_starters". Desserts like cake, ice cream, brownies, cookies, pie, cheesecake, muffins belong to "desserts".
         """
     }
 

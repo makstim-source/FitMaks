@@ -1647,4 +1647,89 @@ struct FitMaksTests {
             hasStarted: true
         ))
     }
+
+    // MARK: - FridgeCategory.resolve — AI-first priority
+
+    @Test func fridgeResolveSnackProductOverridesAnyAICategory() async throws {
+        #expect(FridgeCategory.resolve(name: "Paprika Chips", ingredients: "", aiRawValue: "fruit_veg") == .other)
+        #expect(FridgeCategory.resolve(name: "Sour Cream Corn Cakes", ingredients: "", aiRawValue: "dairy") == .other)
+        #expect(FridgeCategory.resolve(name: "Tomato Basil Crackers", ingredients: "", aiRawValue: "fruit_veg") == .other)
+        #expect(FridgeCategory.resolve(name: "Nachos Grande", ingredients: "", aiRawValue: "other") == .other)
+    }
+
+    @Test func fridgeResolveTrustsAICategoryWhenValid() async throws {
+        #expect(FridgeCategory.resolve(name: "Green Apple", ingredients: "", aiRawValue: "fruit_veg") == .fruitVeg)
+        #expect(FridgeCategory.resolve(name: "Blueberries", ingredients: "", aiRawValue: "fruit_veg") == .fruitVeg)
+        #expect(FridgeCategory.resolve(name: "Kumquats", ingredients: "", aiRawValue: "fruit_veg") == .fruitVeg)
+        #expect(FridgeCategory.resolve(name: "Cheddar Cheese", ingredients: "", aiRawValue: "dairy") == .dairy)
+        #expect(FridgeCategory.resolve(name: "Olive Oil", ingredients: "", aiRawValue: "sauces_extras") == .sauces)
+    }
+
+    @Test func fridgeResolveCorrectProteinMarketingToDairy() async throws {
+        #expect(FridgeCategory.resolve(name: "High Protein Yogurt", ingredients: "yogurt, whey", aiRawValue: "proteins") == .dairy)
+        #expect(FridgeCategory.resolve(name: "Protein Pudding", ingredients: "pudding, milk protein", aiRawValue: "proteins") == .dairy)
+    }
+
+    @Test func fridgeResolveCorrectProteinMarketingToDrinks() async throws {
+        #expect(FridgeCategory.resolve(name: "Protein Drink Vanilla", ingredients: "milk, whey, water", aiRawValue: "proteins") == .drinks)
+    }
+
+    @Test func fridgeResolveKeepsRealProteins() async throws {
+        #expect(FridgeCategory.resolve(name: "Chicken Breast", ingredients: "chicken", aiRawValue: "proteins") == .proteins)
+        #expect(FridgeCategory.resolve(name: "Salmon Fillet", ingredients: "salmon", aiRawValue: "proteins") == .proteins)
+    }
+
+    @Test func fridgeResolveFallsBackToKeywordsWhenNoAI() async throws {
+        #expect(FridgeCategory.resolve(name: "Banana", ingredients: "", aiRawValue: nil) == .fruitVeg)
+        #expect(FridgeCategory.resolve(name: "Greek Yogurt", ingredients: "yogurt, milk", aiRawValue: nil) == .dairy)
+        #expect(FridgeCategory.resolve(name: "Chicken Fillet", ingredients: "chicken", aiRawValue: nil) == .proteins)
+        #expect(FridgeCategory.resolve(name: "Basmati Rice", ingredients: "rice", aiRawValue: nil) == .healthyCarbs)
+        #expect(FridgeCategory.resolve(name: "Sriracha Sauce", ingredients: "", aiRawValue: nil) == .sauces)
+    }
+
+    @Test func fridgeResolveFlavorWordsDoNotOverrideAI() async throws {
+        #expect(FridgeCategory.resolve(name: "Tomato Pasta Sauce", ingredients: "", aiRawValue: "sauces_extras") == .sauces)
+        #expect(FridgeCategory.resolve(name: "Lemon Chicken", ingredients: "chicken, lemon", aiRawValue: "proteins") == .proteins)
+    }
+
+    @Test func fridgeResolveMapsSnacksAIKeyToOther() async throws {
+        #expect(FridgeCategory.resolve(name: "Granola Bar", ingredients: "", aiRawValue: "snacks") == .other)
+    }
+
+    // MARK: - MealCategory — Soups replaced with Desserts
+
+    @Test func mealCategoryDessertsExists() async throws {
+        #expect(MealCategory.desserts.rawValue == "Desserts")
+        #expect(MealCategory.desserts.emoji == "🍰")
+        #expect(MealCategory.desserts.aiKey == "desserts")
+    }
+
+    @Test func mealCategoryFromAIRecognizesDesserts() async throws {
+        #expect(MealCategory.fromAI("dessert") == .desserts)
+        #expect(MealCategory.fromAI("desserts") == .desserts)
+    }
+
+    @Test func mealCategoryFromAIDoesNotRecognizeSoups() async throws {
+        #expect(MealCategory.fromAI("soup") == nil)
+        #expect(MealCategory.fromAI("soups") == nil)
+    }
+
+    @Test func mealCategoryInferDetectsDesserts() async throws {
+        #expect(MealCategory.infer(name: "Chocolate Cake", ingredients: "flour, chocolate, butter", dateSaved: Date()) == .desserts)
+        #expect(MealCategory.infer(name: "Tiramisu", ingredients: "mascarpone, coffee", dateSaved: Date()) == .desserts)
+        #expect(MealCategory.infer(name: "Brownie", ingredients: "chocolate, butter, flour", dateSaved: Date()) == .desserts)
+        #expect(MealCategory.infer(name: "Ice Cream Sundae", ingredients: "vanilla, chocolate", dateSaved: Date()) == .desserts)
+    }
+
+    @Test func mealCategoryInferNoodleDishesAreMainDish() async throws {
+        #expect(MealCategory.infer(name: "Chicken Egg Noodle", ingredients: "chicken, egg noodle, vegetables", dateSaved: Date()) == .mainDish)
+        #expect(MealCategory.infer(name: "Chicken Vege Noodle", ingredients: "chicken, noodle, vegetables", dateSaved: Date()) == .mainDish)
+        #expect(MealCategory.infer(name: "Beef Pasta", ingredients: "beef, pasta, tomato", dateSaved: Date()) == .mainDish)
+    }
+
+    @Test func mealCategoryAllCasesHasSevenOptions() async throws {
+        #expect(MealCategory.allCases.count == 7)
+        #expect(MealCategory.allCases.contains(.desserts))
+        #expect(!MealCategory.allCases.contains(where: { $0.rawValue == "Soups" }))
+    }
 }

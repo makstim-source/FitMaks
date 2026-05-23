@@ -18,6 +18,7 @@ struct AIChatEditView: View {
     @State private var attachedImages: [UIImage] = []
     @State private var isShowingAttachmentDialog = false
     @State private var isShowingCameraPicker = false
+    @State private var isShowingLibraryPicker = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingSaveDialog = false
     @State private var saveConfirmationText: String?
@@ -282,10 +283,8 @@ struct AIChatEditView: View {
             originalImageData = entry.imageData
         }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
-            Button("Camera") { isShowingCameraPicker = true }
-            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) {
-                Text("Library")
-            }
+            Button("Camera") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingCameraPicker = true } }
+            Button("Library") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingLibraryPicker = true } }
         }
         .fullScreenCover(isPresented: $isShowingCameraPicker) {
             ImagePicker(
@@ -296,6 +295,7 @@ struct AIChatEditView: View {
                 sourceType: .camera
             )
         }
+        .photosPicker(isPresented: $isShowingLibraryPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
         .onChange(of: selectedPhotoItems) { _, items in
             loadSelectedPhotos(items)
         }

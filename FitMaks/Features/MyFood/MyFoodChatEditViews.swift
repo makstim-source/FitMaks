@@ -11,7 +11,7 @@ struct FavoriteChatEditView: View {
     @Bindable var favorite: FavoriteFood
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
-    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var isShowingLibraryPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @State private var isEditingBasis = false
     @State private var selectedBasis: FavoritePortionBasis
@@ -172,9 +172,10 @@ struct FavoriteChatEditView: View {
         .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
             Button("Camera") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingCameraPicker = true } }
-            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") }
+            Button("Library") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingLibraryPicker = true } }
         }
         .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
+        .photosPicker(isPresented: $isShowingLibraryPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
         .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) {
             Button("Camera") { self.directPhotoSource = .camera; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }
@@ -465,7 +466,7 @@ struct MealChatEditView: View {
     @Bindable var recipe: SavedRecipe
     @State private var userMessage = ""; @State private var isWaiting = false; @State private var messages: [ChatMessage] = []
     @State private var originalIngredients = ""; @State private var originalCalories: Double = 0; @State private var originalProtein: Double = 0; @State private var originalCarbs: Double = 0; @State private var originalFat: Double = 0
-    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var attachedImages: [UIImage] = []; @State private var isShowingAttachmentDialog = false; @State private var isShowingCameraPicker = false; @State private var isShowingLibraryPicker = false; @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var isShowingDirectPhotoDialog = false; @State private var isShowingDirectPhotoPicker = false; @State private var directPhotoSource: UIImagePickerController.SourceType = .camera
     @FocusState private var isInputFocused: Bool
     let presentationStyle: MyFoodEditPresentationStyle
@@ -607,9 +608,10 @@ struct MealChatEditView: View {
         .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat }
         .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
             Button("Camera") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingCameraPicker = true } }
-            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") }
+            Button("Library") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingLibraryPicker = true } }
         }
         .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
+        .photosPicker(isPresented: $isShowingLibraryPicker, selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images)
         .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
         .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) {
             Button("Camera") { self.directPhotoSource = .camera; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }

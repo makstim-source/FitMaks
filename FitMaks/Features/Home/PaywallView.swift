@@ -8,6 +8,9 @@ struct PaywallView: View {
     @State private var selectedProduct: Product?
     @State private var isPurchasing = false
     @State private var isShowingOfferCodeSheet = false
+    @State private var isShowingPromoAlert = false
+    @State private var promoCodeInput = ""
+    @State private var promoError = false
 
     private let features: [(icon: String, title: String, free: String, pro: String)] = [
         ("camera.fill", "AI Food Scans", "2 / day", "Unlimited"),
@@ -66,6 +69,26 @@ struct PaywallView: View {
                     if subscription.isPro { dismiss() }
                 }
             }
+        }
+        .alert("Enter Promo Code", isPresented: $isShowingPromoAlert) {
+            TextField("Code", text: $promoCodeInput)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.characters)
+            Button("Redeem") {
+                if subscription.redeemTesterCode(promoCodeInput) {
+                    dismiss()
+                } else {
+                    promoError = true
+                }
+                promoCodeInput = ""
+            }
+            Button("Apple Offer Code") { isShowingOfferCodeSheet = true; promoCodeInput = "" }
+            Button("Cancel", role: .cancel) { promoCodeInput = "" }
+        }
+        .alert("Invalid code", isPresented: $promoError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("This promo code is not recognized.")
         }
     }
 
@@ -325,7 +348,7 @@ struct PaywallView: View {
             Text("·").foregroundColor(.appMuted.opacity(0.4))
 
             Button {
-                isShowingOfferCodeSheet = true
+                isShowingPromoAlert = true
             } label: {
                 Text("Promo Code")
                     .font(.system(size: 13, weight: .heavy))

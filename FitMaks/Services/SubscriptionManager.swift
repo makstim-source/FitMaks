@@ -9,6 +9,9 @@ final class SubscriptionManager {
     private static let yearlyID = "fitmaks_pro_yearly"
     private static let productIDs: Set<String> = [monthlyID, yearlyID]
 
+    private static let testerOverrideKey = "sf_tester_pro_override"
+    private static let testerCode = "SHAPEFORGE2026"
+
     private(set) var products: [Product] = []
     private(set) var isPro = false
     private(set) var isLoading = false
@@ -21,6 +24,9 @@ final class SubscriptionManager {
     private nonisolated(unsafe) var updateTask: Task<Void, Never>?
 
     private init() {
+        if UserDefaults.standard.bool(forKey: Self.testerOverrideKey) {
+            isPro = true
+        }
         updateTask = Task { [weak self] in
             for await result in Transaction.updates {
                 if case .verified(let tx) = result {
@@ -99,7 +105,14 @@ final class SubscriptionManager {
                 foundProductID = tx.productID
             }
         }
-        isPro = foundPro
+        isPro = foundPro || UserDefaults.standard.bool(forKey: Self.testerOverrideKey)
         activeProductID = foundProductID
+    }
+
+    func redeemTesterCode(_ code: String) -> Bool {
+        guard code.uppercased() == Self.testerCode else { return false }
+        UserDefaults.standard.set(true, forKey: Self.testerOverrideKey)
+        isPro = true
+        return true
     }
 }

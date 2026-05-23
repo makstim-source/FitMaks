@@ -170,10 +170,16 @@ struct FavoriteChatEditView: View {
         .padding(.horizontal, isFullScreen ? 0 : 15)
         .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
         .onAppear { originalIngredients = favorite.ingredients; originalCalories = favorite.calories; originalProtein = favorite.protein; originalCarbs = favorite.carbs; originalFat = favorite.fat }
-        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { isShowingCameraPicker = true }; PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") } }
+        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
+            Button("Camera") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingCameraPicker = true } }
+            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") }
+        }
         .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
         .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
-        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
+        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) {
+            Button("Camera") { self.directPhotoSource = .camera; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }
+            Button("Library") { self.directPhotoSource = .photoLibrary; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }
+        }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
 
@@ -599,10 +605,16 @@ struct MealChatEditView: View {
         .padding(.horizontal, isFullScreen ? 0 : 15)
         .frame(maxWidth: .infinity, maxHeight: isFullScreen ? .infinity : 680, alignment: .top)
         .onAppear { originalIngredients = recipe.ingredients; originalCalories = recipe.calories; originalProtein = recipe.protein; originalCarbs = recipe.carbs; originalFat = recipe.fat }
-        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) { Button("Camera") { isShowingCameraPicker = true }; PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") } }
+        .confirmationDialog("Attach photo", isPresented: $isShowingAttachmentDialog) {
+            Button("Camera") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isShowingCameraPicker = true } }
+            PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: 5, matching: .images) { Text("Library") }
+        }
         .fullScreenCover(isPresented: $isShowingCameraPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { withAnimation { self.attachedImages.append(img.preparedForAIIntake()) } } }), sourceType: .camera) }
         .onChange(of: selectedPhotoItems) { _, items in Task { for item in items { if let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) { await MainActor.run { withAnimation { attachedImages.append(uiImage.preparedForAIIntake()) } } } }; await MainActor.run { selectedPhotoItems = [] } } }
-        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) { Button("Camera") { self.directPhotoSource = .camera; self.isShowingDirectPhotoPicker = true }; Button("Library") { self.directPhotoSource = .photoLibrary; self.isShowingDirectPhotoPicker = true } }
+        .confirmationDialog("Change photo", isPresented: $isShowingDirectPhotoDialog) {
+            Button("Camera") { self.directPhotoSource = .camera; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }
+            Button("Library") { self.directPhotoSource = .photoLibrary; DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.isShowingDirectPhotoPicker = true } }
+        }
         .fullScreenCover(isPresented: $isShowingDirectPhotoPicker) { ImagePicker(selectedImage: Binding(get: { nil }, set: { if let img = $0 { self.setAsDishPhoto(img) } }), sourceType: directPhotoSource) }
     }
 

@@ -354,94 +354,73 @@ final class FavoriteFood {
         let inferred = FavoritePortionRules.inferBasis(name: name, ingredients: ingredients)
         let resolvedBasis = portionBasis ?? inferred.basis
         let resolvedReference = portionGramsReference ?? inferred.weight
-        let normalizedNutrition = FavoriteFood.normalizedNutrition(
-            calories: calories,
-            protein: protein,
-            carbs: carbs,
-            fat: fat,
-            ingredients: ingredients,
-            basis: resolvedBasis,
-            referenceWeight: resolvedReference
-        )
 
         self.createdAt = Date()
         self.name = name.isEmpty ? "Food" : name
-        self.calories = max(0, normalizedNutrition.calories)
-        self.protein = max(0, normalizedNutrition.protein)
-        self.carbs = max(0, normalizedNutrition.carbs)
-        self.fat = max(0, normalizedNutrition.fat)
-        self.ingredients = normalizedNutrition.ingredients
         self.portionBasisRaw = resolvedBasis.rawValue
         self.portionGramsReference = resolvedReference
         self.categoryRaw = (category ?? FridgeCategory.resolve(name: name, ingredients: ingredients, aiRawValue: nil)).rawValue
         self.imageData = image?.preparedForAppStorage().jpegData(compressionQuality: 0.72)
-    }
 
-    func updatePortionBasis(_ basis: FavoritePortionBasis) {
-        let previousBasis = portionBasis
-        let originalReference = portionGramsReference ?? FavoritePortionRules.totalWeightGrams(from: ingredients)
-
-        let sourceCalories: Double
-        let sourceProtein: Double
-        let sourceCarbs: Double
-        let sourceFat: Double
-        let sourceIngredients: String
-
-        if previousBasis == .per100g, let reference = originalReference, reference > 0 {
-            let multiplier = reference / 100
-            sourceCalories = calories * multiplier
-            sourceProtein = protein * multiplier
-            sourceCarbs = carbs * multiplier
-            sourceFat = fat * multiplier
-            sourceIngredients = scaleIngredientBreakdown(ingredients, by: multiplier)
+        if resolvedBasis == .per100g, let ref = resolvedReference, ref > 0 {
+            let factor = 100.0 / ref
+            self.calories = max(0, calories * factor)
+            self.protein = max(0, protein * factor)
+            self.carbs = max(0, carbs * factor)
+            self.fat = max(0, fat * factor)
+            self.ingredients = scaleIngredientBreakdown(ingredients, by: factor)
         } else {
-            sourceCalories = calories
-            sourceProtein = protein
-            sourceCarbs = carbs
-            sourceFat = fat
-            sourceIngredients = ingredients
+            self.calories = max(0, calories)
+            self.protein = max(0, protein)
+            self.carbs = max(0, carbs)
+            self.fat = max(0, fat)
+            self.ingredients = ingredients
         }
-
-        let normalized = FavoriteFood.normalizedNutrition(
-            calories: sourceCalories,
-            protein: sourceProtein,
-            carbs: sourceCarbs,
-            fat: sourceFat,
-            ingredients: sourceIngredients,
-            basis: basis,
-            referenceWeight: originalReference
-        )
-
-        calories = normalized.calories
-        protein = normalized.protein
-        carbs = normalized.carbs
-        fat = normalized.fat
-        ingredients = normalized.ingredients
-        portionBasis = basis
-        portionGramsReference = originalReference
     }
 
-    private static func normalizedNutrition(
-        calories: Double,
-        protein: Double,
-        carbs: Double,
-        fat: Double,
-        ingredients: String,
-        basis: FavoritePortionBasis,
-        referenceWeight: Double?
-    ) -> (calories: Double, protein: Double, carbs: Double, fat: Double, ingredients: String) {
-        guard basis == .per100g, let referenceWeight, referenceWeight > 0 else {
-            return (calories, protein, carbs, fat, ingredients)
+    func updatePortionBasis(_ newBasis: FavoritePortionBasis) {
+        let ref = resolvedPortionGramsReference
+
+        var absCal = calories, absProt = protein, absCarbs = carbs, absFat = fat
+        var absIng = ingredients
+        if portionBasis == .per100g, let r = ref, r > 0 {
+            let m = r / 100
+            absCal *= m; absProt *= m; absCarbs *= m; absFat *= m
+            absIng = scaleIngredientBreakdown(ingredients, by: m)
         }
 
-        let factor = 100 / referenceWeight
-        return (
-            calories * factor,
-            protein * factor,
-            carbs * factor,
-            fat * factor,
-            scaleIngredientBreakdown(ingredients, by: factor)
-        )
+        if newBasis == .per100g, let r = ref, r > 0 {
+            let f = 100.0 / r
+            calories = absCal * f; protein = absProt * f; carbs = absCarbs * f; fat = absFat * f
+            ingredients = scaleIngredientBreakdown(absIng, by: f)
+        } else {
+            calories = absCal; protein = absProt; carbs = absCarbs; fat = absFat
+            ingredients = absIng
+        }
+
+        portionBasis = newBasis
+    }
+
+    func applyAbsoluteNutrition(calories: Double, protein: Double, carbs: Double, fat: Double, ingredients: String) {
+        let newWeight = FavoritePortionRules.totalWeightGrams(from: ingredients)
+        if let w = newWeight, w > 0 {
+            portionGramsReference = w
+        }
+
+        if portionBasis == .per100g, let ref = portionGramsReference ?? newWeight, ref > 0 {
+            let factor = 100.0 / ref
+            self.calories = max(0, calories * factor)
+            self.protein = max(0, protein * factor)
+            self.carbs = max(0, carbs * factor)
+            self.fat = max(0, fat * factor)
+            self.ingredients = scaleIngredientBreakdown(ingredients, by: factor)
+        } else {
+            self.calories = max(0, calories)
+            self.protein = max(0, protein)
+            self.carbs = max(0, carbs)
+            self.fat = max(0, fat)
+            self.ingredients = ingredients
+        }
     }
 }
 

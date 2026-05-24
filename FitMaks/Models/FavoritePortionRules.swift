@@ -35,7 +35,13 @@ enum FavoritePortionRules {
             let parts = line.split(separator: ";")
             guard parts.count >= 2 else { continue }
             let weight = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if let range = weight.range(of: #"(\d+(?:\.\d+)?)\s*(?:g\b|gr\b|gram|grams|ml\b)"#, options: .regularExpression) {
+            if let range = weight.range(of: #"(\d+(?:\.\d+)?)\s*(?:g\b|gr\b|gram|grams|ml\b|г\b|гр\b|грамм|мл\b)"#, options: .regularExpression) {
+                let number = String(weight[range]).filter { $0.isNumber || $0 == "." }
+                if let value = Double(number) {
+                    total += value
+                    found = true
+                }
+            } else if let range = weight.range(of: #"^\s*(\d+(?:\.\d+)?)\s*$"#, options: .regularExpression) {
                 let number = String(weight[range]).filter { $0.isNumber || $0 == "." }
                 if let value = Double(number) {
                     total += value
@@ -70,7 +76,7 @@ enum FavoritePortionRules {
                 if totalWeight != nil {
                     return (.per100g, totalWeight)
                 }
-                return (.perPack, totalWeight)
+                return (.perServing, totalWeight)
             }
         }
 

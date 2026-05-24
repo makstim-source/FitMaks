@@ -380,14 +380,27 @@ struct FavoriteChatEditView: View {
         withAnimation { attachedImages.removeAll() }
         isWaiting = true
 
+        let currentCal: Double, currentProt: Double, currentCarbs: Double, currentFat: Double
+        let currentIng: String
+        if favorite.portionBasis == .per100g, let ref = favorite.resolvedPortionGramsReference, ref > 0 {
+            let m = ref / 100
+            currentCal = favorite.calories * m; currentProt = favorite.protein * m
+            currentCarbs = favorite.carbs * m; currentFat = favorite.fat * m
+            currentIng = scaleIngredientBreakdown(favorite.ingredients, by: m)
+        } else {
+            currentCal = favorite.calories; currentProt = favorite.protein
+            currentCarbs = favorite.carbs; currentFat = favorite.fat
+            currentIng = favorite.ingredients
+        }
+
         let current = FoodResult(
             food_name: favorite.name,
             emoji: nil,
-            calories: favorite.calories,
-            protein: favorite.protein,
-            carbs: favorite.carbs,
-            fat: favorite.fat,
-            ingredients_breakdown: favorite.ingredients,
+            calories: currentCal,
+            protein: currentProt,
+            carbs: currentCarbs,
+            fat: currentFat,
+            ingredients_breakdown: currentIng,
             fridge_category: favorite.category.aiKey,
             meal_category: nil,
             ai_response_text: ""
@@ -402,21 +415,17 @@ struct FavoriteChatEditView: View {
             isWaiting = false
             if let res = result {
                 favorite.name = res.food_name
-                favorite.calories = res.calories
-                favorite.protein = res.protein
-                favorite.carbs = res.carbs
-                favorite.fat = res.fat
-                favorite.ingredients = res.ingredients_breakdown
                 favorite.category = FridgeCategory.resolve(
                     name: res.food_name,
                     ingredients: res.ingredients_breakdown,
                     aiRawValue: res.fridge_category
                 )
-                if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 {
-                    favorite.portionGramsReference = newWeight
-                }
-                favorite.updatePortionBasis(favorite.portionBasis)
-                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true))
+                favorite.applyAbsoluteNutrition(
+                    calories: res.calories, protein: res.protein,
+                    carbs: res.carbs, fat: res.fat,
+                    ingredients: res.ingredients_breakdown
+                )
+                messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
             }
@@ -435,26 +444,22 @@ struct FavoriteChatEditView: View {
             isWaiting = false
             if let res = result {
                 favorite.name = res.food_name
-                favorite.calories = res.calories
-                favorite.protein = res.protein
-                favorite.carbs = res.carbs
-                favorite.fat = res.fat
-                favorite.ingredients = res.ingredients_breakdown
                 favorite.category = FridgeCategory.resolve(
                     name: res.food_name,
                     ingredients: res.ingredients_breakdown,
                     aiRawValue: res.fridge_category
                 )
-                if let newWeight = FavoritePortionRules.totalWeightGrams(from: res.ingredients_breakdown), newWeight > 0 {
-                    favorite.portionGramsReference = newWeight
-                }
-                favorite.updatePortionBasis(favorite.portionBasis)
+                favorite.applyAbsoluteNutrition(
+                    calories: res.calories, protein: res.protein,
+                    carbs: res.carbs, fat: res.fat,
+                    ingredients: res.ingredients_breakdown
+                )
                 originalIngredients = favorite.ingredients
                 originalCalories = favorite.calories
                 originalProtein = favorite.protein
                 originalCarbs = favorite.carbs
                 originalFat = favorite.fat
-                messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: favorite.ingredients, calories: favorite.calories, protein: favorite.protein, carbs: favorite.carbs, fat: favorite.fat, shouldTypewrite: true))
+                messages.append(ChatMessage(text: "Fresh calculation applied.", isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "Fresh recalculation failed. Please try again.", isUser: false, shouldTypewrite: true))
             }

@@ -36,7 +36,7 @@ private func scaledWeightLabel(_ label: String, factor: Double) -> String {
     let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
     let lower = trimmed.lowercased()
 
-    if let range = lower.range(of: #"(\d+(?:\.\d+)?)\s*(g\b|gr\b|gram|grams|ml\b|pcs\b|piece\b|pieces\b|serving\b|servings\b|pack\b|packs\b)"#, options: .regularExpression) {
+    if let range = lower.range(of: #"(\d+(?:\.\d+)?)\s*(g\b|gr\b|gram|grams|ml\b|г\b|гр\b|грамм|мл\b|pcs\b|piece\b|pieces\b|serving\b|servings\b|pack\b|packs\b)"#, options: .regularExpression) {
         let original = String(trimmed[range])
         let number = original.filter { $0.isNumber || $0 == "." }
         let unit = original.drop { $0.isNumber || $0 == "." || $0 == " " }
@@ -53,7 +53,7 @@ private func scaledWeightLabel(_ label: String, factor: Double) -> String {
 
 private func scaledNumberString(_ value: String, factor: Double) -> String {
     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-    let suffix = trimmed.contains("g") ? "g" : (trimmed.lowercased().contains("kcal") ? " kcal" : "")
+    let suffix = (trimmed.contains("g") || trimmed.contains("г")) ? "g" : (trimmed.lowercased().contains("kcal") ? " kcal" : "")
     let number = trimmed.filter { $0.isNumber || $0 == "." }
 
     guard let parsed = Double(number) else {
@@ -81,16 +81,19 @@ func parseIngredientBreakdown(_ input: String) -> [ParsedIng] {
         let rawProtein = parts.count > 3 ? parts[3] : "0"
         let protein = rawProtein
             .replacingOccurrences(of: "g", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "г", with: "")
             .trimmingCharacters(in: .whitespaces)
 
         let rawCarbs = parts.count > 4 ? parts[4] : "0"
         let carbs = rawCarbs
             .replacingOccurrences(of: "g", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "г", with: "")
             .trimmingCharacters(in: .whitespaces)
 
         let rawFat = parts.count > 5 ? parts[5] : "0"
         let fat = rawFat
             .replacingOccurrences(of: "g", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "г", with: "")
             .trimmingCharacters(in: .whitespaces)
 
         return ParsedIng(

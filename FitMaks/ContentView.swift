@@ -1024,6 +1024,10 @@ extension View {
             .onChange(of: view.viewModel.goalSnapshotSignature) { _, _ in view.viewModel.handleGoalSnapshotChange() }
             .onChange(of: view.viewModel.cachedLoggedPastDaysSignature) { _, _ in view.viewModel.handleLoggedPastDaysChange() }
             .onChange(of: view.viewModel.dailyReminderSignature) { _, _ in view.viewModel.syncDailyReminders() }
+            .onReceive(NotificationCenter.default.publisher(for: DailyReminderManager.weeklyReportTappedNotification)) { _ in
+                view.viewModel.calendarReportDate = nil
+                view.viewModel.isShowingWeeklyReport = true
+            }
     }
 
 }

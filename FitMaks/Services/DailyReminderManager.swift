@@ -1,8 +1,9 @@
 import Foundation
 import UserNotifications
 
-final class DailyReminderManager {
+final class DailyReminderManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = DailyReminderManager()
+    static let weeklyReportTappedNotification = Notification.Name("DailyReminderManager.weeklyReportTapped")
 
     private let notificationCenter = UNUserNotificationCenter.current()
     private let scheduleDays = 7
@@ -11,7 +12,24 @@ final class DailyReminderManager {
     private let eveningHour = 19
     private let eveningMinute = 30
 
-    private init() {}
+    private override init() {
+        super.init()
+        notificationCenter.delegate = self
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if userInfo["action"] as? String == "weekly_report" {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Self.weeklyReportTappedNotification, object: nil)
+            }
+        }
+        completionHandler()
+    }
 
     func syncDailyReminders(progressToday: DayProgress, hasFoodToday: Bool, now: Date = Date()) {
         requestAuthorizationIfNeeded { [weak self] isAllowed in
@@ -59,7 +77,8 @@ final class DailyReminderManager {
                     hour: 9,
                     minute: 0,
                     day: day,
-                    now: now
+                    now: now,
+                    userInfo: ["action": "weekly_report"]
                 )
             }
 
@@ -108,7 +127,8 @@ final class DailyReminderManager {
         hour: Int,
         minute: Int,
         day: Date,
-        now: Date
+        now: Date,
+        userInfo: [String: String] = [:]
     ) {
         let calendar = Calendar.current
         guard let fireDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day), fireDate > now else {
@@ -119,6 +139,7 @@ final class DailyReminderManager {
         content.title = title
         content.body = body
         content.sound = .default
+        if !userInfo.isEmpty { content.userInfo = userInfo }
 
         let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)

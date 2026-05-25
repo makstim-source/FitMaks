@@ -15,6 +15,7 @@ struct FitMaksApp: App {
 
         ICloudSettingsSync.startObserving()
         ICloudSettingsSync.pullFromICloud()
+        _ = DailyReminderManager.shared
     }
 
     private var selectedTheme: AppTheme {

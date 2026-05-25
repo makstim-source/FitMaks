@@ -356,11 +356,9 @@ extension MyFoodView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(fav.name)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
+                    .font(.system(size: 15, weight: .heavy))
                     .foregroundColor(.appText)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.85)
 
                 HStack(spacing: 6) {
                     Label("\(Int(fav.calories))", systemImage: "flame.fill")
@@ -429,12 +427,9 @@ extension MyFoodView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(recipe.name)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
+                    .font(.system(size: 15, weight: .heavy))
                     .foregroundColor(.appText)
                     .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .minimumScaleFactor(0.85)
 
                 HStack(spacing: 6) {
                     Label("\(Int(recipe.calories))", systemImage: "flame.fill")

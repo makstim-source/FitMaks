@@ -359,7 +359,7 @@ struct PaywallView: View {
 
     private var legalLinks: some View {
         HStack(spacing: 16) {
-            Link("Privacy Policy", destination: URL(string: "https://www.notion.so/Privacy-Policy-for-FitMaks-34bd5554b61f80a49697e680e256a038")!)
+            Link("Privacy Policy", destination: URL(string: "https://aback-spot-4bb.notion.site/Privacy-Policy-for-ShapeForge-34bd5554b61f80a49697e680e256a038")!)
             Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
         }
         .font(.system(size: 11, weight: .semibold))

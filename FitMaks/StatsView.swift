@@ -610,21 +610,23 @@ struct AchievementsView: View {
                 StatsAchievementDetailSheet(
                     achievement: achievement,
                     onShare: {
-                        livePayload = .achievement(
-                            FitMaksShareAchievementSnapshot(
-                                title: achievement.title,
-                                familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
-                                subtitle: achievement.subtitle,
-                                detail: achievement.detail,
-                                goalText: achievement.goalText,
-                                progressText: achievement.progressText,
-                                icon: achievement.icon,
-                                color: achievement.color,
-                                isUnlocked: achievement.isUnlocked,
-                                progress: achievement.progress,
-                                hasStarted: achievement.current > 0
-                            )
+                        let snapshot = FitMaksShareAchievementSnapshot(
+                            title: achievement.title,
+                            familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
+                            subtitle: achievement.subtitle,
+                            detail: achievement.detail,
+                            goalText: achievement.goalText,
+                            progressText: achievement.progressText,
+                            icon: achievement.icon,
+                            color: achievement.color,
+                            isUnlocked: achievement.isUnlocked,
+                            progress: achievement.progress,
+                            hasStarted: achievement.current > 0
                         )
+                        selectedAchievement = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            livePayload = .achievement(snapshot)
+                        }
                     }
                 )
                     .presentationDetents([.medium])

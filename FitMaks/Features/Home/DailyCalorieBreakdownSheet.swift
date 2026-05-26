@@ -265,9 +265,9 @@ struct DailyCalorieBreakdownSheet: View {
                     Text("Too low means the day may be under-fueled. Too high usually means calories are getting dense fast. The sweet spot is the yellow support corridor.")
 
                     VStack(alignment: .leading, spacing: 8) {
-                        legendRow(title: "Low", detail: "below floor", description: "Fat is a bit too low for a well-supported day.", color: .fitOrange)
-                        legendRow(title: "In range", detail: "support zone", description: "This is the sweet spot for a balanced day.", color: .yellow, darkText: true)
-                        legendRow(title: "High", detail: "above zone", description: "Fat is getting dense and can push calories up fast.", color: .fitPurple)
+                        legendRow(title: "Low", detail: "Below Floor", description: "Fat is a bit too low for a well-supported day.", color: .fitOrange)
+                        legendRow(title: "In range", detail: "Support Zone", description: "This is the sweet spot for a balanced day.", color: .yellow, darkText: true)
+                        legendRow(title: "High", detail: "Above Zone", description: "Fat is getting dense and can push calories up fast.", color: .fitPurple)
                     }
                 }
                 .font(.caption)
@@ -408,19 +408,16 @@ struct DailyCalorieBreakdownSheet: View {
     }
 
     func legendRow(title: String, detail: String, description: String, color: Color, darkText: Bool = false) -> some View {
-        let chipWidth: CGFloat = title == "In range" ? 108 : 74
-
         return HStack(alignment: .center, spacing: 12) {
             Text(title)
                 .font(.caption2)
                 .fontWeight(.black)
                 .foregroundColor(darkText ? .black : .appAccentText)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(color))
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .frame(width: chipWidth, alignment: .center)
+                .frame(width: 90, alignment: .center)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(detail)

@@ -5,7 +5,7 @@ struct HomeFoodRow: View {
     @State private var thumbnail: UIImage?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             if let image = thumbnail {
                 Image(uiImage: image)
                     .resizable()
@@ -24,7 +24,7 @@ struct HomeFoodRow: View {
                 .frame(width: 50, height: 50)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(shortFoodName(entry.name))
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundColor(.appText)
@@ -58,11 +58,12 @@ struct HomeFoodRow: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.appMuted.opacity(0.5))
         }
-        .padding(11)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
         )
         .task(id: entry.id) {
             let id = entry.id.uuidString
@@ -78,7 +79,7 @@ struct HomeTrainingRow: View {
     @State private var thumbnail: UIImage?
 
     var body: some View {
-        HStack(spacing: 13) {
+        HStack(spacing: 10) {
             if let image = thumbnail {
                 Image(uiImage: image)
                     .resizable()
@@ -96,7 +97,7 @@ struct HomeTrainingRow: View {
                 .frame(width: 56, height: 56)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.name)
                     .font(.subheadline)
                     .fontWeight(.heavy)
@@ -106,6 +107,7 @@ struct HomeTrainingRow: View {
                 Label(trainingSummary, systemImage: "flame.fill")
                     .font(.caption.bold())
                     .foregroundColor(.blue)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -114,11 +116,12 @@ struct HomeTrainingRow: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.appMuted.opacity(0.5))
         }
-        .padding(13)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color.neonCyan.opacity(0.08))
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.neonCyan.opacity(0.16), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.neonCyan.opacity(0.16), lineWidth: 1))
         )
         .task(id: entry.id) {
             let id = entry.id.uuidString

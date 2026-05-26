@@ -342,7 +342,7 @@ struct AppSettingsView: View {
                     .foregroundColor(.appMuted)
             }
 
-            Link(destination: URL(string: "https://www.notion.so/Privacy-Policy-for-FitMaks-34bd5554b61f80a49697e680e256a038")!) {
+            Link(destination: URL(string: "https://aback-spot-4bb.notion.site/Privacy-Policy-for-ShapeForge-34bd5554b61f80a49697e680e256a038")!) {
                 settingsLinkRow(title: "Privacy Policy", icon: "hand.raised.fill")
             }
 

@@ -360,7 +360,7 @@ struct WeeklyReportSheet: View {
                     .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Last 7 Days")
+            .navigationTitle(report.dateRangeLabel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

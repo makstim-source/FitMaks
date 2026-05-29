@@ -79,7 +79,7 @@ extension HomeViewModel {
 
     func changeDate(by days: Int) {
         let calendar = Calendar.current
-        let dayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: Date()))!
+        guard let dayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: Date())) else { return }
         if let newDate = calendar.date(byAdding: .day, value: days, to: selectedDate),
            newDate < dayAfterTomorrow {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()

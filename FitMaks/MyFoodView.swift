@@ -77,8 +77,10 @@ struct MyFoodView: View {
             result = result.filter { $0.category == cat }
         }
         if !searchText.isEmpty {
-            let query = searchText.lowercased()
-            result = result.filter { $0.name.lowercased().contains(query) || $0.ingredients.lowercased().contains(query) }
+            result = result.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText)
+                || $0.ingredients.localizedCaseInsensitiveContains(searchText)
+            }
         }
         return result
     }
@@ -89,8 +91,10 @@ struct MyFoodView: View {
             result = result.filter { $0.category == cat }
         }
         if !searchText.isEmpty {
-            let query = searchText.lowercased()
-            result = result.filter { $0.name.lowercased().contains(query) || $0.ingredients.lowercased().contains(query) }
+            result = result.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText)
+                || $0.ingredients.localizedCaseInsensitiveContains(searchText)
+            }
         }
         return result
     }

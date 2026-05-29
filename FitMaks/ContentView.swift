@@ -13,7 +13,7 @@ struct ContentView: View {
     @Query(sort: \BodyMetricEntry.date, order: .reverse) var allBodyMetrics: [BodyMetricEntry]
 
     init() {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -120, to: .now)!
+        let cutoff = Calendar.current.date(byAdding: .day, value: -120, to: .now) ?? .distantPast
         _allFoodEntries = Query(
             filter: #Predicate<FoodEntry> { $0.date >= cutoff },
             sort: \FoodEntry.date,
@@ -41,7 +41,7 @@ struct ContentView: View {
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
 
     @State var viewModel = HomeViewModel()
-    @State private var syncWorkItem: DispatchWorkItem?
+    @State private var syncTask: Task<Void, Never>?
     @State private var isShowingCopyDayDialog = false
     @State private var isShowingClearDayConfirm = false
 
@@ -113,10 +113,12 @@ struct ContentView: View {
     }
 
     fileprivate func debouncedSync(includeStats: Bool = true) {
-        syncWorkItem?.cancel()
-        let item = DispatchWorkItem { [self] in syncViewModel(includeStats: includeStats) }
-        syncWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
+        syncTask?.cancel()
+        syncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            guard !Task.isCancelled else { return }
+            syncViewModel(includeStats: includeStats)
+        }
     }
 
     var body: some View {

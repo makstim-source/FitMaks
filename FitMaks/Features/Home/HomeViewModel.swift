@@ -496,9 +496,7 @@ final class HomeViewModel {
 
             Task { @MainActor in
                 await Task.yield()
-                await migrateCarbsFatIfNeeded()
-                await migrateCategoriesIfNeeded()
-                await refineFridgeCategoriesIfNeeded()
+                await runMigrations()
 
                 rebuildDateIndices()
                 rebuildDailyCache()
@@ -565,75 +563,6 @@ final class HomeViewModel {
         )
     }
 
-    // MARK: - Achievement Banners
-
-    func refreshAchievementBannerQueue() {
-        let seenRaw = UserDefaults.standard.string(forKey: "seenAchievementUnlockIDs") ?? ""
-        let seenIDs = Set(seenRaw.split(separator: "|").map(String.init))
-        let unlocked = cachedAchievementCollection.all.filter(\.isUnlocked)
-        let unseen = unlocked.filter { !seenIDs.contains($0.id) }
-        guard !unseen.isEmpty else { return }
-
-        pendingAchievementBanners = unseen.sorted { lhs, rhs in
-            if lhs.family != rhs.family { return lhs.family == .core }
-            if lhs.rarity.rawValue != rhs.rarity.rawValue { return lhs.rarity.rawValue > rhs.rarity.rawValue }
-            return lhs.title < rhs.title
-        }
-
-        if achievementBanner == nil { showNextAchievementBanner() }
-    }
-
-    private func showNextAchievementBanner() {
-        guard !pendingAchievementBanners.isEmpty else { return }
-        let next = pendingAchievementBanners.removeFirst()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-            achievementBanner = next
-        }
-    }
-
-    func dismissAchievementBanner() {
-        guard let current = achievementBanner else { return }
-        let seenRaw = UserDefaults.standard.string(forKey: "seenAchievementUnlockIDs") ?? ""
-        var seenIDs = Set(seenRaw.split(separator: "|").map(String.init))
-        seenIDs.insert(current.id)
-        UserDefaults.standard.set(seenIDs.sorted().joined(separator: "|"), forKey: "seenAchievementUnlockIDs")
-
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
-            achievementBanner = nil
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
-            self?.showNextAchievementBanner()
-        }
-    }
-
-    func postAchievementBanner() {
-        guard let current = achievementBanner else { return }
-        let payload = achievementSharePayload(from: current)
-        dismissAchievementBanner()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.livePayload = payload
-        }
-    }
-
-    func achievementSharePayload(from achievement: StatsAchievement) -> FitMaksSharePayload {
-        .achievement(
-            FitMaksShareAchievementSnapshot(
-                title: achievement.title,
-                familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
-                subtitle: achievement.subtitle,
-                detail: achievement.detail,
-                goalText: achievement.goalText,
-                progressText: achievement.progressText,
-                icon: achievement.icon,
-                color: achievement.color,
-                isUnlocked: achievement.isUnlocked,
-                progress: achievement.progress,
-                hasStarted: achievement.current > 0
-            )
-        )
-    }
-
     // MARK: - Day Management
 
     func copyDayEntries(from sourceDate: Date) {
@@ -682,82 +611,9 @@ final class HomeViewModel {
 
     // MARK: - Migrations
 
-    private func yieldIfNeeded(_ index: Int, every batchSize: Int = 40) async {
-        if index > 0 && index.isMultiple(of: batchSize) { await Task.yield() }
-    }
-
-    func migrateCarbsFatIfNeeded() async {
-        guard !UserDefaults.standard.bool(forKey: "hasMigratedCarbsFat") else { return }
+    func runMigrations() async {
         guard let modelContext else { return }
-
-        func estimate(_ calories: Double, _ protein: Double) -> (carbs: Double, fat: Double) {
-            let remaining = max(calories - protein * 4, 0)
-            return (remaining * 0.55 / 4, remaining * 0.45 / 9)
-        }
-
-        var didChange = false
-        let foodEntries = (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        for (index, entry) in foodEntries.enumerated() where entry.carbs == 0 && entry.fat == 0 && entry.calories > 0 {
-            let (c, f) = estimate(entry.calories, entry.protein)
-            entry.carbs = c; entry.fat = f; didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() where fav.carbs == 0 && fav.fat == 0 && fav.calories > 0 {
-            let (c, f) = estimate(fav.calories, fav.protein)
-            fav.carbs = c; fav.fat = f; didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for (index, recipe) in recipes.enumerated() where recipe.carbs == 0 && recipe.fat == 0 && recipe.calories > 0 {
-            let (c, f) = estimate(recipe.calories, recipe.protein)
-            recipe.carbs = c; recipe.fat = f; didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange { try? modelContext.save() }
-        UserDefaults.standard.set(true, forKey: "hasMigratedCarbsFat")
-    }
-
-    func migrateCategoriesIfNeeded() async {
-        guard !UserDefaults.standard.bool(forKey: "hasMigratedCategoriesV3") else { return }
-        guard let modelContext else { return }
-
-        var didChange = false
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() {
-            fav.categoryRaw = FridgeCategory.infer(name: fav.name, ingredients: fav.ingredients).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        let recipes = (try? modelContext.fetch(FetchDescriptor<SavedRecipe>())) ?? []
-        for (index, recipe) in recipes.enumerated() {
-            recipe.categoryRaw = MealCategory.infer(name: recipe.name, ingredients: recipe.ingredients, dateSaved: recipe.dateSaved).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange { try? modelContext.save() }
-        UserDefaults.standard.set(true, forKey: "hasMigratedCategoriesV3")
-    }
-
-    func refineFridgeCategoriesIfNeeded() async {
-        guard !UserDefaults.standard.bool(forKey: "hasRefinedFridgeCategoriesV7") else { return }
-        guard let modelContext else { return }
-
-        var didChange = false
-        let favorites = (try? modelContext.fetch(FetchDescriptor<FavoriteFood>())) ?? []
-        for (index, fav) in favorites.enumerated() {
-            fav.categoryRaw = FridgeCategory.resolve(name: fav.name, ingredients: fav.ingredients, aiRawValue: nil).rawValue
-            didChange = true
-            await yieldIfNeeded(index)
-        }
-
-        if didChange { try? modelContext.save() }
-        UserDefaults.standard.set(true, forKey: "hasRefinedFridgeCategoriesV7")
+        await DataMigrator.runAll(modelContext: modelContext)
     }
 
     // MARK: - Weekly Reports

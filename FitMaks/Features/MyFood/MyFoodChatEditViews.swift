@@ -425,6 +425,11 @@ struct FavoriteChatEditView: View {
                     carbs: res.carbs, fat: res.fat,
                     ingredients: res.ingredients_breakdown
                 )
+                originalIngredients = favorite.ingredients
+                originalCalories = favorite.calories
+                originalProtein = favorite.protein
+                originalCarbs = favorite.carbs
+                originalFat = favorite.fat
                 messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))
@@ -723,6 +728,11 @@ struct MealChatEditView: View {
                 recipe.ingredients = res.ingredients_breakdown
                 recipe.category = MealCategory.fromAI(res.meal_category)
                     ?? MealCategory.infer(name: res.food_name, ingredients: res.ingredients_breakdown, dateSaved: recipe.dateSaved)
+                originalIngredients = recipe.ingredients
+                originalCalories = recipe.calories
+                originalProtein = recipe.protein
+                originalCarbs = recipe.carbs
+                originalFat = recipe.fat
                 messages.append(ChatMessage(text: res.ai_response_text.isEmpty ? "Updated!" : res.ai_response_text, isUser: false, ingredients: res.ingredients_breakdown, calories: res.calories, protein: res.protein, carbs: res.carbs, fat: res.fat, shouldTypewrite: true))
             } else {
                 messages.append(ChatMessage(text: error ?? "AI request failed. Please try again.", isUser: false, shouldTypewrite: true))

@@ -35,6 +35,7 @@ final class SubscriptionManager {
                 }
             }
         }
+        Task { await refreshEntitlements() }
     }
 
     deinit {
@@ -46,16 +47,26 @@ final class SubscriptionManager {
         isLoading = true
         defer { isLoading = false }
         purchaseError = nil
-        do {
-            let storeProducts = try await Product.products(for: Self.productIDs)
-            products = storeProducts.sorted { $0.price < $1.price }
-            if products.isEmpty {
-                purchaseError = "No subscription products were returned."
+
+        let maxAttempts = 3
+        for attempt in 1...maxAttempts {
+            do {
+                let storeProducts = try await Product.products(for: Self.productIDs)
+                products = storeProducts.sorted { $0.price < $1.price }
+                if !products.isEmpty { return }
+            } catch {
+                if attempt == maxAttempts {
+                    purchaseError = error.localizedDescription.isEmpty
+                        ? "Could not load products."
+                        : error.localizedDescription
+                    return
+                }
             }
-        } catch {
-            purchaseError = error.localizedDescription.isEmpty
-                ? "Could not load products."
-                : error.localizedDescription
+            try? await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt))) * 500_000_000)
+        }
+
+        if products.isEmpty {
+            purchaseError = "No subscription products were returned."
         }
     }
 

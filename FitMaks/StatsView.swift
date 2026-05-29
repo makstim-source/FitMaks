@@ -29,21 +29,32 @@ struct StatsView: View {
 
     private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
+    struct StatsWinCache {
+        var calories = 0
+        var protein = 0
+        var steps = 0
+        var avgCalories = 0.0
+        var totalSteps = 0.0
+        var perfectDays30 = 0
+    }
+
     typealias WeekStat = DayProgress
 
     var stats: [WeekStat] { cachedStats }
     var last30Stats: [WeekStat] { cachedLast30Stats }
 
-    var calorieWins: Int { stats.filter { $0.calorieWin }.count }
-    var proteinWins: Int { stats.filter { $0.proteinWin }.count }
-    var stepWins: Int { stats.filter { $0.stepWin }.count }
-    var completedChecks: Int { calorieWins + proteinWins + stepWins }
+    var calorieWins: Int { cachedWins.calories }
+    var proteinWins: Int { cachedWins.protein }
+    var stepWins: Int { cachedWins.steps }
+    var completedChecks: Int { cachedWins.calories + cachedWins.protein + cachedWins.steps }
     var totalChecks: Int { stats.count * 3 }
     var weeklyScore: Int { Int((Double(completedChecks) / Double(max(totalChecks, 1)) * 100).rounded()) }
-    var avgCalories: Double { stats.map { $0.consumed }.reduce(0, +) / Double(max(stats.count, 1)) }
-    var totalSteps: Double { stats.map { $0.steps }.reduce(0, +) }
+    var avgCalories: Double { cachedWins.avgCalories }
+    var totalSteps: Double { cachedWins.totalSteps }
     var remainingChecks: Int { max(totalChecks - completedChecks, 0) }
-    var perfectDays30: Int { last30Stats.filter { $0.isPerfect }.count }
+    var perfectDays30: Int { cachedWins.perfectDays30 }
+
+    @State private var cachedWins = StatsWinCache()
 
     var currentPerfectStreak: Int {
         AchievementEngine.currentPerfectStreak(in: last30Stats)
@@ -403,6 +414,18 @@ struct StatsView: View {
             recentSevenDayStats: newStats,
             foodEntries: allFoodEntries
         )
+
+        var wins = StatsWinCache()
+        for stat in newStats {
+            if stat.calorieWin { wins.calories += 1 }
+            if stat.proteinWin { wins.protein += 1 }
+            if stat.stepWin { wins.steps += 1 }
+            wins.totalSteps += stat.steps
+            wins.avgCalories += stat.consumed
+        }
+        wins.avgCalories = newStats.isEmpty ? 0 : wins.avgCalories / Double(newStats.count)
+        wins.perfectDays30 = newLast30.filter(\.isPerfect).count
+        cachedWins = wins
     }
 
     private func refreshAchievementBannerQueue() {

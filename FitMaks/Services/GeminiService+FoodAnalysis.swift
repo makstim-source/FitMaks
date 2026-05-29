@@ -29,6 +29,7 @@ extension GeminiService {
         - If uncertain, choose the most likely midpoint, not an extreme.
         - Avoid very large restaurant-size assumptions unless the image clearly shows a large portion.
         - The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
+        - Any numbers you mention in ai_response_text (calories, protein, carbs, fat) MUST match the top-level totals exactly. Do not quote different numbers in the text.
         - If the same image is analyzed again, return the same ingredient weights and totals.
         - If you can identify the product brand/name but cannot read nutrition values from the label, search for its official nutrition data online.
         \(categoryPromptBlock)
@@ -37,6 +38,7 @@ extension GeminiService {
         CRITICAL RULE: You MUST use exactly this structure:
         \(singleFoodJSONShape)
         Format 'ingredients_breakdown' rows with semicolons, separated by newlines as Item;Weight;Kcal;Protein;Carbs;Fat. Every row MUST have exactly 6 fields. Macro calculation is MANDATORY.
+        CONSISTENCY CHECK: Before returning, verify that every number in ai_response_text matches the JSON fields. If they don't match, fix ai_response_text.
         """
         sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1, useSearchGrounding: true) { [weak self] result, error in
             let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
@@ -62,6 +64,7 @@ extension GeminiService {
         Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
         Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
         The top-level calories, protein, carbs, and fat MUST equal the sum of the ingredient rows.
+        Any numbers you mention in ai_response_text MUST match the top-level totals exactly.
         If the user names a specific brand or product, search for its real nutrition data online but use a generic dish name, not the brand name.
         NAMING RULE: food_name must be a short appetizing description (2-4 words), not a brand or product label. Use generic names like "Herb Chicken & Rice" not "Kanan Ohut Fileeleike".
         LANGUAGE RULE: Detect the language the user wrote in. Write food_name, ingredient names, and ai_response_text in that same language.
@@ -121,6 +124,7 @@ extension GeminiService {
         - Use normal cooked-food nutrition values.
         - If uncertain, choose the most likely midpoint, not an extreme.
         - The top-level calories, protein, carbs, and fat for each item MUST equal the sum of its ingredient rows.
+        - Any numbers mentioned in ai_response_text MUST match the top-level totals exactly.
         - If the same images are analyzed again, return the same items, ingredient weights, and totals.
         - If a nutrition label is partially unreadable, or the product weight/nutrition info is missing, search the internet for the exact product name to find accurate nutrition data.
         \(categoryPromptBlock)
@@ -161,6 +165,7 @@ extension GeminiService {
         USER COMMAND: "\(effectiveCommand)".
         CRITICAL RULE: Re-calculate totals based on user command.
         Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
+        CONSISTENCY: Any nutrition numbers in ai_response_text MUST match the JSON totals. Compute ingredient rows first, then write ai_response_text using those exact totals.
         If you need accurate nutrition data for a product, search the internet.
         LANGUAGE RULE: Detect the language of USER COMMAND. Write food_name, ingredients_breakdown names, and ai_response_text in that same language.
         \(categoryPromptBlock)
@@ -255,7 +260,7 @@ extension GeminiService {
             fat = fatDifference > max(4, max(result.fat, 10) * 0.18) ? rowTotals.fat : result.fat
         }
 
-        return roundedFoodResult(
+        let rounded = roundedFoodResult(
             FoodResult(
                 food_name: result.food_name,
                 emoji: result.emoji,
@@ -269,6 +274,26 @@ extension GeminiService {
                 meal_category: result.meal_category,
                 ai_response_text: result.ai_response_text
             )
+        )
+
+        let correctedText = correctResponseTextNutrition(
+            result.ai_response_text,
+            original: (result.calories, result.protein, result.carbs, result.fat),
+            corrected: (rounded.calories, rounded.protein, rounded.carbs, rounded.fat)
+        )
+
+        return FoodResult(
+            food_name: rounded.food_name,
+            emoji: rounded.emoji,
+            source_photo_number: rounded.source_photo_number,
+            calories: rounded.calories,
+            protein: rounded.protein,
+            carbs: rounded.carbs,
+            fat: rounded.fat,
+            ingredients_breakdown: rounded.ingredients_breakdown,
+            fridge_category: rounded.fridge_category,
+            meal_category: rounded.meal_category,
+            ai_response_text: correctedText
         )
     }
 
@@ -326,15 +351,52 @@ extension GeminiService {
         return rowCount > 0 ? (calories, protein, carbs, fat) : nil
     }
 
+    private static let numericAllowedChars = CharacterSet(charactersIn: "0123456789.,-")
+
     private func numericValue(from string: String) -> Double {
-        let allowed = CharacterSet(charactersIn: "0123456789.,-")
         let cleaned = string
             .unicodeScalars
-            .filter { allowed.contains($0) }
+            .filter { Self.numericAllowedChars.contains($0) }
             .map(String.init)
             .joined()
             .replacingOccurrences(of: ",", with: ".")
 
         return Double(cleaned) ?? 0
+    }
+
+    private func correctResponseTextNutrition(
+        _ text: String,
+        original: (cal: Double, pro: Double, carbs: Double, fat: Double),
+        corrected: (cal: Double, pro: Double, carbs: Double, fat: Double)
+    ) -> String {
+        guard abs(original.cal - corrected.cal) > 10
+                || abs(original.pro - corrected.pro) > 3 else {
+            return text
+        }
+
+        var result = text
+
+        let replacements: [(Double, Double, String)] = [
+            (original.cal, corrected.cal, "kcal"),
+            (original.pro, corrected.pro, "g protein"),
+            (original.carbs, corrected.carbs, "g carbs"),
+            (original.fat, corrected.fat, "g fat"),
+        ]
+
+        for (oldVal, newVal, suffix) in replacements where abs(oldVal - newVal) > 1 {
+            let oldInts = [String(Int(oldVal.rounded())), String(format: "%.1f", oldVal)]
+            for oldStr in oldInts {
+                let pattern = oldStr + " " + suffix
+                if result.contains(pattern) {
+                    result = result.replacingOccurrences(of: pattern, with: "\(Int(newVal.rounded())) \(suffix)")
+                }
+                let patternNoSpace = oldStr + suffix
+                if result.contains(patternNoSpace) {
+                    result = result.replacingOccurrences(of: patternNoSpace, with: "\(Int(newVal.rounded()))\(suffix)")
+                }
+            }
+        }
+
+        return result
     }
 }

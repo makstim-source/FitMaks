@@ -194,11 +194,11 @@ struct PaywallView: View {
 
             if subscription.products.isEmpty && !subscription.isLoading {
                 VStack(spacing: 10) {
-                    Text("Products not available yet.")
+                    Text("Subscriptions are loading...")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.appText)
 
-                    Text("Check your StoreKit configuration or finish the subscription setup in App Store Connect, then try again.")
+                    Text("Please check your internet connection and try again. If the issue persists, restart the app.")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
@@ -358,11 +358,20 @@ struct PaywallView: View {
     }
 
     private var legalLinks: some View {
-        HStack(spacing: 16) {
-            Link("Privacy Policy", destination: URL(string: "https://aback-spot-4bb.notion.site/Privacy-Policy-for-ShapeForge-34bd5554b61f80a49697e680e256a038")!)
-            Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+        VStack(spacing: 12) {
+            Text("Payment will be charged to your Apple ID account at the confirmation of purchase. The subscription automatically renews unless it is canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your App Store account settings after purchase.")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.appMuted.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 16) {
+                Link("Privacy Policy", destination: URL(string: "https://aback-spot-4bb.notion.site/Privacy-Policy-for-ShapeForge-34bd5554b61f80a49697e680e256a038")!)
+                Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.appMuted.opacity(0.7))
         }
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundColor(.appMuted.opacity(0.7))
     }
 }

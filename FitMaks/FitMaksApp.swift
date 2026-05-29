@@ -94,12 +94,16 @@ struct FitMaksApp: App {
         ) {
             return container
         }
-        return try! ModelContainer(
-            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
-                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
-                 ShoppingItem.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
+        do {
+            return try ModelContainer(
+                for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                     DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                     ShoppingItem.self,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            )
+        } catch {
+            fatalError("Failed to create even an in-memory ModelContainer: \(error)")
+        }
     }
 }
 

@@ -2,6 +2,7 @@ import Foundation
 
 enum ICloudSettingsSync {
     private static let kvStore = NSUbiquitousKeyValueStore.default
+    private static let queue = DispatchQueue(label: "com.fitmaks.icloud-sync")
 
     private static let syncKeys = [
         "userGender", "userAge", "userWeight", "userHeight",
@@ -14,23 +15,27 @@ enum ICloudSettingsSync {
     ]
 
     static func pushToICloud() {
-        for key in syncKeys {
-            if let value = UserDefaults.standard.object(forKey: key) {
-                kvStore.set(value, forKey: key)
+        queue.async {
+            for key in syncKeys {
+                if let value = UserDefaults.standard.object(forKey: key) {
+                    kvStore.set(value, forKey: key)
+                }
             }
+            kvStore.synchronize()
         }
-        kvStore.synchronize()
     }
 
     static func pullFromICloud() {
-        kvStore.synchronize()
+        queue.async {
+            kvStore.synchronize()
 
-        for key in syncKeys {
-            guard let cloudValue = kvStore.object(forKey: key) else { continue }
-            let localValue = UserDefaults.standard.object(forKey: key)
+            for key in syncKeys {
+                guard let cloudValue = kvStore.object(forKey: key) else { continue }
+                let localValue = UserDefaults.standard.object(forKey: key)
 
-            if localValue == nil || isDefault(key: key, value: localValue) {
-                UserDefaults.standard.set(cloudValue, forKey: key)
+                if localValue == nil || isDefault(key: key, value: localValue) {
+                    UserDefaults.standard.set(cloudValue, forKey: key)
+                }
             }
         }
     }

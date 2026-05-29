@@ -763,7 +763,7 @@ final class HomeViewModel {
     // MARK: - Weekly Reports
 
     var trailingSevenDayReport: WeeklyReportData? {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
+        guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date())) else { return nil }
         return WeeklyReportData.trailingDays(
             endingOn: yesterday, count: 7,
             allFoodEntries: allFoodEntries, allTrainingEntries: allTrainingEntries,

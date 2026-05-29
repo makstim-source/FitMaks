@@ -17,7 +17,12 @@ final class HealthKitManager {
     static let shared = HealthKitManager()
 
     private let healthStore = HKHealthStore()
-    private var authorizationRequested = false
+    private let authLock = NSLock()
+    private var _authorizationRequested = false
+    private var authorizationRequested: Bool {
+        get { authLock.withLock { _authorizationRequested } }
+        set { authLock.withLock { _authorizationRequested = newValue } }
+    }
 
     private var stepCountType: HKQuantityType? {
         HKQuantityType.quantityType(forIdentifier: .stepCount)

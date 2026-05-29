@@ -118,7 +118,10 @@ final class AuthService: NSObject, ASAuthorizationControllerDelegate, ASAuthoriz
 
         var add = query
         add[kSecValueData as String] = data
-        SecItemAdd(add as CFDictionary, nil)
+        let status = SecItemAdd(add as CFDictionary, nil)
+        if status != errSecSuccess {
+            print("[AuthService] Keychain save failed for \(key): \(status)")
+        }
     }
 
     private func keychainRead(key: String) -> String? {

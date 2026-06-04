@@ -67,7 +67,14 @@ struct ContentView: View {
     var dailyFoodEntries: [FoodEntry] { viewModel.cachedDailyFood }
     var dailyTrainingEntries: [TrainingEntry] { viewModel.cachedDailyTraining }
     var dailyFeed: [TimelineItem] { viewModel.cachedDailyFeed }
-    var visibleProcessingItems: [ProcessingItem] { viewModel.processingItems.reversed() }
+    var visibleProcessingItems: [ProcessingItem] {
+        viewModel.processingItems
+            .filter { item in
+                guard let targetDate = item.targetDate else { return true }
+                return Calendar.current.isDate(targetDate, inSameDayAs: viewModel.selectedDate)
+            }
+            .reversed()
+    }
     var dailyCaloriesConsumed: Double { viewModel.cachedDailyCalories }
     var dailyCaloriesRemaining: Double { viewModel.dailyCaloriesRemaining }
     var dailyProtein: Double { viewModel.cachedDailyProtein }
@@ -793,7 +800,7 @@ struct ContentView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(visibleProcessingItems) { item in HomeProcessingRow(item: item) }
 
-                    if dailyFeed.isEmpty && viewModel.processingItems.isEmpty {
+                    if dailyFeed.isEmpty && visibleProcessingItems.isEmpty {
                         emptyDiaryCard
                     } else {
                         ForEach(dailyFeed) { item in

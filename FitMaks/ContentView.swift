@@ -44,7 +44,7 @@ struct ContentView: View {
     @State private var syncTask: Task<Void, Never>?
     @State private var isShowingCopyDayDialog = false
     @State private var isShowingClearDayConfirm = false
-    @State private var alertText = ""
+
 
     // MARK: - Settings Bridge
 
@@ -430,15 +430,19 @@ struct ContentView: View {
         .sheet(isPresented: $viewModel.isShowingPaywall) {
             PaywallView()
         }
-        .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
-            TextField("E.g. 200g chicken and rice", text: $alertText)
-            Button("Analyze") { viewModel.manualText = alertText; alertText = ""; viewModel.submitManualFoodText() }
-            Button("Cancel", role: .cancel) { alertText = "" }
-        }
-        .alert("Describe your workout", isPresented: $viewModel.isShowingTrainingTextEntry) {
-            TextField("E.g. 40 min run 5km", text: $alertText)
-            Button("Analyze") { viewModel.manualText = alertText; alertText = ""; viewModel.submitManualTrainingText() }
-            Button("Cancel", role: .cancel) { alertText = "" }
+        .background {
+            TextInputAlert(
+                title: "What did you eat?",
+                placeholder: "E.g. 200g chicken and rice",
+                isPresented: $viewModel.isShowingTextEntry,
+                onSubmit: { text in viewModel.manualText = text; viewModel.submitManualFoodText() }
+            )
+            TextInputAlert(
+                title: "Describe your workout",
+                placeholder: "E.g. 40 min run 5km",
+                isPresented: $viewModel.isShowingTrainingTextEntry,
+                onSubmit: { text in viewModel.manualText = text; viewModel.submitManualTrainingText() }
+            )
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(selectedImage: $viewModel.selectedCameraImage, sourceType: .camera)
@@ -1040,4 +1044,28 @@ extension View {
             }
     }
 
+}
+
+// MARK: - Isolated text input alert (avoids ContentView body re-evaluation on keystroke)
+private struct TextInputAlert: View {
+    let title: String
+    let placeholder: String
+    @Binding var isPresented: Bool
+    let onSubmit: (String) -> Void
+
+    @State private var text = ""
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .alert(title, isPresented: $isPresented) {
+                TextField(placeholder, text: $text)
+                Button("Analyze") {
+                    let submitted = text
+                    text = ""
+                    onSubmit(submitted)
+                }
+                Button("Cancel", role: .cancel) { text = "" }
+            }
+    }
 }

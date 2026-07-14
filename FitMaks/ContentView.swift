@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var syncTask: Task<Void, Never>?
     @State private var isShowingCopyDayDialog = false
     @State private var isShowingClearDayConfirm = false
+    @State private var alertText = ""
 
     // MARK: - Settings Bridge
 
@@ -430,14 +431,14 @@ struct ContentView: View {
             PaywallView()
         }
         .alert("What did you eat?", isPresented: $viewModel.isShowingTextEntry) {
-            TextField("E.g. 200g chicken and rice", text: $viewModel.manualText)
-            Button("Analyze") { viewModel.submitManualFoodText() }
-            Button("Cancel", role: .cancel) { viewModel.manualText = "" }
+            TextField("E.g. 200g chicken and rice", text: $alertText)
+            Button("Analyze") { viewModel.manualText = alertText; alertText = ""; viewModel.submitManualFoodText() }
+            Button("Cancel", role: .cancel) { alertText = "" }
         }
         .alert("Describe your workout", isPresented: $viewModel.isShowingTrainingTextEntry) {
-            TextField("E.g. 40 min run 5km", text: $viewModel.manualText)
-            Button("Analyze") { viewModel.submitManualTrainingText() }
-            Button("Cancel", role: .cancel) { viewModel.manualText = "" }
+            TextField("E.g. 40 min run 5km", text: $alertText)
+            Button("Analyze") { viewModel.manualText = alertText; alertText = ""; viewModel.submitManualTrainingText() }
+            Button("Cancel", role: .cancel) { alertText = "" }
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(selectedImage: $viewModel.selectedCameraImage, sourceType: .camera)

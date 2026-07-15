@@ -3,13 +3,13 @@ import UIKit
 
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
-    var sourceType: UIImagePickerController.SourceType // Вот наша новая переменная
+    var sourceType: UIImagePickerController.SourceType
     @Environment(\.presentationMode) private var presentationMode
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = sourceType // Передаем системе выбор пользователя
+        picker.sourceType = sourceType
         return picker
     }
 
@@ -28,8 +28,12 @@ struct ImagePicker: UIViewControllerRepresentable {
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             if let image = info[.originalImage] as? UIImage {
-                parent.selectedImage = image
+                parent.selectedImage = image.preparedForAIIntake()
             }
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.presentationMode.wrappedValue.dismiss()
         }
     }

@@ -1,43 +1,7 @@
 import Foundation
 import UIKit
-import CryptoKit
 
-// MARK: - МОДЕЛИ ОТВЕТОВ ИИ
-struct FoodResult: Codable {
-    let food_name: String
-    let emoji: String?
-    let calories: Double
-    let protein: Double
-    let ingredients_breakdown: String
-    let ai_response_text: String
-}
-
-struct TrainingResult: Codable {
-    let activity_name: String
-    let calories_burned: Double
-    let duration: String
-    let ai_summary: String
-}
-
-struct RecipeResult: Codable, Identifiable {
-    var id: String { recipe_name }
-    let recipe_name: String
-    let cooking_instructions: String
-    let estimated_calories: Double
-    let estimated_protein: Double
-}
-
-struct RecipeListResult: Codable {
-    let recipes: [RecipeResult]
-}
-
-struct GroceryListResult: Codable {
-    let items: [FoodResult]
-}
-
-struct DailySummaryResult: Codable {
-    let ai_summary: String
-}
+// MARK: - Gemini API Error
 
 private struct GeminiAPIErrorResponse: Decodable {
     struct APIError: Decodable {
@@ -48,174 +12,65 @@ private struct GeminiAPIErrorResponse: Decodable {
     let error: APIError
 }
 
-// MARK: - СЕРВИС GEMINI
+// MARK: - Gemini Service
+
 class GeminiService {
     static let shared = GeminiService()
     private let apiKey = Config.apiKey
-    
+
     private let baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-    private let foodCacheQueue = DispatchQueue(label: "FitMaks.foodEstimateCache")
-    private var foodImageEstimateCache: [String: FoodResult] = [:]
-    private var foodTextEstimateCache: [String: FoodResult] = [:]
-    
-    func analyzeImages(images: [UIImage], completion: @escaping (FoodResult?, String?) -> Void) {
-        let cacheKey = foodImageCacheKey(images: images)
+    let foodCacheQueue = DispatchQueue(label: "FitMaks.foodEstimateCache")
+    let maxCacheSize = 50
+    var foodImageEstimateCache: [String: FoodResult] = [:]
+    var foodImageEstimateKeys: [String] = []
+    var foodImageItemsCache: [String: [FoodResult]] = [:]
+    var foodImageItemsKeys: [String] = []
+    var foodTextEstimateCache: [String: FoodResult] = [:]
+    var foodTextEstimateKeys: [String] = []
 
-        if let cacheKey, let cached = cachedFoodImageEstimate(for: cacheKey) {
-            completion(cached, nil)
-            return
-        }
+    let fridgeCategoryKeys = "proteins, healthy_carbs, fruit_veg, dairy, drinks, snacks, sauces_extras, other"
+    let mealCategoryKeys = "main_dish, sides, salads_starters, breakfast, desserts, snacks, other"
 
-        let prompt = """
-        Analyze food as a deterministic nutrition estimator. Consistency is more important than creativity.
-
-        ESTIMATION RULES:
-        - Estimate the visible edible portion only.
-        - Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
-        - Estimate every ingredient weight in grams using the visible plate size.
-        - Use normal cooked-food nutrition values. Example anchors: cooked salmon is usually about 200-230 kcal and 20-25g protein per 100g; cooked white rice is usually about 130 kcal and 2-3g protein per 100g; creamy/oily sauces are separate small portions unless clearly large.
-        - If uncertain, choose the most likely midpoint, not an extreme.
-        - Avoid very large restaurant-size assumptions unless the image clearly shows a large portion.
-        - The top-level calories and protein MUST equal the sum of the ingredient rows.
-        - If the same image is analyzed again, return the same ingredient weights and totals.
-
-        Return ONLY a single JSON object. 
-        CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines. Protein calculation is MANDATORY.
+    var categoryPromptBlock: String {
         """
-        sendToGemini(images: images, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
-            let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
-
-            if let cacheKey, let stabilized {
-                self?.cacheFoodImageEstimate(stabilized, for: cacheKey)
-            }
-
-            completion(stabilized, error)
-        }
-    }
-    
-    func analyzeText(text: String, completion: @escaping (FoodResult?, String?) -> Void) {
-        let cacheKey = normalizedFoodTextCacheKey(text)
-
-        if let cached = cachedFoodTextEstimate(for: cacheKey) {
-            completion(cached, nil)
-            return
-        }
-
-        let prompt = """
-        Nutrition expert. User ate: '\(text)'.
-        Estimate deterministically. If the user gives no portion size, use a realistic standard serving and do not choose an extreme.
-        Break the dish into real ingredients only. Do NOT include both the whole dish and its ingredients.
-        The top-level calories and protein MUST equal the sum of the ingredient rows.
-
-        Return ONLY a single JSON object. 
-        CRITICAL RULE: You MUST use exactly this structure:
-        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "ingredients_breakdown": "Item1;100g;100;10\\nItem2;50g;50;5", "ai_response_text": ""}
-        Format 'ingredients_breakdown' rows with semicolons, separated by newlines.
+        CATEGORY RULES:
+        - fridge_category is the best reusable PRODUCT / FRIDGE bucket for this item.
+        - meal_category is the best reusable MEAL bucket for this item.
+        - fridge_category MUST be exactly one of: \(fridgeCategoryKeys).
+        - meal_category MUST be exactly one of: \(mealCategoryKeys).
+        - Never invent new category values. If unsure, use "other".
+        - Choose fridge_category by the PHYSICAL PRODUCT TYPE, not by flavor words in the name.
+        - Yogurt / quark / skyr / pudding / cottage cheese belong to "dairy".
+        - Ready-to-drink shakes, cartons, bottled protein drinks, juices, sodas, and coffees belong to "drinks".
+        - Whey / isolate powders and raw meat / fish / eggs belong to "proteins".
+        - Chips, crisps, corn cakes, rice cakes, crackers, bars, cookies, candy, nachos, pretzels, and similar packaged grab-and-go items belong to "snacks" — even if the flavor name contains a vegetable or dairy word (e.g. "Paprika Chips" → snacks, "Sour Cream Corn Cakes" → snacks, "Tomato Basil Chips" → snacks).
+        - Fresh or frozen whole fruits, berries, and vegetables belong to "fruit_veg" — even when sold in plastic containers or packages (e.g. blueberries in a punnet, kumquats in a bag).
+        - For meal_category: noodle dishes and pasta dishes with protein (chicken noodle, beef pasta, etc.) are "main_dish", not "salads_starters". Desserts like cake, ice cream, brownies, cookies, pie, cheesecake, muffins belong to "desserts".
         """
-        sendToGemini(images: [], prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
-            let stabilized = result.map { self?.stabilizedFoodResult($0) ?? $0 }
-
-            if let stabilized {
-                self?.cacheFoodTextEstimate(stabilized, for: cacheKey)
-            }
-
-            completion(stabilized, error)
-        }
-    }
-    
-    func refineAnalysis(image: UIImage?, currentData: FoodResult, userComment: String, completion: @escaping (FoodResult?, String?) -> Void) {
-        let prompt = """
-        ACT AS NUTRITIONIST. 
-        CURRENT DATA: \(currentData.food_name), \(currentData.calories)kcal, \(currentData.protein)g prot. 
-        BREAKDOWN: \(currentData.ingredients_breakdown).
-        USER COMMAND: "\(userComment)".
-        CRITICAL RULE: Re-calculate totals based on user command.
-        Even if the user asks a question, YOU MUST return a valid JSON. Answer the question or explain changes ONLY in 'ai_response_text'.
-        Return ONLY JSON structure: {"food_name": "...", "emoji": "...", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;Weight;Kcal;Prot", "ai_response_text": "your answer"}
-        """
-        let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: FoodResult.self, temperature: 0.0, topP: 0.1, topK: 1) { [weak self] result, error in
-            completion(result.map { self?.stabilizedFoodResult($0) ?? $0 }, error)
-        }
     }
 
-    func analyzeTrainingImages(images: [UIImage], completion: @escaping (TrainingResult?, String?) -> Void) {
-        let prompt = """
-        Extract workout stats from fitness tracker screenshot. Return ONLY a single JSON object.
-        CRITICAL RULE: You MUST use exactly this structure:
-        {"activity_name": "...", "calories_burned": 0, "duration": "...", "ai_summary": "..."}
+    var singleFoodJSONShape: String {
         """
-        sendToGemini(images: images, prompt: prompt, responseType: TrainingResult.self, temperature: 0.1, topP: 0.3, topK: 1, completion: completion)
+        {"food_name": "Dish Name", "emoji": "🍽️", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients_breakdown": "Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0", "fridge_category": "proteins", "meal_category": "main_dish", "ai_response_text": ""}
+        """
     }
 
-    func generateRecipes(from ingredients: [String], completion: @escaping ([RecipeResult]?, String?) -> Void) {
-        let list = ingredients.joined(separator: ", ")
-        let prompt = """
-        You are a Michelin-star fitness chef. I have these ingredients: \(list).
-        Suggest 3 DISTINCT, healthy and high-protein recipes combining SOME or ALL of them. 
-        Use MARKDOWN formatting for instructions (bolding, bullets, emojis).
-        Return ONLY valid JSON:
-        {"recipes": [ {"recipe_name": "...", "cooking_instructions": "...", "estimated_calories": 450, "estimated_protein": 35} ]}
+    var multiFoodJSONShape: String {
         """
-        sendToGemini(images: [], prompt: prompt, responseType: RecipeListResult.self, temperature: 0.7) { result, error in completion(result?.recipes, error) }
-    }
-    
-    func scanGroceries(images: [UIImage], completion: @escaping ([FoodResult]?, String?) -> Void) {
-        let prompt = """
-        Extract all individual food items from this grocery receipt or image. 
-        For each item, estimate calories and protein per 100g. 
-        Return ONLY JSON: 
-        {"items": [{"food_name": "...", "emoji": "🍎", "calories": 0, "protein": 0, "ingredients_breakdown": "Item;100g;0;0", "ai_response_text": ""}]}
+        {"items":[{"food_name":"Dish Name","emoji":"🍽️","source_photo_number":1,"calories":0,"protein":0,"carbs":0,"fat":0,"ingredients_breakdown":"Item1;100g;100;10;0;0\\nItem2;50g;50;5;0;0","fridge_category":"proteins","meal_category":"main_dish","ai_response_text":""}]}
         """
-        sendToGemini(images: images, prompt: prompt, responseType: GroceryListResult.self, temperature: 0.1, topP: 0.3, topK: 1) { result, err in completion(result?.items, err) }
-    }
-    
-    // 🔥 ОБНОВЛЕННЫЙ ЧАТ С ИИ-ТРЕНЕРОМ (УМЕЕТ В ПРОШЛОЕ И ВИДИТ ХОЛОДИЛЬНИК) 🔥
-    func sendCoachMessage(image: UIImage?, message: String, isInitial: Bool, isPastDay: Bool, timeOfDay: String, consumedCalories: Double, consumedProtein: Double, targetCalories: Double, targetProtein: Double, meals: [String], workouts: [String], fridgeItems: [String], completion: @escaping (String?, String?) -> Void) {
-        
-        let dayContext = isPastDay
-            ? "You are evaluating a PAST DAY that is already over. Evaluate their overall performance for that entire day. DO NOT suggest what to eat or do 'later today'."
-            : "Current time: \(timeOfDay). The day is still ongoing."
-            
-        let fridgeContext = (!isPastDay && !fridgeItems.isEmpty)
-            ? "Available food in their Fridge: \(fridgeItems.joined(separator: ", ")). Recommend SPECIFIC items from this list if they need to hit their protein or calorie goals today."
-            : ""
-            
-        let prompt = """
-        You are a strict, honest, and highly motivating fitness and nutrition coach.
-        \(dayContext)
-        User's daily goal: \(Int(targetCalories)) kcal, \(Int(targetProtein))g protein.
-        Progress: \(Int(consumedCalories)) kcal consumed, \(Int(consumedProtein))g protein consumed.
-        Meals eaten: \(meals.isEmpty ? "None" : meals.joined(separator: ", ")).
-        Workouts done: \(workouts.isEmpty ? "None" : workouts.joined(separator: ", ")).
-        \(fridgeContext)
-
-        \(isInitial ? (isPastDay ? "Give a quick summary of their performance for this past day." : "The user just opened the app. Give them a quick daily summary and motivation based on current time.") : "The user says/shows: '\(message)'. Reply to them directly.")
-
-        CRITICAL RULES:
-        1. Evaluate food quality. If they ate junk food, sugar, or excess fat, scold them slightly but constructively. Praise good protein intake.
-        2. If it's a PAST DAY, summarize their success or failure. If it's the CURRENT DAY, motivate them and suggest exact foods from their Fridge to hit remaining goals.
-        3. Be direct, use quick humor, and don't sugar-coat.
-        4. Keep it concise (under 5 sentences). Use emojis.
-
-        Return ONLY a single JSON object:
-        {"ai_summary": "your response here"}
-        """
-        let imgs = image != nil ? [image!] : []
-        sendToGemini(images: imgs, prompt: prompt, responseType: DailySummaryResult.self, temperature: 0.6) { result, error in
-            completion(result?.ai_summary, error)
-        }
     }
 
-    private func sendToGemini<T: Decodable>(
+    // MARK: - Core API
+
+    func sendToGemini<T: Decodable>(
         images: [UIImage],
         prompt: String,
         responseType: T.Type,
         temperature: Double = 0.2,
         topP: Double? = nil,
         topK: Int? = nil,
+        useSearchGrounding: Bool = false,
         completion: @escaping (T?, String?) -> Void
     ) {
         func finish(_ result: T?, _ error: String?) {
@@ -253,9 +108,12 @@ class GeminiService {
         request.timeoutInterval = 60
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         var generationConfig: [String: Any] = [
-            "response_mime_type": "application/json",
             "temperature": temperature
         ]
+
+        if !useSearchGrounding {
+            generationConfig["response_mime_type"] = "application/json"
+        }
 
         if let topP {
             generationConfig["topP"] = topP
@@ -265,7 +123,10 @@ class GeminiService {
             generationConfig["topK"] = topK
         }
 
-        let body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": generationConfig]
+        var body: [String: Any] = ["contents": [["parts": parts]], "generationConfig": generationConfig]
+        if useSearchGrounding {
+            body["tools"] = [["google_search": [String: Any]()]]
+        }
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
             finish(nil, "Failed to encode Gemini request.")
@@ -274,46 +135,97 @@ class GeminiService {
 
         request.httpBody = bodyData
 
+        performRequest(request, responseType: responseType, retriesRemaining: 2, completion: finish)
+    }
+
+    // MARK: - Request Execution
+
+    private func performRequest<T: Decodable>(
+        _ request: URLRequest,
+        responseType: T.Type,
+        retriesRemaining: Int,
+        completion: @escaping (T?, String?) -> Void
+    ) {
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                finish(nil, error.localizedDescription)
+            if let error {
+                if retriesRemaining > 0, self.isRetryableError(error) {
+                    let delay = Double(3 - retriesRemaining)
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+                completion(nil, self.userFacingErrorMessage(error.localizedDescription))
                 return
             }
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                finish(nil, "No response from Gemini.")
+                completion(nil, "No response from Gemini.")
                 return
             }
 
-            guard let data = data else {
-                finish(nil, "Gemini returned an empty response.")
+            guard let data else {
+                completion(nil, "Gemini returned an empty response.")
                 return
             }
 
             if !(200...299).contains(httpResponse.statusCode) {
+                if retriesRemaining > 0, self.isRetryableStatusCode(httpResponse.statusCode) {
+                    let delay = Double(3 - retriesRemaining)
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+
                 if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
-                    finish(nil, apiError.error.message ?? "Gemini request failed with code \(httpResponse.statusCode).")
+                    completion(nil, apiError.error.message ?? "Gemini request failed with code \(httpResponse.statusCode).")
                     return
                 }
 
                 let responseText = String(data: data, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                finish(nil, responseText?.isEmpty == false ? responseText : "Gemini request failed with code \(httpResponse.statusCode).")
+                completion(nil, responseText?.isEmpty == false ? responseText : "Gemini request failed with code \(httpResponse.statusCode).")
+                return
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
+                    completion(nil, apiError.error.message ?? "Invalid Gemini response.")
+                } else {
+                    completion(nil, "Invalid Gemini response.")
+                }
+                return
+            }
+
+            if let candidates = json["candidates"] as? [[String: Any]],
+               let first = candidates.first,
+               let reason = first["finishReason"] as? String,
+               first["content"] == nil {
+                if retriesRemaining > 0 {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
+                }
+                completion(nil, "AI blocked the response (\(reason)). Try rephrasing.")
                 return
             }
 
             guard
-                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                 let candidates = json["candidates"] as? [[String: Any]],
                 let content = candidates.first?["content"] as? [String: Any],
                 let resultParts = content["parts"] as? [[String: Any]],
                 let rawText = resultParts.first?["text"] as? String
             else {
-                if let apiError = try? JSONDecoder().decode(GeminiAPIErrorResponse.self, from: data) {
-                    finish(nil, apiError.error.message ?? "Invalid Gemini response.")
-                } else {
-                    finish(nil, "Invalid Gemini response.")
+                if retriesRemaining > 0 {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                        self.performRequest(request, responseType: responseType, retriesRemaining: retriesRemaining - 1, completion: completion)
+                    }
+                    return
                 }
+                let feedback = (json["promptFeedback"] as? [String: Any])?["blockReason"] as? String
+                completion(nil, feedback.map { "AI blocked: \($0). Try rephrasing." } ?? "Invalid Gemini response. Please try again.")
                 return
             }
 
@@ -324,149 +236,114 @@ class GeminiService {
                 cleanText = cleanText.replacingOccurrences(of: mdQuotes, with: "")
             }
 
-            guard
-                let start = cleanText.firstIndex(of: "{"),
-                let end = cleanText.lastIndex(of: "}"),
-                let finalData = String(cleanText[start...end]).data(using: .utf8)
-            else {
-                finish(nil, "Gemini returned invalid JSON.")
+            let jsonCandidates = self.extractJSONBlocks(from: cleanText)
+
+            for candidate in jsonCandidates {
+                if let data = candidate.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(T.self, from: data) {
+                    completion(decoded, nil)
+                    return
+                }
+            }
+
+            let finalData: Data?
+            if let start = cleanText.firstIndex(of: "{"),
+               let end = cleanText.lastIndex(of: "}") {
+                finalData = String(cleanText[start...end]).data(using: .utf8)
+            } else {
+                finalData = nil
+            }
+
+            if let finalData, let decoded = try? JSONDecoder().decode(T.self, from: finalData) {
+                completion(decoded, nil)
                 return
             }
 
-            do {
-                let decoded = try JSONDecoder().decode(T.self, from: finalData)
-                finish(decoded, nil)
-            } catch {
-                finish(nil, "Failed to decode Gemini response.")
+            let fallbackText: String
+            if let finalData,
+               let json = try? JSONSerialization.jsonObject(with: finalData) as? [String: Any] {
+                fallbackText = (json["ai_response_text"] as? String)
+                    ?? (json["ai_summary"] as? String)
+                    ?? cleanText
+            } else if !cleanText.isEmpty {
+                fallbackText = cleanText
+            } else {
+                completion(nil, "Gemini returned invalid JSON.")
+                return
             }
+            completion(nil, "AI_TEXT:\(fallbackText)")
         }.resume()
     }
 
-    private func stabilizedFoodResult(_ result: FoodResult) -> FoodResult {
-        let rowTotals = nutritionTotals(from: result.ingredients_breakdown)
+    // MARK: - JSON Extraction
 
-        guard let rowTotals else {
-            return roundedFoodResult(result)
-        }
-
-        let calorieDifference = abs(rowTotals.calories - result.calories)
-        let proteinDifference = abs(rowTotals.protein - result.protein)
-        let calories = calorieDifference > max(50, result.calories * 0.12) ? rowTotals.calories : result.calories
-        let protein = proteinDifference > max(5, result.protein * 0.15) ? rowTotals.protein : result.protein
-
-        return roundedFoodResult(
-            FoodResult(
-                food_name: result.food_name,
-                emoji: result.emoji,
-                calories: calories,
-                protein: protein,
-                ingredients_breakdown: result.ingredients_breakdown,
-                ai_response_text: result.ai_response_text
-            )
-        )
-    }
-
-    private func roundedFoodResult(_ result: FoodResult) -> FoodResult {
-        FoodResult(
-            food_name: result.food_name,
-            emoji: result.emoji,
-            calories: (result.calories / 5).rounded() * 5,
-            protein: result.protein.rounded(),
-            ingredients_breakdown: result.ingredients_breakdown,
-            ai_response_text: result.ai_response_text
-        )
-    }
-
-    private func nutritionTotals(from breakdown: String) -> (calories: Double, protein: Double)? {
-        var calories = 0.0
-        var protein = 0.0
-        var rowCount = 0
-
-        for line in breakdown.components(separatedBy: .newlines) {
-            let parts = line.components(separatedBy: ";")
-
-            guard parts.count >= 4 else {
-                continue
+    private func extractJSONBlocks(from text: String) -> [String] {
+        var blocks: [String] = []
+        let chars = Array(text)
+        var i = 0
+        while i < chars.count {
+            if chars[i] == "{" {
+                var depth = 0
+                var inString = false
+                var escaped = false
+                let start = i
+                for j in i..<chars.count {
+                    if escaped { escaped = false; continue }
+                    if chars[j] == "\\" && inString { escaped = true; continue }
+                    if chars[j] == "\"" { inString.toggle(); continue }
+                    if inString { continue }
+                    if chars[j] == "{" { depth += 1 }
+                    if chars[j] == "}" {
+                        depth -= 1
+                        if depth == 0 {
+                            blocks.append(String(chars[start...j]))
+                            i = j + 1
+                            break
+                        }
+                    }
+                }
+                if depth != 0 { i += 1 }
+            } else {
+                i += 1
             }
+        }
+        return blocks.sorted { $0.count > $1.count }
+    }
 
-            calories += numericValue(from: parts[2])
-            protein += numericValue(from: parts[3])
-            rowCount += 1
+    private func wrapPlainTextAsJSON(_ text: String) -> Data? {
+        let escaped = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+        return "{\"ai_summary\":\"\(escaped)\"}".data(using: .utf8)
+    }
+
+    // MARK: - Error Handling
+
+    private func isRetryableError(_ error: Error) -> Bool {
+        let code = (error as NSError).code
+        return [
+            NSURLErrorTimedOut,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorDNSLookupFailed
+        ].contains(code)
+    }
+
+    private func isRetryableStatusCode(_ code: Int) -> Bool {
+        [429, 500, 502, 503, 504].contains(code)
+    }
+
+    private func userFacingErrorMessage(_ message: String) -> String {
+        let normalized = message.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalized.lowercased().contains("cancelled") {
+            return "The AI request was interrupted. Please try again."
         }
 
-        return rowCount > 0 ? (calories, protein) : nil
-    }
-
-    private func numericValue(from string: String) -> Double {
-        let allowed = CharacterSet(charactersIn: "0123456789.,-")
-        let cleaned = string
-            .unicodeScalars
-            .filter { allowed.contains($0) }
-            .map(String.init)
-            .joined()
-            .replacingOccurrences(of: ",", with: ".")
-
-        return Double(cleaned) ?? 0
-    }
-
-    private func foodImageCacheKey(images: [UIImage]) -> String? {
-        var combinedData = Data()
-
-        for image in images {
-            guard let data = image.resized(toMaxDimension: 320).jpegData(compressionQuality: 0.65) else {
-                continue
-            }
-
-            combinedData.append(data)
-        }
-
-        guard !combinedData.isEmpty else {
-            return nil
-        }
-
-        return SHA256.hash(data: combinedData)
-            .map { String(format: "%02x", $0) }
-            .joined()
-    }
-
-    private func normalizedFoodTextCacheKey(_ text: String) -> String {
-        text
-            .lowercased()
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    private func cachedFoodImageEstimate(for key: String) -> FoodResult? {
-        foodCacheQueue.sync {
-            foodImageEstimateCache[key]
-        }
-    }
-
-    private func cacheFoodImageEstimate(_ result: FoodResult, for key: String) {
-        foodCacheQueue.async {
-            self.foodImageEstimateCache[key] = result
-        }
-    }
-
-    private func cachedFoodTextEstimate(for key: String) -> FoodResult? {
-        foodCacheQueue.sync {
-            foodTextEstimateCache[key]
-        }
-    }
-
-    private func cacheFoodTextEstimate(_ result: FoodResult, for key: String) {
-        foodCacheQueue.async {
-            self.foodTextEstimateCache[key] = result
-        }
-    }
-}
-
-extension UIImage {
-    func resized(toMaxDimension maxDimension: CGFloat) -> UIImage {
-        let aspectRatio = size.width / size.height
-        let newSize = aspectRatio > 1 ? CGSize(width: maxDimension, height: maxDimension / aspectRatio) : CGSize(width: maxDimension * aspectRatio, height: maxDimension)
-        return UIGraphicsImageRenderer(size: newSize).image { _ in self.draw(in: CGRect(origin: .zero, size: newSize)) }
+        return normalized.isEmpty ? "The AI request failed. Please try again." : normalized
     }
 }

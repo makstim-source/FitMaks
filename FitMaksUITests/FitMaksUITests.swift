@@ -1,42 +1,141 @@
-//
-//  FitMaksUITests.swift
-//  FitMaksUITests
-//
-//  Created by Maksimilian Timofeev on 17.4.2026.
-//
-
 import XCTest
 
 final class FitMaksUITests: XCTestCase {
 
+    private var app: XCUIApplication!
+
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
+        app = XCUIApplication()
+        app.launchArguments += ["-hasSeenSignIn", "YES", "-hasCompletedOnboarding", "YES"]
+        app.launch()
     }
 
     override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        app = nil
+    }
+
+    // MARK: - Helpers
+
+    private func waitForHomeScreen() -> Bool {
+        app.staticTexts["DIARY"].waitForExistence(timeout: 8)
+    }
+
+    // MARK: - Home Screen
+
+    @MainActor
+    func testHomeScreenShowsMainElements() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        XCTAssertTrue(app.staticTexts["CALORIES"].exists)
+        XCTAssertTrue(app.staticTexts["PROTEIN"].exists)
+        XCTAssertTrue(app.staticTexts["STEPS"].exists)
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+    func testDockButtonsExist() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        XCTAssertTrue(app.buttons["dock_Food"].exists)
+        XCTAssertTrue(app.buttons["dock_Profile"].exists)
+        XCTAssertTrue(app.buttons["addEntryButton"].exists)
     }
+
+    @MainActor
+    func testModeButtonsExist() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        XCTAssertTrue(app.staticTexts["Cardio"].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS 'Cardio'")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Strength"].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS 'Strength'")).firstMatch.exists)
+    }
+
+    // MARK: - Add Entry Dialog
+
+    @MainActor
+    func testAddEntryDialogShowsOptions() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        app.buttons["addEntryButton"].tap()
+
+        let cameraButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Camera'")).firstMatch
+        XCTAssertTrue(cameraButton.waitForExistence(timeout: 5))
+
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Library'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Type Food'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Training'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Fridge'")).firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Meals'")).firstMatch.exists)
+    }
+
+    // MARK: - Profile Sheet
+
+    @MainActor
+    func testOpenAndCloseProfile() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        app.buttons["dock_Profile"].tap()
+
+        XCTAssertTrue(app.navigationBars["Profile & Goals"].waitForExistence(timeout: 5))
+
+        app.buttons["Done"].tap()
+
+        XCTAssertTrue(app.staticTexts["DIARY"].waitForExistence(timeout: 5))
+    }
+
+    // MARK: - Food Sheet
+
+    @MainActor
+    func testOpenFood() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        app.buttons["dock_Food"].tap()
+
+        let appeared = app.staticTexts["Fridge"].waitForExistence(timeout: 5)
+            || app.staticTexts["Meals"].waitForExistence(timeout: 5)
+        XCTAssertTrue(appeared)
+    }
+
+    // MARK: - Stats / Progress Arena
+
+    @MainActor
+    func testOpenAndCloseStats() throws {
+        XCTAssertTrue(waitForHomeScreen())
+        app.buttons["statsButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["Streak Mode"].waitForExistence(timeout: 5))
+
+        app.buttons["Close"].tap()
+
+        XCTAssertTrue(app.staticTexts["DIARY"].waitForExistence(timeout: 5))
+    }
+
+    // MARK: - Sign In Flow
+
+    @MainActor
+    func testSignInScreenShowsOnFirstLaunch() throws {
+        let freshApp = XCUIApplication()
+        freshApp.launchArguments += ["-hasSeenSignIn", "NO", "-hasCompletedOnboarding", "NO"]
+        freshApp.launch()
+
+        let found = freshApp.buttons["Sign in with Apple"].waitForExistence(timeout: 8)
+            || freshApp.buttons["Continue without account"].waitForExistence(timeout: 8)
+        XCTAssertTrue(found)
+    }
+
+    @MainActor
+    func testSignInScreenHasContinueButton() throws {
+        let freshApp = XCUIApplication()
+        freshApp.launchArguments += ["-hasSeenSignIn", "NO", "-hasCompletedOnboarding", "NO"]
+        freshApp.launch()
+
+        let continueButton = freshApp.buttons["Continue without account"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 10))
+        XCTAssertTrue(continueButton.isHittable)
+    }
+
+    // MARK: - Launch Performance
 
     @MainActor
     func testLaunchPerformance() throws {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
-            // This measures how long it takes to launch your application.
             measure(metrics: [XCTApplicationLaunchMetric()]) {
-                XCUIApplication().launch()
+                let perf = XCUIApplication()
+                perf.launchArguments += ["-hasSeenSignIn", "YES", "-hasCompletedOnboarding", "YES"]
+                perf.launch()
             }
         }
     }

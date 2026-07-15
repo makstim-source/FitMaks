@@ -16,18 +16,38 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="FitMaks" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brand-label">
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="ShapeForge" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="brand-label">
                                 <rect key="frame" x="128" y="392" width="137" height="48"/>
                                 <fontDescription key="fontDescription" type="system" weight="heavy" pointSize="40"/>
                                 <color key="textColor" red="0.6784313725" green="1" blue="0.1843137255" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="your day, readable" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="subtitle-label">
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="AI-powered discipline." textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="subtitle-label">
                                 <rect key="frame" x="124" y="449" width="145" height="17"/>
                                 <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="14"/>
                                 <color key="textColor" red="0.53" green="0.56" blue="0.59" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <view clipsSubviews="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="loading-track">
+                                <rect key="frame" x="118.66666666666669" y="488" width="156" height="7"/>
+                                <subviews>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="loading-fill">
+                                        <rect key="frame" x="0.0" y="0.0" width="58" height="7"/>
+                                        <color key="backgroundColor" red="0.6784313725" green="1" blue="0.1843137255" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                        <constraints>
+                                            <constraint firstAttribute="width" constant="58" id="loading-fill-width"/>
+                                            <constraint firstAttribute="height" constant="7" id="loading-fill-height"/>
+                                        </constraints>
+                                    </view>
+                                </subviews>
+                                <color key="backgroundColor" red="0.1019607843" green="0.1215686275" blue="0.1411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstItem="loading-fill" firstAttribute="leading" secondItem="loading-track" secondAttribute="leading" id="loading-fill-leading"/>
+                                    <constraint firstItem="loading-fill" firstAttribute="centerY" secondItem="loading-track" secondAttribute="centerY" id="loading-fill-center-y"/>
+                                    <constraint firstAttribute="width" constant="156" id="loading-track-width"/>
+                                    <constraint firstAttribute="height" constant="7" id="loading-track-height"/>
+                                </constraints>
+                            </view>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
                         <color key="backgroundColor" red="0.02745098039" green="0.0431372549" blue="0.05882352941" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -36,6 +56,8 @@
                             <constraint firstItem="brand-label" firstAttribute="centerY" secondItem="launch-root-view" secondAttribute="centerY" constant="-20" id="brand-center-y"/>
                             <constraint firstItem="subtitle-label" firstAttribute="top" secondItem="brand-label" secondAttribute="bottom" constant="6" id="subtitle-top"/>
                             <constraint firstItem="subtitle-label" firstAttribute="centerX" secondItem="launch-root-view" secondAttribute="centerX" id="subtitle-center-x"/>
+                            <constraint firstItem="loading-track" firstAttribute="top" secondItem="subtitle-label" secondAttribute="bottom" constant="22" id="loading-track-top"/>
+                            <constraint firstItem="loading-track" firstAttribute="centerX" secondItem="launch-root-view" secondAttribute="centerX" id="loading-track-center-x"/>
                         </constraints>
                     </view>
                 </viewController>

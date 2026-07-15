@@ -1,7 +1,12 @@
 import SwiftUI
+import SwiftData
+import StoreKit
+import UIKit
 
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) var modelContext
+    @Query(sort: \BodyMetricEntry.date, order: .reverse) var bodyMetrics: [BodyMetricEntry]
 
     @Binding var gender: String
     @Binding var age: Int
@@ -12,59 +17,177 @@ struct ProfileView: View {
     @Binding var useCustomGoals: Bool
     @Binding var customCalories: Double
     @Binding var customProtein: Double
+    @Binding var macroRestriction: String
+    @Binding var customFat: Double
+    @Binding var customCarbs: Double
 
     var calculatedCalories: Double
     var calculatedProtein: Double
+    var postOptions: [FitMaksPostOption] = []
 
-    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
-    @State private var isShowingThemePicker = false
+    @State var isShowingGoalSettings = false
+    @State var isShowingWeightInput = false
+    @State var isShowingBodyImagePicker = false
+    @State var selectedBodyImage: UIImage?
+    @State var bodyScanSourceType: UIImagePickerController.SourceType = .photoLibrary
+    @State var isAnalyzingBodyScan = false
+    @State var bodyScanError: String?
+    @State var manualWeightText = ""
+    @State var manualBodyFatText = ""
+    @State var manualMuscleText = ""
+    @State var manualWaterText = ""
+    @State var manualBodyMetricDate = Date()
+    @State var pendingScannedBodyMetric: PendingBodyMetricScan?
+    @State var pendingBodyMetricDate = Date()
+    @State var isShowingScannedDatePicker = false
+    @State var isImportingHealthMetrics = false
+    @State var selectedWeightRange: WeightChartRange = .days30
+    @State var selectedBodyChartMetric: BodyChartMetric = .weight
+    @State var selectedBodyChartPointDate: Date?
+    @State var isInteractingWithBodyChart = false
+    @State var lastBodyChartSelectionAt = Date.distantPast
+    @State var isShowingBodyMetricHistory = false
+    @State private var isShowingAppSettings = false
+    @State var isShowingPaywall = false
+    @State var goalSnapshot: GoalSnapshot?
+    @State var livePayload: FitMaksSharePayload?
+    @State var cachedRangeMetrics: [BodyMetricEntry] = []
+    @State var aiWeightInsight: String?
+    @State var aiWeightLoading = false
+    @State var aiWeightError: String?
 
-    private var neonPurple: Color { .fitPurple }
-    private let activityOptions: [ActivityOption] = [
-        ActivityOption(key: "Sedentary", title: "Mostly sitting", subtitle: "Desk job, little walking", multiplier: 1.2),
-        ActivityOption(key: "Light", title: "Light movement", subtitle: "Walks, 1-2 workouts/week", multiplier: 1.375),
-        ActivityOption(key: "Moderate", title: "Regular training", subtitle: "3-4 workouts/week", multiplier: 1.55),
-        ActivityOption(key: "Active", title: "Very active", subtitle: "Hard training or physical job", multiplier: 1.725)
+    var neonPurple: Color { .fitPurple }
+    let activityOptions: [ActivityOption] = [
+        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting"),
+        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching, walks"),
+        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking + errands"),
+        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse")
     ]
 
-    private var bmr: Double {
-        (10.0 * weight) + (6.25 * height) - (5.0 * Double(age)) + (gender == "Male" ? 5.0 : -161.0)
+    // MARK: - Computed Properties
+
+    var bmr: Double {
+        NutritionCalculator.bmr(gender: gender, age: age, weight: weight, height: height)
     }
 
-    private var selectedActivity: ActivityOption {
+    var selectedActivity: ActivityOption {
         activityOptions.first(where: { $0.key == activityLevel }) ?? activityOptions[2]
     }
 
-    private var maintenanceCalories: Double {
-        bmr * selectedActivity.multiplier
+    var maintenanceCalories: Double {
+        NutritionCalculator.maintenanceCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityLevel
+        )
     }
 
     private var goalAdjustment: Double {
-        switch goal {
-        case "Lose Weight":
-            return -500
-        case "Build Muscle":
-            return 500
-        default:
-            return 0
-        }
+        NutritionCalculator.calorieAdjustment(for: goal)
     }
 
-    private var recommendedCalories: Double {
+    var recommendedCalories: Double {
         maintenanceCalories + goalAdjustment
+    }
+
+    var recommendedProtein: Double {
+        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
     }
 
     private var weeklyWeightChangeKg: Double {
         abs(goalAdjustment) * 7 / 7700
     }
 
-    private var selectedCalories: Double {
-        useCustomGoals ? customCalories : calculatedCalories
+    var selectedCalories: Double {
+        useCustomGoals ? customCalories : recommendedCalories
     }
 
-    private var selectedProtein: Double {
-        useCustomGoals ? customProtein : calculatedProtein
+    var selectedProtein: Double {
+        useCustomGoals ? customProtein : recommendedProtein
     }
+
+    var latestBodyMetric: BodyMetricEntry? {
+        bodyMetrics.first
+    }
+
+    private var previousBodyMetric: BodyMetricEntry? {
+        bodyMetrics.dropFirst().first
+    }
+
+    var weightTrendDelta: Double? {
+        guard let latest = latestBodyMetric, let previous = previousBodyMetric else {
+            return nil
+        }
+        return latest.weightKg - previous.weightKg
+    }
+
+    private var selectedRangeBodyMetrics: [BodyMetricEntry] { cachedRangeMetrics }
+
+    var selectedChartBodyMetrics: [BodyMetricEntry] {
+        selectedRangeBodyMetrics.filter { selectedBodyChartMetric.value(from: $0) != nil }
+    }
+
+    var selectedBodyMetricForReadout: BodyMetricEntry? {
+        guard let selectedBodyChartPointDate else { return nil }
+        return bodyMetrics.first { abs($0.date.timeIntervalSince(selectedBodyChartPointDate)) < 1 }
+    }
+
+    var bodyMetricReadoutEntry: BodyMetricEntry? {
+        selectedBodyMetricForReadout ?? latestBodyMetric
+    }
+
+    var bodyMetricReadoutTitle: String {
+        guard let selectedBodyMetricForReadout else { return "Today" }
+        return selectedBodyMetricForReadout.date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    var goalBadgeText: String {
+        switch goal {
+        case "Lose Weight": return "CUT"
+        case "Recomp": return "RECOMP"
+        case "Build Muscle": return "BUILD"
+        default: return "MAINTAIN"
+        }
+    }
+
+    var goalBadgeColor: Color {
+        switch goal {
+        case "Lose Weight": return .neonGreen
+        case "Recomp": return .neonCyan
+        case "Build Muscle": return .orange
+        default: return .fitPurple
+        }
+    }
+
+    var adjustmentText: String {
+        switch goal {
+        case "Lose Weight": return "-500 kcal/day"
+        case "Recomp": return "-200 kcal/day"
+        case "Build Muscle": return "+250 kcal/day"
+        default: return "0 kcal/day"
+        }
+    }
+
+    var adjustmentDetail: String {
+        switch goal {
+        case "Lose Weight":
+            return "Estimated fat loss: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
+        case "Recomp":
+            return "Small deficit with high protein for recomposition"
+        case "Build Muscle":
+            return "Lean surplus: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
+        default:
+            return "Designed to keep weight stable"
+        }
+    }
+
+    var proteinDetail: String {
+        NutritionCalculator.proteinDetail(for: goal)
+    }
+
+    // MARK: - Body
 
     var body: some View {
         NavigationView {
@@ -84,21 +207,35 @@ struct ProfileView: View {
                     VStack(spacing: 18) {
                         goalsHeader
                         recommendationCard
-                        goalAndGenderCard
-                        activityCard
-                        bodyMetricsCard
-                        customGoalsCard
-                        themeCard
+                        changeGoalsButton
+                        profileSectionDivider(title: "Body tracking")
+                        weightTrackerCard
+                        profileSectionDivider(title: "App")
+                        appSettingsButton
                     }
                     .padding()
                     .padding(.bottom, 20)
                 }
+                .simultaneousGesture(
+                    TapGesture()
+                        .onEnded {
+                            clearBodyChartSelectionIfExternalTap()
+                        }
+                )
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { _ in
+                            if selectedBodyChartPointDate != nil && !isInteractingWithBodyChart {
+                                clearBodyChartSelection()
+                            }
+                        }
+                )
             }
             .navigationTitle("Profile & Goals")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    Button("Done") {
                         dismiss()
                     }
                     .foregroundColor(neonPurple)
@@ -106,72 +243,61 @@ struct ProfileView: View {
                 }
             }
         }
+        .onAppear { rebuildRangeMetricsCache() }
+        .onChange(of: selectedWeightRange) { _, _ in
+            rebuildRangeMetricsCache()
+            aiWeightInsight = nil
+            aiWeightError = nil
+        }
+        .onChange(of: bodyMetrics) { _, _ in rebuildRangeMetricsCache() }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
-        .sheet(isPresented: $isShowingThemePicker) {
-            ThemeSelectionView(isFirstRun: false) {
-                isShowingThemePicker = false
+        .sheet(isPresented: $isShowingGoalSettings) {
+            goalSettingsSheet
+        }
+        .sheet(isPresented: $isShowingWeightInput) {
+            manualWeightSheet
+        }
+        .sheet(isPresented: $isShowingBodyMetricHistory) {
+            bodyMetricHistorySheet
+        }
+        .sheet(isPresented: $isShowingScannedDatePicker) {
+            scannedDateConfirmationSheet
+        }
+        .sheet(isPresented: $isShowingBodyImagePicker) {
+            ImagePicker(selectedImage: $selectedBodyImage, sourceType: bodyScanSourceType)
+        }
+        .fullScreenCover(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: mergedPostOptions())
+        }
+        .fullScreenCover(isPresented: $isShowingAppSettings) {
+            AppSettingsView()
+        }
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallView()
+        }
+        .alert("Weight scan", isPresented: Binding(
+            get: { bodyScanError != nil },
+            set: { if !$0 { bodyScanError = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                bodyScanError = nil
             }
-            .presentationDetents([.large])
+        } message: {
+            Text(bodyScanError ?? "")
+        }
+        .onChange(of: selectedBodyImage) { _, image in
+            guard let image else { return }
+            analyzeBodyImage(image)
         }
     }
+
+    // MARK: - Top-Level Views
 
     private var goalsHeader: some View {
         HStack(spacing: 14) {
             goalStat(title: "DAILY CALORIES", value: "\(Int(selectedCalories))", unit: "kcal", color: .appText)
             goalStat(title: "DAILY PROTEIN", value: "\(Int(selectedProtein))", unit: "g", color: neonPurple)
         }
-    }
-
-    private var themeCard: some View {
-        let theme = AppTheme(rawValue: selectedThemeID) ?? .neonPulse
-        let palette = theme.palette
-
-        return Button {
-            isShowingThemePicker = true
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(palette.primary.opacity(0.18))
-
-                    Image(systemName: "paintpalette.fill")
-                        .font(.system(size: 18, weight: .heavy))
-                        .foregroundColor(palette.primary)
-                }
-                .frame(width: 46, height: 46)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    sectionTitle("Appearance")
-
-                    Text("Theme: \(palette.name)")
-                        .font(.headline)
-                        .fontWeight(.heavy)
-                        .foregroundColor(.appText)
-
-                    Text("Change colors without touching your body goals.")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.appMuted)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                HStack(spacing: -5) {
-                    Circle().fill(palette.primary).frame(width: 18, height: 18)
-                    Circle().fill(palette.secondary).frame(width: 18, height: 18)
-                    Circle().fill(palette.action).frame(width: 18, height: 18)
-                }
-                .overlay(Capsule().stroke(Color.appText.opacity(0.12), lineWidth: 1))
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundColor(.appMuted)
-            }
-            .padding(16)
-            .background(cardBackground)
-        }
-        .buttonStyle(.plain)
     }
 
     private var recommendationCard: some View {
@@ -203,7 +329,7 @@ struct ProfileView: View {
                 explanationRow(title: "BMR", value: "\(Int(bmr)) kcal", detail: "Your base burn at rest")
                 explanationRow(title: "Maintenance", value: "\(Int(maintenanceCalories)) kcal", detail: "\(selectedActivity.title) x\(String(format: "%.3g", selectedActivity.multiplier))")
                 explanationRow(title: "Adjustment", value: adjustmentText, detail: adjustmentDetail)
-                explanationRow(title: "Protein", value: "\(Int(calculatedProtein))g", detail: proteinDetail)
+                explanationRow(title: "Protein", value: "\(Int(recommendedProtein))g", detail: proteinDetail)
             }
         }
         .padding(18)
@@ -218,241 +344,127 @@ struct ProfileView: View {
         .shadow(color: neonPurple.opacity(0.12), radius: 18, x: 0, y: 8)
     }
 
-    private var goalAndGenderCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionTitle("Goal")
+    private var changeGoalsButton: some View {
+        Button {
+            isShowingGoalSettings = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(neonPurple.opacity(0.18))
 
-            HStack(spacing: 9) {
-                goalButton(title: "Cut", subtitle: "Fat loss", key: "Lose Weight", color: .neonGreen)
-                goalButton(title: "Maintain", subtitle: "Stable", key: "Maintain", color: .neonCyan)
-                goalButton(title: "Build", subtitle: "Muscle", key: "Build Muscle", color: .orange)
-            }
-
-            Divider()
-                .background(Color.appBorder)
-
-            sectionTitle("Body formula")
-
-            HStack(spacing: 10) {
-                genderButton("Male")
-                genderButton("Female")
-            }
-        }
-        .padding(18)
-        .background(cardBackground)
-    }
-
-    private var activityCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                sectionTitle("Activity")
-
-                Spacer()
-
-                Text("Choose what sounds like your real life")
-                    .font(.caption2)
-                    .foregroundColor(.appMuted)
-            }
-
-            VStack(spacing: 10) {
-                ForEach(activityOptions) { option in
-                    Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            activityLevel = option.key
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(activityLevel == option.key ? neonPurple : Color.appSurface)
-
-                                Image(systemName: activityIcon(for: option.key))
-                                    .font(.system(size: 14, weight: .heavy))
-                                    .foregroundColor(activityLevel == option.key ? .appAccentText : neonPurple)
-                            }
-                            .frame(width: 38, height: 38)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(option.title)
-                                    .font(.subheadline)
-                                    .fontWeight(.heavy)
-                                    .foregroundColor(.appText)
-
-                                Text(option.subtitle)
-                                    .font(.caption)
-                                    .foregroundColor(.appMuted)
-                            }
-
-                            Spacer()
-
-                            Text("x\(String(format: "%.3g", option.multiplier))")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(activityLevel == option.key ? neonPurple : .appMuted)
-                        }
-                        .padding(13)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(activityLevel == option.key ? neonPurple.opacity(0.16) : Color.appSurface)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(activityLevel == option.key ? neonPurple.opacity(0.5) : Color.appBorder, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(neonPurple)
                 }
-            }
-        }
-        .padding(18)
-        .background(cardBackground)
-    }
+                .frame(width: 48, height: 48)
 
-    private var bodyMetricsCard: some View {
-        VStack(spacing: 14) {
-            HStack {
-                sectionTitle("Your numbers")
-                Spacer()
-                Text("Hold +/- for faster changes")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-
-            MetricStepperCard(
-                title: "Age",
-                value: Binding(
-                    get: { Double(age) },
-                    set: { age = Int($0.rounded()) }
-                ),
-                unit: "years",
-                range: 10...100,
-                step: 1,
-                decimals: 0,
-                accentColor: neonPurple
-            )
-
-            MetricStepperCard(
-                title: "Weight",
-                value: $weight,
-                unit: "kg",
-                range: 40...150,
-                step: 0.5,
-                decimals: 1,
-                accentColor: neonPurple
-            )
-
-            MetricStepperCard(
-                title: "Height",
-                value: $height,
-                unit: "cm",
-                range: 140...220,
-                step: 1,
-                decimals: 0,
-                accentColor: neonPurple
-            )
-        }
-        .padding(18)
-        .background(cardBackground)
-    }
-
-    private var customGoalsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Toggle(isOn: $useCustomGoals) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Set custom goals")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Change goals / data")
                         .font(.headline)
                         .fontWeight(.heavy)
                         .foregroundColor(.appText)
 
-                    Text("Override the recommendation if you already know your targets.")
+                    Text("Goal, activity, body numbers and custom targets.")
                         .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.appMuted)
+            }
+            .padding(16)
+            .background(cardBackground)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var appSettingsButton: some View {
+        let sub = SubscriptionManager.shared
+
+        return Button {
+            isShowingAppSettings = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(neonPurple.opacity(0.18))
+
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(neonPurple)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("App settings")
+                        .font(.headline)
+                        .fontWeight(.heavy)
+                        .foregroundColor(.appText)
+
+                    Text("Theme, subscription, account and privacy.")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(sub.isPro ? "PRO" : "FREE")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(sub.isPro ? .appAccentText : .fitOrange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(sub.isPro ? Color.neonGreen : Color.fitOrange.opacity(0.16))
+                        )
+
+                    Text(AuthService.shared.isSignedIn ? "iCloud sync" : "Local only")
+                        .font(.caption2)
+                        .fontWeight(.heavy)
                         .foregroundColor(.appMuted)
                 }
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.appMuted)
             }
-            .tint(neonPurple)
-            .onChange(of: useCustomGoals) { _, newValue in
-                if newValue {
-                    if customCalories == 0 {
-                        customCalories = calculatedCalories
-                    }
-                    if customProtein == 0 {
-                        customProtein = calculatedProtein
-                    }
-                }
-            }
-
-            if useCustomGoals {
-                HStack(spacing: 12) {
-                    editableGoalField(title: "Calories", value: $customCalories, unit: "kcal")
-                    editableGoalField(title: "Protein", value: $customProtein, unit: "g")
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            .padding(16)
+            .background(cardBackground)
         }
-        .padding(18)
-        .background(cardBackground)
+        .buttonStyle(.plain)
     }
 
-    private var goalBadgeText: String {
-        switch goal {
-        case "Lose Weight":
-            return "DEFICIT"
-        case "Build Muscle":
-            return "SURPLUS"
-        default:
-            return "MAINTAIN"
+    // MARK: - Shared UI Helpers
+
+    func profileSectionDivider(title: String) -> some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.appBorder)
+                .frame(height: 1)
+
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(1.2)
+                .lineLimit(1)
+
+            Rectangle()
+                .fill(Color.appBorder)
+                .frame(height: 1)
         }
+        .padding(.vertical, 2)
     }
 
-    private var goalBadgeColor: Color {
-        switch goal {
-        case "Lose Weight":
-            return .neonGreen
-        case "Build Muscle":
-            return .orange
-        default:
-            return .neonCyan
-        }
-    }
-
-    private var adjustmentText: String {
-        switch goal {
-        case "Lose Weight":
-            return "-500 kcal/day"
-        case "Build Muscle":
-            return "+500 kcal/day"
-        default:
-            return "0 kcal/day"
-        }
-    }
-
-    private var adjustmentDetail: String {
-        switch goal {
-        case "Lose Weight":
-            return "Estimated fat loss: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
-        case "Build Muscle":
-            return "Estimated gain pace: about \(String(format: "%.1f", weeklyWeightChangeKg)) kg/week"
-        default:
-            return "Designed to keep weight stable"
-        }
-    }
-
-    private var proteinDetail: String {
-        let gramsPerKg: Double
-
-        switch goal {
-        case "Build Muscle":
-            gramsPerKg = 2.2
-        case "Lose Weight":
-            gramsPerKg = 2.0
-        default:
-            gramsPerKg = 1.8
-        }
-
-        return "\(String(format: "%.1f", gramsPerKg))g/kg based on body weight"
-    }
-
-    private var cardBackground: some View {
+    var cardBackground: some View {
         RoundedRectangle(cornerRadius: 24)
             .fill(Color.appSurface)
             .overlay(
@@ -461,14 +473,14 @@ struct ProfileView: View {
             )
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    func sectionTitle(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 11, weight: .heavy))
             .foregroundColor(.appMuted)
             .tracking(0.8)
     }
 
-    private func goalStat(title: String, value: String, unit: String, color: Color) -> some View {
+    func goalStat(title: String, value: String, unit: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption2)
@@ -498,7 +510,7 @@ struct ProfileView: View {
         )
     }
 
-    private func explanationRow(title: String, value: String, detail: String) -> some View {
+    func explanationRow(title: String, value: String, detail: String) -> some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -522,180 +534,13 @@ struct ProfileView: View {
         .padding(.vertical, 3)
     }
 
-    private func goalButton(title: String, subtitle: String, key: String, color: Color) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                goal = key
-            }
-        } label: {
-            VStack(spacing: 5) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.heavy)
-                Text(subtitle)
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .opacity(0.7)
-            }
-            .foregroundColor(goal == key ? .appAccentText : .appText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(goal == key ? color : Color.appSurface)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func genderButton(_ value: String) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                gender = value
-            }
-        } label: {
-            Text(value)
-                .font(.headline)
-                .fontWeight(.heavy)
-                .foregroundColor(gender == value ? .appAccentText : .appText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(gender == value ? neonPurple : Color.appSurface)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func editableGoalField(title: String, value: Binding<Double>, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.appMuted)
-
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                TextField("0", value: value, format: .number)
-                    .keyboardType(.decimalPad)
-                    .font(.title3)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-                    .multilineTextAlignment(.leading)
-
-                Text(unit)
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.appMuted)
-            }
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.appElevated))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.appBorder, lineWidth: 1))
-    }
-
-    private func activityIcon(for key: String) -> String {
-        switch key {
-        case "Sedentary":
-            return "chair"
-        case "Light":
-            return "figure.walk"
-        case "Moderate":
-            return "figure.run"
-        default:
-            return "flame.fill"
-        }
-    }
-}
-
-private struct ActivityOption: Identifiable {
-    var id: String { key }
-    let key: String
-    let title: String
-    let subtitle: String
-    let multiplier: Double
-}
-
-private struct MetricStepperCard: View {
-    var title: String
-    @Binding var value: Double
-    var unit: String
-    var range: ClosedRange<Double>
-    var step: Double
-    var decimals: Int
-    var accentColor: Color
-
-    private var formattedValue: String {
-        decimals == 0
-            ? "\(Int(value.rounded()))"
-            : String(format: "%.\(decimals)f", value)
-    }
-
-    private var progress: Double {
-        min(max((value - range.lowerBound) / (range.upperBound - range.lowerBound), 0), 1)
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.caption)
-                        .fontWeight(.heavy)
-                        .foregroundColor(.appMuted)
-
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text(formattedValue)
-                            .font(.system(size: 31, weight: .black))
-                            .foregroundColor(.appText)
-
-                        Text(unit)
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.appMuted)
-                    }
-                }
-
-                Spacer()
-
-                HStack(spacing: 10) {
-                    stepButton(systemName: "minus") {
-                        value = max(range.lowerBound, value - step)
-                    }
-
-                    stepButton(systemName: "plus") {
-                        value = min(range.upperBound, value + step)
-                    }
-                }
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.appText.opacity(0.08))
-
-                    Capsule()
-                        .fill(accentColor)
-                        .frame(width: proxy.size.width * CGFloat(progress))
-                        .shadow(color: accentColor.opacity(0.45), radius: 8)
-                }
-            }
-            .frame(height: 8)
-        }
-        .padding(15)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color.appElevated))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.appBorder, lineWidth: 1))
-    }
-
-    private func stepButton(systemName: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .black))
-                .foregroundColor(.appAccentText)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(accentColor))
-                .shadow(color: accentColor.opacity(0.35), radius: 8)
-        }
-        .buttonRepeatBehavior(.enabled)
+    func rebuildRangeMetricsCache() {
+        let calendar = Calendar.current
+        let startDate = calendar.date(
+            byAdding: .day,
+            value: -(selectedWeightRange.days - 1),
+            to: calendar.startOfDay(for: Date())
+        ) ?? Date()
+        cachedRangeMetrics = Array(bodyMetrics.filter { $0.date >= startDate }.reversed())
     }
 }

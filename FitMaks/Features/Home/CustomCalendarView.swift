@@ -2,18 +2,29 @@ import SwiftUI
 
 struct CustomCalendarView: View {
     @Binding var selectedDate: Date
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
 
     var allEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
     var baseCalories: Double
     var baseProtein: Double
     var targetSteps: Double
     var allSetups: [DailySetup]
+    var onWeeklyReport: ((Date) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var currentMonthOffset: Int = 0
     @State private var stepsByDay: [String: Double] = [:]
+    @State private var progressCache: [String: CachedDayInfo] = [:]
 
-    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
+    private struct CachedDayInfo {
+        let hasEntries: Bool
+        let calorieWin: Bool
+        let proteinWin: Bool
+        let stepWin: Bool
+        let isPerfect: Bool
+        let mode: DayMode
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -44,7 +55,7 @@ struct CustomCalendarView: View {
                 .padding(.horizontal)
                 .padding(.top, 25)
 
-                HStack {
+                HStack(spacing: 0) {
                     ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { day in
                         Text(day)
                             .font(.caption)
@@ -52,48 +63,30 @@ struct CustomCalendarView: View {
                             .foregroundColor(.appMuted)
                             .frame(maxWidth: .infinity)
                     }
+                    Color.clear.frame(width: 26)
                 }
 
-                LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(Array(extractDates().enumerated()), id: \.offset) { _, date in
-                        if let date {
-                            let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                            let isPastDay = date < Calendar.current.startOfDay(for: Date())
-                            let isFuture = date > Date()
-                            let dailyEntries = allEntries.filter {
-                                Calendar.current.isDate($0.date, inSameDayAs: date)
+                let weeks = extractWeeks()
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 0) {
+                        ForEach(0..<7, id: \.self) { index in
+                            if let date = week[index] {
+                                calendarCell(for: date)
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Color.clear.frame(maxWidth: .infinity).frame(height: 76)
                             }
-                            let totalCal = dailyEntries.reduce(0) { $0 + $1.calories }
-                            let totalProt = dailyEntries.reduce(0) { $0 + $1.protein }
-                            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-                            let steps = stepsByDay[dateID] ?? 0
-                            let mode = dayMode(for: date)
-                            let calorieGoalMet = !dailyEntries.isEmpty && totalCal <= AppRules.caloriePerfectLimit(for: calorieTarget(for: mode))
-                            let proteinGoalMet = !dailyEntries.isEmpty && totalProt >= AppRules.completionMinimum(for: proteinTarget(for: mode))
-                            let stepsGoalMet = steps >= AppRules.completionMinimum(for: targetSteps)
-                            let isPerfectDay = isPastDay && calorieGoalMet && proteinGoalMet && stepsGoalMet
-
-                            CalendarDayCell(
-                                date: date,
-                                isSelected: isSelected,
-                                isFuture: isFuture,
-                                hasEntries: !dailyEntries.isEmpty,
-                                calorieGoalMet: calorieGoalMet,
-                                proteinGoalMet: proteinGoalMet,
-                                stepsGoalMet: stepsGoalMet,
-                                isPerfectDay: isPerfectDay,
-                                modeEmoji: mode.emoji
-                            ) {
-                                selectedDate = date
-                                dismiss()
-                            }
-                        } else {
-                            Color.clear.frame(width: 40, height: 68)
                         }
+                        weekReportButton(for: week)
+                            .frame(width: 28)
                     }
                 }
 
                 calendarLegend
+
+                if let report = latestCompletedWeeklyReport {
+                    calendarLast7DaysReport(report)
+                }
             }
             .padding()
             .padding(.bottom, 16)
@@ -102,10 +95,93 @@ struct CustomCalendarView: View {
             LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                 .edgesIgnoringSafeArea(.all)
         )
-        .onAppear(perform: loadStepsForVisibleMonth)
+        .onAppear {
+            loadStepsForVisibleMonth()
+            rebuildProgressCache()
+        }
         .onChange(of: currentMonthOffset) { _, _ in
             loadStepsForVisibleMonth()
+            rebuildProgressCache()
         }
+        .onChange(of: stepsByDay) { _, _ in
+            rebuildProgressCache()
+        }
+    }
+
+    @ViewBuilder
+    private func calendarCell(for date: Date) -> some View {
+        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+        let dayAfterTomorrow = Calendar.current.date(byAdding: .day, value: 2, to: Calendar.current.startOfDay(for: Date()))!
+        let isFuture = date >= dayAfterTomorrow
+        let dateID = DateFormatter.yyyyMMdd.string(from: date)
+        let cached = progressCache[dateID]
+
+        CalendarDayCell(
+            date: date,
+            isSelected: isSelected,
+            isFuture: isFuture,
+            hasEntries: cached?.hasEntries ?? false,
+            calorieGoalMet: cached?.calorieWin ?? false,
+            proteinGoalMet: cached?.proteinWin ?? false,
+            stepsGoalMet: cached?.stepWin ?? false,
+            isPerfectDay: cached?.isPerfect ?? false,
+            mode: cached?.mode ?? .chill
+        ) {
+            selectedDate = date
+            dismiss()
+        }
+    }
+
+    @ViewBuilder
+    private func weekReportButton(for week: [Date?]) -> some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dates = week.compactMap { $0 }
+        let allPast = !dates.isEmpty && dates.allSatisfy { calendar.startOfDay(for: $0) < today }
+        let hasAnyData = allPast && dates.contains { date in
+            allEntries.contains { calendar.isDate($0.date, inSameDayAs: date) }
+            || allTrainingEntries.contains { calendar.isDate($0.date, inSameDayAs: date) }
+        }
+
+        if hasAnyData, let monday = dates.first, onWeeklyReport != nil {
+            Button {
+                onWeeklyReport?(monday)
+            } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("W")
+                        .font(.system(size: 8, weight: .black))
+                }
+                .foregroundColor(.neonGreen)
+                .frame(width: 26, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.neonGreen.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.neonGreen.opacity(0.22), lineWidth: 1)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+        } else {
+            Color.clear.frame(width: 26, height: 38)
+        }
+    }
+
+    private func extractWeeks() -> [[Date?]] {
+        let flat = extractDates()
+        var weeks: [[Date?]] = []
+        var i = 0
+        while i < flat.count {
+            let end = min(i + 7, flat.count)
+            var week = Array(flat[i..<end])
+            while week.count < 7 { week.append(nil) }
+            weeks.append(week)
+            i += 7
+        }
+        return weeks
     }
 
     private func monthYearString(for offset: Int) -> String {
@@ -131,6 +207,58 @@ struct CustomCalendarView: View {
         .padding(.top, 4)
     }
 
+    @ViewBuilder
+    private func calendarLast7DaysReport(_ report: WeeklyReportData) -> some View {
+        Button {
+            onWeeklyReport?(Date())
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Last 7 days report")
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text(report.dateRangeLabel)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.appMuted)
+
+                    Text("\(report.weeklyScore)% score · \(report.perfectDays)/\(report.days.count) perfect days")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(report.scoreColor)
+                }
+
+                Spacer(minLength: 10)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundColor(report.scoreColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                report.scoreColor.opacity(0.16),
+                                Color.appSurface,
+                                Color.appSurface.opacity(0.96)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(report.scoreColor.opacity(0.24), lineWidth: 1)
+                    )
+            )
+            .shadow(color: report.scoreColor.opacity(0.12), radius: 10, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+    }
+
     private func legendItem(color: Color, text: String) -> some View {
         HStack(spacing: 4) {
             Circle()
@@ -142,33 +270,80 @@ struct CustomCalendarView: View {
         .foregroundColor(.appMuted)
     }
 
+    private var latestCompletedWeeklyReport: WeeklyReportData? {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
+        return WeeklyReportData.trailingDays(
+            endingOn: yesterday,
+            count: 7,
+            allFoodEntries: allEntries,
+            allTrainingEntries: allTrainingEntries,
+            setupIndex: calendarSetupIndex,
+            baseCaloriesGoal: baseCalories,
+            baseProteinGoal: baseProtein,
+            stepsIndex: stepsByDay,
+            activityLevel: activityLevel
+        )
+    }
+
+    private var calendarSetupIndex: [String: DailySetup] {
+        Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
+    }
+
     private func dayMode(for date: Date) -> DayMode {
         let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let modeString = allSetups.first(where: { $0.dateID == dateID })?.mode
-
+        let modeString = calendarSetupIndex[dateID]?.mode
         return DayMode.fromStoredValue(modeString)
     }
 
-    private func calorieTarget(for mode: DayMode) -> Double {
-        switch mode {
-        case .chill:
-            return baseCalories
-        case .padel:
-            return baseCalories + 500
-        case .gym:
-            return baseCalories + 300
-        }
-    }
+    private func rebuildProgressCache() {
+        let calendar = Calendar.current
+        let dates = extractDates().compactMap { $0 }
+        let index = calendarSetupIndex
 
-    private func proteinTarget(for mode: DayMode) -> Double {
-        switch mode {
-        case .chill:
-            return baseProtein
-        case .padel:
-            return baseProtein + 15
-        case .gym:
-            return baseProtein + 25
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
         }
+
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        var newCache: [String: CachedDayInfo] = [:]
+        for date in dates {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let dayFood = foodByDay[dateID] ?? []
+            let training = trainingByDay[dateID] ?? (0, 0)
+            let progress = DayProgressEngine.progress(
+                date: date,
+                foodEntries: dayFood,
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: stepsByDay[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: targetSteps
+            )
+            newCache[dateID] = CachedDayInfo(
+                hasEntries: !dayFood.isEmpty,
+                calorieWin: progress.calorieWin,
+                proteinWin: progress.proteinWin,
+                stepWin: progress.stepWin,
+                isPerfect: progress.isPerfectPastDay(),
+                mode: mode
+            )
+        }
+        progressCache = newCache
     }
 
     private func loadStepsForVisibleMonth() {
@@ -226,15 +401,19 @@ private struct CalendarDayCell: View {
     var proteinGoalMet: Bool
     var stepsGoalMet: Bool
     var isPerfectDay: Bool
-    var modeEmoji: String
+    var mode: DayMode
     var onTap: () -> Void
+
+    private var lightTheme: Bool {
+        isLightAppTheme()
+    }
 
     private var dayNumber: Int {
         Calendar.current.component(.day, from: date)
     }
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 4) {
             ZStack {
                 if isPerfectDay {
                     perfectMedal
@@ -243,24 +422,25 @@ private struct CalendarDayCell: View {
                 }
 
                 Text("\(dayNumber)")
-                    .font(.system(size: isPerfectDay ? 16 : 15, weight: isPerfectDay ? .heavy : (isSelected ? .bold : .medium)))
+                    .font(.system(size: isPerfectDay ? 14 : 13, weight: isPerfectDay ? .heavy : (isSelected ? .bold : .medium)))
                     .foregroundColor(dayTextColor)
 
                 if isPerfectDay {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: 8, weight: .black))
                         .foregroundColor(.yellow)
-                        .shadow(color: .yellow.opacity(0.9), radius: 6)
-                        .offset(x: 15, y: -16)
+                        .shadow(color: .yellow.opacity(0.9), radius: 5)
+                        .offset(x: 13, y: -14)
                 }
             }
-            .frame(width: 50, height: 50)
+            .frame(width: 40, height: 40)
+            .scaleEffect(isPerfectDay ? 1.06 : 1)
             .overlay(
                 Circle()
-                    .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
-                    .frame(width: 52, height: 52)
+                    .stroke(lightTheme ? Color.appAccentText.opacity(0.74) : Color.white, lineWidth: isSelected ? 2 : 0)
+                    .frame(width: 42, height: 42)
             )
-            .shadow(color: perfectGlowColor, radius: isPerfectDay ? 12 : 0, x: 0, y: 0)
+            .shadow(color: perfectGlowColor, radius: isPerfectDay ? 10 : 0, x: 0, y: 0)
             .opacity(isFuture ? 0.35 : 1)
             .onTapGesture {
                 if !isFuture {
@@ -269,9 +449,9 @@ private struct CalendarDayCell: View {
             }
 
             if isFuture {
-                Color.clear.frame(height: 4)
+                Color.clear.frame(height: 3)
             } else {
-                HStack(spacing: 3) {
+                HStack(spacing: 2) {
                     statusPip(isMet: calorieGoalMet, color: .neonGreen)
                     statusPip(isMet: proteinGoalMet, color: .neonCyan)
                     statusPip(isMet: stepsGoalMet, color: .yellow)
@@ -279,10 +459,63 @@ private struct CalendarDayCell: View {
             }
 
             if isFuture {
-                Color.clear.frame(height: 12)
+                Color.clear.frame(height: 10)
+            } else if mode == .chill {
+                Color.clear.frame(height: 18)
             } else {
-                Text(modeEmoji)
-                    .font(.system(size: 10))
+                modeBadge
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modeBadge: some View {
+        switch mode {
+        case .chill:
+            EmptyView()
+        case .cardio:
+            modeBadgeIcon("figure.run", color: .neonGreen)
+        case .gym:
+            modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
+        case .cardioGym:
+            HStack(spacing: -4) {
+                modeBadgeIcon("figure.run", color: .neonGreen)
+                    .zIndex(2)
+                modeBadgeIcon("figure.strengthtraining.traditional", color: .fitOrange)
+            }
+            .frame(height: 16)
+        }
+    }
+
+    private func modeBadgeIcon(_ symbol: String, color: Color, isText: Bool = false) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.appText,
+                            color.opacity(0.98),
+                            color.opacity(0.72)
+                        ],
+                        center: .topLeading,
+                        startRadius: 1,
+                        endRadius: 17
+                    )
+                )
+                .frame(width: 18, height: 18)
+                .overlay(Circle().stroke(Color.appText.opacity(0.42), lineWidth: 1))
+                .shadow(color: color.opacity(isPerfectDay ? 0.95 : 0.72), radius: isPerfectDay ? 8 : 5, x: 0, y: 0)
+
+            if isText {
+                Text(symbol)
+                    .font(.system(size: 7, weight: .black))
+                    .foregroundColor(.appText)
+                    .offset(y: -0.5)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.black.opacity(0.88))
+                    .shadow(color: .white.opacity(0.24), radius: 1, x: 0, y: 1)
             }
         }
     }
@@ -291,19 +524,19 @@ private struct CalendarDayCell: View {
         ZStack {
             Circle()
                 .fill(standardFillColor)
-                .frame(width: 40, height: 40)
+                .frame(width: 32, height: 32)
 
             if proteinGoalMet {
                 Circle()
-                    .stroke(Color.neonCyan, lineWidth: 2)
-                    .frame(width: 44, height: 44)
-                    .shadow(color: .neonCyan.opacity(0.5), radius: 4)
+                    .stroke(Color.neonCyan, lineWidth: 1.5)
+                    .frame(width: 36, height: 36)
+                    .shadow(color: .neonCyan.opacity(0.5), radius: 3)
             }
 
             if stepsGoalMet {
                 Circle()
                     .stroke(Color.yellow.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 40, height: 40)
             }
         }
     }
@@ -314,16 +547,16 @@ private struct CalendarDayCell: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(0.95),
+                            Color.appText,
                             Color.neonGreen.opacity(0.95),
                             Color.yellow.opacity(0.85)
                         ],
                         center: .topLeading,
                         startRadius: 2,
-                        endRadius: 32
+                        endRadius: 26
                     )
                 )
-                .frame(width: 44, height: 44)
+                .frame(width: 36, height: 36)
 
             Circle()
                 .stroke(
@@ -331,13 +564,13 @@ private struct CalendarDayCell: View {
                         colors: [.yellow, .neonGreen, .neonCyan, .yellow],
                         center: .center
                     ),
-                    lineWidth: 3
+                    lineWidth: 2.5
                 )
-                .frame(width: 50, height: 50)
+                .frame(width: 40, height: 40)
 
             Circle()
-                .stroke(Color.white.opacity(0.9), lineWidth: 1)
-                .frame(width: 37, height: 37)
+                .stroke(Color.appText.opacity(0.9), lineWidth: 1)
+                .frame(width: 30, height: 30)
         }
     }
 

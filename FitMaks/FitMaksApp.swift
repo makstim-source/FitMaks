@@ -4,32 +4,51 @@ import SwiftData
 @main
 struct FitMaksApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @AppStorage("hasSelectedTheme") private var hasSelectedTheme = false
+    @AppStorage("hasSeenSignIn") private var hasSeenSignIn = false
     @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
     @State private var isShowingLaunchSplash = true
 
+    let modelContainer: ModelContainer
+
+    init() {
+        modelContainer = Self.makeContainer()
+
+        ICloudSettingsSync.startObserving()
+        ICloudSettingsSync.pullFromICloud()
+        _ = DailyReminderManager.shared
+    }
+
     private var selectedTheme: AppTheme {
-        AppTheme(rawValue: selectedThemeID) ?? .neonPulse
+        AppTheme.resolvedTheme(for: selectedThemeID)
+    }
+
+    private var rootViewIdentity: String {
+        if !hasSeenSignIn || !hasCompletedOnboarding {
+            return "setup-flow"
+        }
+        return selectedTheme.id
     }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 Group {
-                    if !hasCompletedOnboarding {
-                        OnboardingView {
+                    if !hasSeenSignIn {
+                        SignInView {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                                hasCompletedOnboarding = true
+                                hasSeenSignIn = true
+                                ICloudSettingsSync.pullFromICloud()
                             }
                         }
                         .transition(.opacity)
-                    } else if !hasSelectedTheme {
-                        ThemeSelectionView(isFirstRun: true) {
+                    } else if !hasCompletedOnboarding {
+                        OnboardingView {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                                hasSelectedTheme = true
+                                hasCompletedOnboarding = true
+                                ICloudSettingsSync.pushToICloud()
                             }
                         }
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                        .transition(.opacity)
                     } else {
                         ContentView()
                             .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -42,23 +61,50 @@ struct FitMaksApp: App {
                         .zIndex(10)
                 }
             }
+            .id(rootViewIdentity)
             .preferredColorScheme(selectedTheme.palette.preferredScheme)
             .task {
+                await SubscriptionManager.shared.loadProducts()
+                await SubscriptionManager.shared.refreshEntitlements()
                 guard isShowingLaunchSplash else { return }
-                try? await Task.sleep(nanoseconds: 1_450_000_000)
+                try? await Task.sleep(nanoseconds: 350_000_000)
                 withAnimation(.easeInOut(duration: 0.42)) {
                     isShowingLaunchSplash = false
                 }
             }
         }
-        .modelContainer(for: [
-            FoodEntry.self,
-            FavoriteFood.self,
-            TrainingEntry.self,
-            DailySetup.self,
-            SavedRecipe.self,
-            ShoppingItem.self // 🔥 Новая база для списка покупок
-        ])
+        .modelContainer(modelContainer)
+    }
+
+    private static func makeContainer() -> ModelContainer {
+        let cloudConfig = ModelConfiguration(
+            cloudKitDatabase: .private("iCloud.MaksTim.FitMaks")
+        )
+        if let container = try? ModelContainer(
+            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                 ShoppingItem.self,
+            configurations: cloudConfig
+        ) {
+            return container
+        }
+        if let container = try? ModelContainer(
+            for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                 DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                 ShoppingItem.self
+        ) {
+            return container
+        }
+        do {
+            return try ModelContainer(
+                for: FoodEntry.self, FavoriteFood.self, TrainingEntry.self,
+                     DailySetup.self, BodyMetricEntry.self, SavedRecipe.self,
+                     ShoppingItem.self,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            )
+        } catch {
+            fatalError("Failed to create even an in-memory ModelContainer: \(error)")
+        }
     }
 }
 
@@ -100,12 +146,12 @@ private struct LaunchSplashView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("FitMaks")
+                    Text("ShapeForge")
                         .font(.system(size: 34, weight: .black))
                         .foregroundColor(palette.text)
                         .tracking(1.2)
 
-                    Text("loading your day")
+                    Text("AI-powered discipline.")
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundColor(palette.muted)
                         .tracking(1.6)
@@ -145,38 +191,89 @@ private struct LaunchSplashView: View {
 private struct OnboardingView: View {
     var onComplete: () -> Void
 
+    @AppStorage("userGender") private var gender: String = "Male"
+    @AppStorage("userAge") private var age: Int = 30
+    @AppStorage("userWeight") private var weight: Double = 80.0
+    @AppStorage("userHeight") private var height: Double = 180.0
+    @AppStorage("userGoal") private var goal: String = "Lose Weight"
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
+    @AppStorage("useCustomGoals") private var useCustomGoals: Bool = false
+    @AppStorage(AppTheme.storageKey) private var selectedThemeID = AppTheme.defaultID
+
     @State private var page = 0
 
-    private let pages: [OnboardingPage] = [
+    private let introPages: [OnboardingPage] = [
         OnboardingPage(
-            eyebrow: "WELCOME TO FITMAKS",
-            title: "Your day, finally readable.",
-            subtitle: "Scan meals, track protein, calories, steps and workouts. Collect days you'll want to look back at.",
+            eyebrow: "ShapeForge",
+            title: "LOG YOUR DAY",
+            subtitle: "Just snap your food or upload a workout screenshot.",
             systemName: "sparkles",
             color: .neonGreen
         ),
         OnboardingPage(
-            eyebrow: "ADD FOOD FAST",
-            title: "Photo first. Edit if needed.",
-            subtitle: "Tap + to scan a plate, label or receipt. AI estimates it, then you can tap any food card to correct portions.",
+            eyebrow: "ShapeForge",
+            title: "AI DOES THE BORING PART.",
+            subtitle: "AI detects items, estimates calories and protein.",
             systemName: "camera.macro",
             color: .neonCyan
         ),
         OnboardingPage(
-            eyebrow: "GOALS",
-            title: "Set your body data once.",
-            subtitle: "Open Profile after setup. Add weight, height, goal and activity so calories and protein adapt to you.",
-            systemName: "person.crop.circle.badge.checkmark",
-            color: .fitPurple
-        ),
-        OnboardingPage(
-            eyebrow: "THE GAME",
-            title: "Chase Perfect Days.",
-            subtitle: "Perfect Day means protein closed, 10k steps and calories under target. Padel and Gym add training budget.",
+            eyebrow: "ShapeForge",
+            title: "CONSISTENCY WINS.",
+            subtitle: "Close your targets, build streaks, and unlock achievements.",
             systemName: "flame.fill",
             color: .yellow
         )
     ]
+
+    private let goalOptions: [(title: String, subtitle: String, key: String, color: Color)] = [
+        ("Cut", "Lose fat", "Lose Weight", .neonGreen),
+        ("Recomp", "Lean + muscle", "Recomp", .neonCyan),
+        ("Maintain", "Hold shape", "Maintain", .fitPurple),
+        ("Build", "Gain muscle", "Build Muscle", .orange)
+    ]
+
+    private let activityOptions: [ActivityOption] = [
+        ActivityOption(key: "Sedentary", title: "Desk job", subtitle: "Mostly sitting"),
+        ActivityOption(key: "Light", title: "On your feet", subtitle: "Retail, teaching"),
+        ActivityOption(key: "Moderate", title: "Active lifestyle", subtitle: "Walking + errands"),
+        ActivityOption(key: "Active", title: "Physical job", subtitle: "Construction, warehouse")
+    ]
+
+    private var selectedTheme: AppTheme {
+        AppTheme.resolvedTheme(for: selectedThemeID)
+    }
+
+    private var pageCount: Int { introPages.count + 3 }
+    private var bodySetupPageIndex: Int { introPages.count }
+    private var goalSetupPageIndex: Int { introPages.count + 1 }
+    private var themeSetupPageIndex: Int { introPages.count + 2 }
+    private var currentColor: Color {
+        if page < introPages.count {
+            return introPages[page].color
+        }
+
+        if page == themeSetupPageIndex {
+            return selectedTheme.palette.primary
+        }
+
+        return page == bodySetupPageIndex ? .fitPurple : .neonGreen
+    }
+
+    private var recommendedCalories: Double {
+        NutritionCalculator.recommendedCalories(
+            gender: gender,
+            age: age,
+            weight: weight,
+            height: height,
+            activityLevel: activityLevel,
+            goal: goal
+        )
+    }
+
+    private var recommendedProtein: Double {
+        NutritionCalculator.recommendedProtein(weight: weight, goal: goal)
+    }
 
     var body: some View {
         ZStack {
@@ -184,7 +281,7 @@ private struct OnboardingView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("FitMaks")
+                    Text("ShapeForge")
                         .font(.system(size: 15, weight: .black))
                         .foregroundColor(.appText)
                         .tracking(1.4)
@@ -192,6 +289,7 @@ private struct OnboardingView: View {
                     Spacer()
 
                     Button("Skip") {
+                        useCustomGoals = false
                         onComplete()
                     }
                     .font(.system(size: 13, weight: .heavy))
@@ -201,8 +299,8 @@ private struct OnboardingView: View {
                 .padding(.top, 18)
 
                 TabView(selection: $page) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, item in
-                        onboardingPage(item)
+                    ForEach(0..<pageCount, id: \.self) { index in
+                        onboardingContent(for: index)
                             .tag(index)
                     }
                 }
@@ -210,9 +308,9 @@ private struct OnboardingView: View {
 
                 VStack(spacing: 14) {
                     HStack(spacing: 7) {
-                        ForEach(0..<pages.count, id: \.self) { index in
+                        ForEach(0..<pageCount, id: \.self) { index in
                             Capsule()
-                                .fill(index == page ? pages[page].color : Color.appText.opacity(0.14))
+                                .fill(index == page ? currentColor : Color.appText.opacity(0.14))
                                 .frame(width: index == page ? 24 : 7, height: 7)
                                 .animation(.spring(response: 0.32, dampingFraction: 0.8), value: page)
                         }
@@ -220,10 +318,10 @@ private struct OnboardingView: View {
 
                     Button(action: primaryAction) {
                         HStack {
-                            Text(page == pages.count - 1 ? "Start tracking" : "Next")
+                            Text(primaryButtonTitle)
                                 .font(.system(size: 17, weight: .black))
 
-                            Image(systemName: page == pages.count - 1 ? "checkmark" : "arrow.right")
+                            Image(systemName: page == pageCount - 1 ? "checkmark" : "arrow.right")
                                 .font(.system(size: 15, weight: .black))
                         }
                         .foregroundColor(.appAccentText)
@@ -231,13 +329,17 @@ private struct OnboardingView: View {
                         .frame(height: 52)
                         .background(
                             Capsule()
-                                .fill(pages[page].color)
-                                .shadow(color: pages[page].color.opacity(0.45), radius: 18, x: 0, y: 8)
+                                .fill(currentColor)
+                                .shadow(color: currentColor.opacity(0.45), radius: 18, x: 0, y: 8)
                         )
                     }
                     .buttonStyle(.plain)
 
-                    Text("Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
+                    Text(page < introPages.count
+                         ? "You can change anything later."
+                         : page == themeSetupPageIndex
+                         ? "This is just the visual mood. You can switch themes later in Profile."
+                         : "Tip: AI nutrition is an estimate. If something looks off, tap the food card and correct it.")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.appMuted)
                         .multilineTextAlignment(.center)
@@ -250,12 +352,19 @@ private struct OnboardingView: View {
         }
     }
 
+    private var primaryButtonTitle: String {
+        if page == pageCount - 1 {
+            return "Start with \(selectedTheme.palette.name)"
+        }
+        return "Next"
+    }
+
     private var onboardingBackground: some View {
         LinearGradient(colors: [.appBackgroundStart, .appBackgroundMid, .appBackgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
             .ignoresSafeArea()
         .overlay(alignment: .topTrailing) {
             Circle()
-                .fill(pages[page].color.opacity(0.18))
+                .fill(currentColor.opacity(0.18))
                 .frame(width: 260, height: 260)
                 .blur(radius: 58)
                 .offset(x: 100, y: -110)
@@ -267,6 +376,19 @@ private struct OnboardingView: View {
                 .frame(width: 300, height: 300)
                 .blur(radius: 65)
                 .offset(x: -130, y: 70)
+        }
+    }
+
+    @ViewBuilder
+    private func onboardingContent(for index: Int) -> some View {
+        if index < introPages.count {
+            onboardingPage(introPages[index])
+        } else if index == bodySetupPageIndex {
+            bodySetupPage
+        } else if index == goalSetupPageIndex {
+            goalSetupPage
+        } else {
+            themeSetupPage
         }
     }
 
@@ -323,61 +445,347 @@ private struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 18)
             }
-
-            quickRuleCard(for: item)
 
             Spacer(minLength: 10)
         }
         .padding(.horizontal, 20)
     }
 
-    private func quickRuleCard(for item: OnboardingPage) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lightbulb.fill")
-                .font(.system(size: 16, weight: .black))
-                .foregroundColor(item.color)
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(item.color.opacity(0.12)))
-
-            Text(quickRuleText)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.appText.opacity(0.86))
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 22)
-                .fill(Color.appSurface)
-                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-        )
-        .padding(.horizontal, 6)
-    }
-
-    private var quickRuleText: String {
-        switch page {
-        case 0:
-            return "Use it as a daily cockpit: log, adjust, move on."
-        case 1:
-            return "Same photo should stay consistent, but portions are still editable."
-        case 2:
-            return "First thing after onboarding: open Profile and set your numbers."
-        default:
-            return "Perfect Days are about consistency, not punishment."
-        }
-    }
-
     private func primaryAction() {
-        if page == pages.count - 1 {
+        if page == pageCount - 1 {
+            useCustomGoals = false
             onComplete()
         } else {
             withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
                 page += 1
             }
         }
+    }
+
+    private var themeSetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "FINAL TOUCH",
+                    title: "Choose your launch look.",
+                    subtitle: "Pick how ShapeForge should feel on day one. You can always change it later.",
+                    systemName: "paintpalette.fill",
+                    color: selectedTheme.palette.primary
+                )
+
+                ThemePickerGrid(selectedThemeID: $selectedThemeID)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(selectedTheme.palette.name)
+                                .font(.system(size: 22, weight: .black))
+                                .foregroundColor(.appText)
+
+                            Text(selectedTheme.palette.subtitle)
+                                .font(.caption)
+                                .fontWeight(.heavy)
+                                .foregroundColor(selectedTheme.palette.primary)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: -5) {
+                            onboardingSwatch(selectedTheme.palette.primary)
+                            onboardingSwatch(selectedTheme.palette.secondary)
+                            onboardingSwatch(selectedTheme.palette.action)
+                        }
+                    }
+
+                    Text(selectedTheme.palette.description)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.appMuted)
+                        .lineSpacing(3)
+
+                    HStack(spacing: 9) {
+                        onboardingThemePreviewMetric(title: "Calories", value: "640", color: .neonGreen)
+                        onboardingThemePreviewMetric(title: "Protein", value: "142g", color: .neonCyan)
+                        onboardingThemePreviewMetric(title: "Streak", value: "3", color: .fitOrange)
+                    }
+                }
+                .padding(17)
+                .background(
+                    RoundedRectangle(cornerRadius: 26)
+                        .fill(themeCardGradient(selectedTheme))
+                        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
+                )
+                .shadow(color: themeShadowColor(selectedTheme), radius: 18, x: 0, y: 10)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("You’re ready.")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(.appText)
+
+                    Text("Your goals are set, your starting data is in, and \(selectedTheme.palette.name) will be your default look.")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.appMuted)
+                        .lineSpacing(3)
+
+                    HStack(spacing: 8) {
+                        themeFinishPill("Goals set", color: .neonGreen)
+                        themeFinishPill("Theme chosen", color: selectedTheme.palette.primary, isSolid: true)
+                        themeFinishPill("Ready to log", color: .fitOrange)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private var bodySetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "YOUR STARTING POINT",
+                    title: "Set your body data.",
+                    subtitle: "ShapeForge uses this to calculate calories and protein before your first scan.",
+                    systemName: "person.crop.circle.badge.checkmark",
+                    color: .fitPurple
+                )
+
+                HStack(spacing: 10) {
+                    setupChoiceButton(title: "Male", subtitle: "Formula", isSelected: gender == "Male", color: .fitPurple) {
+                        gender = "Male"
+                    }
+                    setupChoiceButton(title: "Female", subtitle: "Formula", isSelected: gender == "Female", color: .fitPurple) {
+                        gender = "Female"
+                    }
+                }
+
+                onboardingSlider(title: "Age", value: Binding(
+                    get: { Double(age) },
+                    set: { age = Int($0.rounded()) }
+                ), range: 16...80, step: 1, valueText: "\(age)y", color: .fitPurple)
+
+                onboardingSlider(title: "Weight", value: $weight, range: 40...160, step: 0.5, valueText: "\(String(format: "%.1f", weight))kg", color: .neonGreen)
+
+                onboardingSlider(title: "Height", value: $height, range: 140...220, step: 1, valueText: "\(Int(height.rounded()))cm", color: .neonCyan)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private var goalSetupPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                setupHeader(
+                    eyebrow: "FIRST TARGETS",
+                    title: "Choose your goal.",
+                    subtitle: "We will calculate a starting target. You can change it anytime in Profile.",
+                    systemName: "target",
+                    color: .neonGreen
+                )
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(goalOptions, id: \.key) { option in
+                        setupChoiceButton(title: option.title, subtitle: option.subtitle, isSelected: goal == option.key, color: option.color) {
+                            goal = option.key
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Normal week")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(.appMuted)
+                        .tracking(0.8)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
+                        ForEach(activityOptions) { option in
+                            setupChoiceButton(title: option.title, subtitle: option.subtitle, isSelected: activityLevel == option.key, color: .fitPurple) {
+                                activityLevel = option.key
+                            }
+                        }
+                    }
+                }
+
+                liveTargetPreview
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+    }
+
+    private func setupHeader(eyebrow: String, title: String, subtitle: String, systemName: String, color: Color) -> some View {
+        VStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 34)
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.22), Color.appSurface, Color.appElevated],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 112, height: 112)
+                    .rotationEffect(.degrees(-5))
+                    .overlay(RoundedRectangle(cornerRadius: 34).stroke(color.opacity(0.25), lineWidth: 1))
+
+                Image(systemName: systemName)
+                    .font(.system(size: 42, weight: .black))
+                    .foregroundColor(color)
+                    .shadow(color: color.opacity(0.6), radius: 14)
+            }
+
+            VStack(spacing: 7) {
+                Text(eyebrow)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(color)
+                    .tracking(1.2)
+
+                Text(title)
+                    .font(.system(size: 27, weight: .black))
+                    .foregroundColor(.appText)
+                    .multilineTextAlignment(.center)
+
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.appMuted)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+        }
+    }
+
+    private func setupChoiceButton(title: String, subtitle: String, isSelected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundColor(isSelected ? .appAccentText : .appText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text(subtitle)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(isSelected ? .appAccentText.opacity(0.72) : .appMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(13)
+            .background(
+                RoundedRectangle(cornerRadius: 19)
+                    .fill(isSelected ? color : Color.appSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 19).stroke(isSelected ? color.opacity(0.65) : Color.appBorder, lineWidth: 1))
+            )
+            .shadow(color: isSelected ? color.opacity(0.22) : .clear, radius: 12, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func onboardingSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        valueText: String,
+        color: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+
+                Spacer()
+
+                Text(valueText)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(color)
+            }
+
+            Slider(value: value, in: range, step: step)
+                .tint(color)
+        }
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private var liveTargetPreview: some View {
+        HStack(spacing: 10) {
+            onboardingTargetCard(title: "Calories", value: "\(Int(recommendedCalories))", unit: "kcal", color: .neonGreen)
+            onboardingTargetCard(title: "Protein", value: "\(Int(recommendedProtein))", unit: "g", color: .neonCyan)
+        }
+    }
+
+    private func onboardingTargetCard(title: String, value: String, unit: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.8)
+
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 26, weight: .black))
+                    .foregroundColor(color)
+
+                Text(unit)
+                    .font(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundColor(.appMuted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(15)
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appSurface))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(color.opacity(0.22), lineWidth: 1))
+    }
+
+    private func onboardingThemePreviewMetric(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .heavy))
+                .foregroundColor(.appMuted)
+                .tracking(0.6)
+
+            Text(value)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 17).fill(themeChromeGradient(selectedTheme)))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.appBorder, lineWidth: 1))
+    }
+
+    private func onboardingSwatch(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 28, height: 28)
+            .overlay(Circle().stroke(Color.appText.opacity(0.22), lineWidth: 1))
+    }
+
+    private func themeFinishPill(_ title: String, color: Color, isSolid: Bool = false) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .heavy))
+            .foregroundColor(isSolid ? .appAccentText : .appText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(color.opacity(isSolid ? 1 : 0.14))
+                    .overlay(
+                        Capsule()
+                            .stroke(color.opacity(0.22), lineWidth: 1)
+                    )
+            )
     }
 }
 

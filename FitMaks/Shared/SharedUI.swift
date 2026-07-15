@@ -80,7 +80,7 @@ struct TypewriterText: View {
 struct CoachMessageBubble: View {
     var message: ChatMessage
     var accentColor: Color = .neonCyan
-    var assistantName: String = "FitMaks Coach"
+    var assistantName: String = "ShapeForge Coach"
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {
@@ -134,31 +134,56 @@ struct CoachMessageBubble: View {
     }
 
     private var assistantAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [accentColor.opacity(0.9), Color.neonGreen.opacity(0.72)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+        let pastel = isPastelDayTheme()
+
+        return ZStack {
+            Group {
+                if pastel {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.98), accentColor.opacity(0.20)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(accentColor.opacity(0.20), lineWidth: 1)
+                        )
+                } else {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [accentColor.opacity(0.9), Color.neonGreen.opacity(0.72)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            }
 
             Image(systemName: "sparkles")
                 .font(.system(size: 13, weight: .black))
-                .foregroundColor(.appAccentText)
+                .foregroundColor(pastel ? accentColor : .appAccentText)
         }
         .frame(width: 32, height: 32)
-        .shadow(color: accentColor.opacity(0.55), radius: 10)
+        .shadow(color: accentColor.opacity(pastel ? 0.16 : 0.55), radius: pastel ? 6 : 10)
     }
 
     private var bubbleBackground: some View {
-        RoundedRectangle(cornerRadius: 22)
+        let pastel = isPastelDayTheme()
+
+        return RoundedRectangle(cornerRadius: 22)
             .fill(
                 LinearGradient(
                     colors: message.isUser
-                        ? [accentColor.opacity(0.24), accentColor.opacity(0.10), Color.appElevated]
-                        : [Color.appSurface, Color.appSurface.opacity(0.75), Color.appElevated],
+                        ? (pastel
+                            ? [accentColor.opacity(0.18), Color.white.opacity(0.97), Color.appElevated]
+                            : [accentColor.opacity(0.24), accentColor.opacity(0.10), Color.appElevated])
+                        : (pastel
+                            ? [Color.white.opacity(0.98), Color.appSurface, Color.appElevated]
+                            : [Color.appSurface, Color.appElevated, Color.appSurface.opacity(0.78)]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -166,7 +191,7 @@ struct CoachMessageBubble: View {
     }
 
     private var shadowColor: Color {
-        message.isUser ? accentColor.opacity(0.18) : Color.appText.opacity(0.12)
+        message.isUser ? accentColor.opacity(0.18) : themeShadowColor().opacity(0.65)
     }
 }
 
@@ -189,12 +214,13 @@ struct CoachTypingBubble: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.appSurface)
+                        .fill(themeCardGradient())
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
                                 .stroke(Color.appBorder, lineWidth: 1)
                         )
                 )
+                .shadow(color: themeShadowColor().opacity(0.42), radius: 8, x: 0, y: 4)
 
             Spacer()
         }
@@ -211,7 +237,7 @@ struct SwipeToDeleteModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: 15).fill(Color.red)
                 Image(systemName: "trash")
                     .font(.title3)
-                    .foregroundColor(.white)
+                    .foregroundColor(.appText)
                     .padding(.trailing, 20)
             }
             .onTapGesture {
@@ -261,18 +287,21 @@ extension DateFormatter {
     static let yyyyMMdd: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
 
     static let shortDate: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, yyyy"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
 
     static let yyyyMM: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
 }

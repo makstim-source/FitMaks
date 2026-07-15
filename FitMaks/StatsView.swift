@@ -3,159 +3,86 @@ import SwiftData
 
 struct StatsView: View {
     @Environment(\.dismiss) var dismiss
+    @AppStorage("seenAchievementUnlockIDs") private var seenAchievementUnlockIDs = ""
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
 
     var allFoodEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
     var allSetups: [DailySetup]
+    var bodyMetrics: [BodyMetricEntry] = []
     var baseCalories: Double
     var baseProtein: Double
+    var postOptions: [FitMaksPostOption] = []
+    var onLast7DaysReport: (() -> Void)?
 
     @State private var weeklySteps: [String: Double] = [:]
-    @State private var showBars = false
-    @State private var animateStreakFlame = false
-    @State private var weekOffset = 0
+    @State private var achievementBanner: StatsAchievement?
+    @State private var pendingAchievementBanners: [StatsAchievement] = []
+    @State private var livePayload: FitMaksSharePayload?
+    @State private var cachedStats: [WeekStat] = []
+    @State private var cachedLast30Stats: [WeekStat] = []
+    @State private var cachedAchievements: StatsAchievementCollection?
+    @State private var aiInsight: String?
+    @State private var aiInsightLoading = false
+    @State private var aiInsightError: String?
+    @State private var isShowingPaywall = false
 
-    private let stepTarget: Double = 10000
+    private let stepTarget: Double = DayProgressEngine.defaultStepTarget
 
-    typealias WeekStat = (
-        date: Date,
-        consumed: Double,
-        target: Double,
-        mode: DayMode,
-        protein: Double,
-        proteinTarget: Double,
-        steps: Double
-    )
-
-    var dateRangeText: String {
-        if weekOffset == 0 { return "Last 7 Days" }
-        if weekOffset == 1 { return "Previous 7 Days" }
-        return "\(weekOffset + 1) Blocks Ago"
+    struct StatsWinCache {
+        var calories = 0
+        var protein = 0
+        var steps = 0
+        var avgCalories = 0.0
+        var totalSteps = 0.0
+        var perfectDays30 = 0
     }
 
-    var stats: [WeekStat] {
-        var result: [WeekStat] = []
-        let calendar = Calendar.current
-        let startDaysAgo = weekOffset * 7
+    typealias WeekStat = DayProgress
 
-        for index in 0..<7 {
-            let date = calendar.date(byAdding: .day, value: -(index + startDaysAgo), to: Date()) ?? Date()
-            let dateID = DateFormatter.yyyyMMdd.string(from: date)
-            let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
-            let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            let consumed = dayFood.reduce(0) { $0 + $1.calories }
-            let protein = dayFood.reduce(0) { $0 + $1.protein }
+    var stats: [WeekStat] { cachedStats }
+    var last30Stats: [WeekStat] { cachedLast30Stats }
 
-            let targetCalories: Double
-            let targetProtein: Double
-
-            switch mode {
-            case .chill:
-                targetCalories = baseCalories
-                targetProtein = baseProtein
-            case .padel:
-                targetCalories = baseCalories + 500
-                targetProtein = baseProtein + 15
-            case .gym:
-                targetCalories = baseCalories + 300
-                targetProtein = baseProtein + 25
-            }
-
-            result.append((
-                date: date,
-                consumed: consumed,
-                target: targetCalories,
-                mode: mode,
-                protein: protein,
-                proteinTarget: targetProtein,
-                steps: weeklySteps[dateID] ?? 0
-            ))
-        }
-
-        return result.reversed()
-    }
-
-    var last30Stats: [WeekStat] {
-        let calendar = Calendar.current
-
-        return (0..<30).compactMap { index in
-            let daysBack = 29 - index
-            guard let date = calendar.date(byAdding: .day, value: -daysBack, to: Date()) else {
-                return nil
-            }
-
-            return stat(for: date)
-        }
-    }
-
-    var calorieWins: Int { stats.filter(calorieWin).count }
-    var proteinWins: Int { stats.filter(proteinWin).count }
-    var stepWins: Int { stats.filter(stepWin).count }
-    var perfectDays: Int { stats.filter(isPerfectDay).count }
-    var completedChecks: Int { calorieWins + proteinWins + stepWins }
+    var calorieWins: Int { cachedWins.calories }
+    var proteinWins: Int { cachedWins.protein }
+    var stepWins: Int { cachedWins.steps }
+    var completedChecks: Int { cachedWins.calories + cachedWins.protein + cachedWins.steps }
     var totalChecks: Int { stats.count * 3 }
     var weeklyScore: Int { Int((Double(completedChecks) / Double(max(totalChecks, 1)) * 100).rounded()) }
-    var avgCalories: Double { stats.map { $0.consumed }.reduce(0, +) / Double(max(stats.count, 1)) }
-    var totalSteps: Double { stats.map { $0.steps }.reduce(0, +) }
+    var avgCalories: Double { cachedWins.avgCalories }
+    var totalSteps: Double { cachedWins.totalSteps }
     var remainingChecks: Int { max(totalChecks - completedChecks, 0) }
-    var perfectDays30: Int { last30Stats.filter(isPerfectDay).count }
+    var perfectDays30: Int { cachedWins.perfectDays30 }
+
+    @State private var cachedWins = StatsWinCache()
 
     var currentPerfectStreak: Int {
-        let calendar = Calendar.current
-        var count = 0
-
-        for stat in last30Stats.reversed() {
-            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
-                continue
-            }
-
-            if isPerfectDay(stat) {
-                count += 1
-            } else {
-                break
-            }
-        }
-
-        return count
+        AchievementEngine.currentPerfectStreak(in: last30Stats)
     }
 
     var bestPerfectStreak30: Int {
-        let calendar = Calendar.current
-        var best = 0
-        var current = 0
-
-        for stat in last30Stats {
-            if calendar.isDateInToday(stat.date) && !isPerfectDay(stat) {
-                continue
-            }
-
-            if isPerfectDay(stat) {
-                current += 1
-                best = max(best, current)
-            } else {
-                current = 0
-            }
-        }
-
-        return best
+        AchievementEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true)
     }
 
-    var bestPerfectRun: Int {
-        var best = 0
-        var current = 0
+    private var achievementCollection: StatsAchievementCollection {
+        cachedAchievements ?? AchievementEngine.achievementCollection(
+            last30Stats: last30Stats,
+            recentSevenDayStats: stats,
+            foodEntries: allFoodEntries
+        )
+    }
 
-        for stat in stats {
-            if isPerfectDay(stat) {
-                current += 1
-                best = max(best, current)
-            } else {
-                current = 0
-            }
-        }
-
-        return best
+    private var unlockedAchievementSignature: String {
+        achievementCollection.all
+            .filter(\.isUnlocked)
+            .map(\.id)
+            .sorted()
+            .joined(separator: "|")
     }
 
     var body: some View {
+        let light = isLightAppTheme()
+
         NavigationView {
             ZStack {
                 LinearGradient(
@@ -171,20 +98,519 @@ struct StatsView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
-                        weekSwitcher
-                        heroScoreCard
-                        metricGrid
-                        weeklyArena
-                        fuelChart
-                        challengeCard
+                        StatsHeroScoreCard(
+                            currentPerfectStreak: currentPerfectStreak,
+                            bestPerfectStreak30: bestPerfectStreak30,
+                            perfectDays30: perfectDays30,
+                            onShare: {
+                                livePayload = .streak(
+                                    FitMaksShareStreakSnapshot(
+                                        current: currentPerfectStreak,
+                                        target: Int(AppRules.weeklyStreakTarget),
+                                        best30: bestPerfectStreak30,
+                                        perfect30: perfectDays30
+                                    )
+                                )
+                            }
+                        )
+                        StatsLast7DaysReportButton(
+                            dateRange: statsDateRangeLabel,
+                            weeklyScore: weeklyScore,
+                            perfectDays: stats.filter { $0.isPerfect }.count,
+                            calorieWins: calorieWins,
+                            proteinWins: proteinWins,
+                            stepWins: stepWins,
+                            scoreColor: scoreColor(for: weeklyScore)
+                        ) {
+                            onLast7DaysReport?()
+                        }
+                        StatsWeeklyArena(stats: stats)
+                        StatsFuelChart(stats: stats)
+                        statsAIInsightCard
+                        StatsChallengeCard(
+                            currentPerfectStreak: currentPerfectStreak,
+                            remainingChecks: remainingChecks
+                        )
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 42)
                 }
+
+                if let achievementBanner {
+                    VStack {
+                        StatsAchievementUnlockBanner(achievement: achievementBanner) {
+                            dismissAchievementBanner()
+                        }
+                        .padding(.top, 8)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(20)
+                }
             }
-            .navigationTitle("Progress Arena")
+            .navigationTitle("Streak Mode")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        livePayload = streakPayload
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "camera.fill")
+                            Text("Post")
+                        }
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundColor(.fitOrange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(light ? Color.appSurface : Color.appElevated))
+                        .overlay(
+                            Capsule()
+                                .stroke(light ? Color.appBorder.opacity(0.7) : Color.clear, lineWidth: 1)
+                        )
+                        .shadow(color: light ? Color.black.opacity(0.05) : .fitOrange.opacity(0.35), radius: 8)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .foregroundColor(light ? .appAccentText : .neonGreen)
+                        .bold()
+                }
+            }
+            .onAppear {
+                rebuildStats()
+                HealthKitManager.shared.fetchWeeklySteps { steps in
+                    DispatchQueue.main.async {
+                        self.weeklySteps = steps
+                    }
+                }
+                refreshAchievementBannerQueue()
+            }
+            .onChange(of: weeklySteps) { _, _ in
+                rebuildStats()
+            }
+            .task {
+                if SubscriptionManager.shared.isPro { await loadAIInsight() }
+            }
+            .sheet(isPresented: $isShowingPaywall) {
+                PaywallView()
+            }
+        }
+        .fullScreenCover(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
+        }
+        .preferredColorScheme(AppTheme.current.palette.preferredScheme)
+    }
+
+    // MARK: - AI Insight
+
+    private var statsDateRangeLabel: String {
+        guard let first = stats.first?.date, let last = stats.last?.date else {
+            return "Last 7 days"
+        }
+
+        let earlier = min(first, last)
+        let later = max(first, last)
+        return "\(StatsFormatters.shortDay(earlier)) — \(StatsFormatters.shortDay(later))"
+    }
+
+    private func scoreColor(for score: Int) -> Color {
+        switch score {
+        case 80...100: return .neonGreen
+        case 60..<80: return .fitOrange
+        default: return .red
+        }
+    }
+
+    private var statsAIInsightCard: some View {
+        let isPro = SubscriptionManager.shared.isPro
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.fitPurple)
+                Text("AI WEEKLY INSIGHT")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.appMuted)
+                    .tracking(0.8)
+                Spacer()
+                if !isPro {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.neonGreen))
+                }
+            }
+
+            if isPro {
+                if aiInsightLoading {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(.fitPurple)
+                        Text("Analyzing your week...")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.appMuted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 16)
+                } else if let aiInsight {
+                    Text(aiInsight)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let aiInsightError {
+                    Text(aiInsightError)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red.opacity(0.8))
+                }
+            } else {
+                ZStack {
+                    Text("Your caloric intake averaged 2,100 kcal this week, sitting right at your deficit target. Protein was on point 5 out of 7 days. Weight dropped 0.2 kg — steady progress.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appText)
+                        .lineSpacing(4)
+                        .blur(radius: 6)
+
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Unlock AI Insights")
+                                .font(.system(size: 13, weight: .black))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.neonGreen))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.appElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(isPro ? Color.fitPurple.opacity(0.22) : Color.appBorder, lineWidth: 1)
+                )
+        )
+    }
+
+    private func loadAIInsight() async {
+        guard !aiInsightLoading, aiInsight == nil else { return }
+        aiInsightLoading = true
+
+        let calendar = Calendar.current
+        let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let weightData = bodyMetrics
+            .filter { $0.date >= sevenDaysAgo }
+            .sorted { $0.date < $1.date }
+            .map { (DateFormatter.yyyyMMdd.string(from: $0.date), $0.weightKg) }
+
+        let trackedDays = stats.filter(\.hasFood)
+        let trackedCount = Double(max(trackedDays.count, 1))
+        let avgCalTracked = trackedDays.map(\.consumed).reduce(0, +) / trackedCount
+        let avgProtTracked = trackedDays.map(\.protein).reduce(0, +) / trackedCount
+
+        let recentFood = allFoodEntries.filter { $0.date >= sevenDaysAgo }
+        let totalCarbs = recentFood.reduce(0.0) { $0 + $1.carbs }
+        let totalFat = recentFood.reduce(0.0) { $0 + $1.fat }
+        let avgCarbsVal = totalCarbs / trackedCount
+        let avgFatVal = totalFat / trackedCount
+
+        let recentTraining = allTrainingEntries.filter { $0.date >= sevenDaysAgo }
+        let totalTrainingCal = recentTraining.reduce(0.0) { $0 + $1.caloriesBurned }
+        let avgTrainingCal = totalTrainingCal / Double(max(stats.count, 1))
+
+        let (result, error) = await GeminiService.shared.generateNutritionWeightReportAsync(
+            dateRange: "Last 7 days (\(trackedDays.count) days with food logged)",
+            avgCalories: Int(avgCalTracked),
+            targetCalories: Int(baseCalories),
+            avgProtein: Int(avgProtTracked),
+            targetProtein: Int(baseProtein),
+            avgCarbs: Int(avgCarbsVal),
+            avgFat: Int(avgFatVal),
+            avgTrainingCalories: Int(avgTrainingCal),
+            weightEntries: weightData,
+            weeklyScore: weeklyScore,
+            perfectDays: stats.filter(\.isPerfect).count,
+            totalDays: trackedDays.count,
+            userName: AuthService.shared.displayName
+        )
+        aiInsightLoading = false
+        if let result {
+            aiInsight = result
+        } else {
+            aiInsightError = error ?? "Failed to generate insight."
+        }
+    }
+
+    // MARK: - Rebuild
+
+    private func rebuildStats() {
+        let calendar = Calendar.current
+        let index = Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
+
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allFoodEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
+        }
+
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        func buildStat(for date: Date) -> WeekStat {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let training = trainingByDay[dateID] ?? (0, 0)
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: foodByDay[dateID] ?? [],
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: weeklySteps[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            )
+        }
+
+        let newStats = (0..<7).map { i in
+            buildStat(for: calendar.date(byAdding: .day, value: -i, to: Date()) ?? Date())
+        }
+
+        let newLast30 = (0..<30).compactMap { i -> WeekStat? in
+            guard let date = calendar.date(byAdding: .day, value: -(29 - i), to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        cachedStats = newStats
+        cachedLast30Stats = newLast30
+        cachedAchievements = AchievementEngine.achievementCollection(
+            last30Stats: newLast30,
+            recentSevenDayStats: newStats,
+            foodEntries: allFoodEntries
+        )
+
+        var wins = StatsWinCache()
+        for stat in newStats {
+            if stat.calorieWin { wins.calories += 1 }
+            if stat.proteinWin { wins.protein += 1 }
+            if stat.stepWin { wins.steps += 1 }
+            wins.totalSteps += stat.steps
+            wins.avgCalories += stat.consumed
+        }
+        wins.avgCalories = newStats.isEmpty ? 0 : wins.avgCalories / Double(newStats.count)
+        wins.perfectDays30 = newLast30.filter(\.isPerfect).count
+        cachedWins = wins
+    }
+
+    private func refreshAchievementBannerQueue() {
+        let seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        let unlocked = achievementCollection.all.filter(\.isUnlocked)
+        let unseen = unlocked.filter { !seenIDs.contains($0.id) }
+
+        guard !unseen.isEmpty else { return }
+
+        let ordered = unseen.sorted { lhs, rhs in
+            if lhs.family != rhs.family {
+                return lhs.family == .core
+            }
+
+            if lhs.rarity.rawValue != rhs.rarity.rawValue {
+                return lhs.rarity.rawValue > rhs.rarity.rawValue
+            }
+
+            return lhs.title < rhs.title
+        }
+
+        pendingAchievementBanners = ordered
+
+        if achievementBanner == nil {
+            showNextAchievementBanner()
+        }
+    }
+
+    private func showNextAchievementBanner() {
+        guard !pendingAchievementBanners.isEmpty else { return }
+
+        let next = pendingAchievementBanners.removeFirst()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            achievementBanner = next
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+            if achievementBanner?.id == next.id {
+                dismissAchievementBanner()
+            }
+        }
+    }
+
+    private func dismissAchievementBanner() {
+        guard let current = achievementBanner else { return }
+
+        var seenIDs = Set(
+            seenAchievementUnlockIDs
+                .split(separator: "|")
+                .map(String.init)
+        )
+        seenIDs.insert(current.id)
+        seenAchievementUnlockIDs = seenIDs.sorted().joined(separator: "|")
+
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+            achievementBanner = nil
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            showNextAchievementBanner()
+        }
+    }
+
+    private var streakPayload: FitMaksSharePayload {
+        .streak(
+            FitMaksShareStreakSnapshot(
+                current: currentPerfectStreak,
+                target: Int(AppRules.weeklyStreakTarget),
+                best30: bestPerfectStreak30,
+                perfect30: perfectDays30
+            )
+        )
+    }
+
+    private var streakBoardPayload: FitMaksSharePayload {
+        .streakBoard(
+            FitMaksShareStreakBoardSnapshot(
+                rows: stats.map { stat in
+                    let isOver = stat.hasFood && stat.consumed > stat.calorieGraceLimit
+                    return FitMaksShareStreakBoardRow(
+                        dayName: StatsFormatters.dayName(stat.date),
+                        dayNumber: StatsFormatters.dayNumber(stat.date),
+                        modeEmoji: stat.mode.emoji,
+                        calorieWin: stat.calorieWin,
+                        proteinWin: stat.proteinWin,
+                        stepWin: stat.stepWin,
+                        isPerfect: stat.isPerfect,
+                        calorieTitle: isOver ? "kcal over" : "kcal deficit",
+                        calorieValue: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
+                        calorieColor: isOver ? .red : .neonGreen,
+                        proteinValue: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
+                        stepsValue: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
+                        stepsColor: stat.stepBonus > 0 ? .fitOrange : .yellow
+                    )
+                }
+            )
+        )
+    }
+
+    private func sharedPostOptions() -> [FitMaksPostOption] {
+        [
+            FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
+            FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
+        ] + achievementCollection.all.filter { $0.isUnlocked || $0.current > 0 }.map {
+            FitMaksPostOption(
+                id: UUID(),
+                title: $0.title,
+                payload: .achievement(
+                    FitMaksShareAchievementSnapshot(
+                        title: $0.title,
+                        familyLabel: $0.family == .core ? "Core trophy" : "Side quest",
+                        subtitle: $0.subtitle,
+                        detail: $0.detail,
+                        goalText: $0.goalText,
+                        progressText: $0.progressText,
+                        icon: $0.icon,
+                        color: $0.color,
+                        isUnlocked: $0.isUnlocked,
+                        progress: $0.progress,
+                        hasStarted: $0.current > 0
+                    )
+                )
+            )
+        }
+    }
+
+}
+
+struct AchievementsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("userActivity") private var activityLevel: String = "Moderate"
+
+    var allFoodEntries: [FoodEntry]
+    var allTrainingEntries: [TrainingEntry]
+    var allSetups: [DailySetup]
+    var baseCalories: Double
+    var baseProtein: Double
+    var postOptions: [FitMaksPostOption] = []
+
+    @State private var weeklySteps: [String: Double] = [:]
+    @State private var selectedAchievement: StatsAchievement?
+    @State private var livePayload: FitMaksSharePayload?
+    @State private var cachedLast30Stats: [DayProgress] = []
+    @State private var cachedSevenDayStats: [DayProgress] = []
+    @State private var cachedAchievements: StatsAchievementCollection?
+
+    private let stepTarget: Double = DayProgressEngine.defaultStepTarget
+
+    private var last30Stats: [DayProgress] { cachedLast30Stats }
+    private var currentSevenDayStats: [DayProgress] { cachedSevenDayStats }
+
+    private var achievementCollection: StatsAchievementCollection {
+        cachedAchievements ?? AchievementEngine.achievementCollection(
+            last30Stats: last30Stats,
+            recentSevenDayStats: currentSevenDayStats,
+            foodEntries: allFoodEntries
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                HomeBackground()
+
+                GeometryReader { geo in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 18) {
+                            StatsAchievementsCard(
+                                collection: achievementCollection,
+                                selectedAchievement: $selectedAchievement
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 42)
+                        .frame(width: geo.size.width)
+                    }
+                }
+            }
+            .navigationTitle("Achievements")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") { dismiss() }
@@ -193,642 +619,166 @@ struct StatsView: View {
                 }
             }
             .onAppear {
+                rebuildStats()
                 HealthKitManager.shared.fetchWeeklySteps { steps in
                     DispatchQueue.main.async {
                         self.weeklySteps = steps
                     }
                 }
-                animateBars()
-                withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
-                    animateStreakFlame = true
-                }
             }
-            .onChange(of: weekOffset) { _, _ in
-                animateBars()
+            .onChange(of: weeklySteps) { _, _ in
+                rebuildStats()
             }
+            .sheet(item: $selectedAchievement) { achievement in
+                StatsAchievementDetailSheet(
+                    achievement: achievement,
+                    onShare: {
+                        let snapshot = FitMaksShareAchievementSnapshot(
+                            title: achievement.title,
+                            familyLabel: achievement.family == .core ? "Core trophy" : "Side quest",
+                            subtitle: achievement.subtitle,
+                            detail: achievement.detail,
+                            goalText: achievement.goalText,
+                            progressText: achievement.progressText,
+                            icon: achievement.icon,
+                            color: achievement.color,
+                            isUnlocked: achievement.isUnlocked,
+                            progress: achievement.progress,
+                            hasStarted: achievement.current > 0
+                        )
+                        selectedAchievement = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            livePayload = .achievement(snapshot)
+                        }
+                    }
+                )
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .fullScreenCover(item: $livePayload) { payload in
+            FitMaksLiveView(payload: payload, options: postOptions.isEmpty ? sharedPostOptions() : postOptions)
         }
         .preferredColorScheme(AppTheme.current.palette.preferredScheme)
     }
 
-    private var weekSwitcher: some View {
-        HStack {
-            Button(action: { withAnimation(.spring()) { weekOffset += 1 } }) {
-                Image(systemName: "chevron.left")
-                    .font(.headline.bold())
-                    .foregroundColor(.neonGreen)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
-            }
-
-            Spacer()
-
-            VStack(spacing: 3) {
-                Text(dateRangeText)
-                    .font(.headline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.appText)
-
-                Text(weekDateRange)
-                    .font(.caption2)
-                    .foregroundColor(.appMuted)
-            }
-
-            Spacer()
-
-            Button(action: { withAnimation(.spring()) { weekOffset -= 1 } }) {
-                Image(systemName: "chevron.right")
-                    .font(.headline.bold())
-                    .foregroundColor(weekOffset > 0 ? .neonGreen : .appMuted)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
-            }
-            .disabled(weekOffset == 0)
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 22).fill(Color.appElevated))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.appBorder, lineWidth: 1))
-    }
-
-    private var heroScoreCard: some View {
-        let cappedStreak = min(Double(currentPerfectStreak), AppRules.weeklyStreakTarget)
-        let weeklyProgress = cappedStreak / AppRules.weeklyStreakTarget
-
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("STREAK MODE", systemImage: "flame.fill")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.black.opacity(0.78))
-                        .tracking(0.8)
-
-                    Text(scoreMessage)
-                        .font(.system(size: 19, weight: .heavy))
-                        .foregroundColor(.black)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 0) {
-                    ZStack {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: animateStreakFlame ? 68 : 60, weight: .black))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 1.0, green: 0.02, blue: 0.0).opacity(0.95),
-                                        Color.red.opacity(0.82),
-                                        Color.fitOrange.opacity(0.30)
-                                    ],
-                                    startPoint: .bottom,
-                                    endPoint: .top
-                                )
-                            )
-                            .scaleEffect(animateStreakFlame ? 1.06 : 0.95)
-                            .rotationEffect(.degrees(animateStreakFlame ? 2.5 : -2))
-                            .shadow(color: Color.red.opacity(animateStreakFlame ? 0.82 : 0.38), radius: animateStreakFlame ? 20 : 10)
-
-                        HStack(alignment: .firstTextBaseline, spacing: 1) {
-                            Text("\(currentPerfectStreak)")
-                                .font(.system(size: 52, weight: .black))
-                            Text("d")
-                                .font(.system(size: 20, weight: .black))
-                        }
-                        .foregroundColor(.black)
-                        .shadow(color: .white.opacity(0.34), radius: 2, x: 0, y: 1)
-                    }
-                    .frame(width: 104, height: 70, alignment: .trailing)
-
-                    Text("current streak")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.black.opacity(0.62))
-                }
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.black.opacity(0.12))
-
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.86), Color.neonGreen.opacity(0.86)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: currentPerfectStreak > 0 ? max(CGFloat(12), proxy.size.width * CGFloat(weeklyProgress)) : 0)
-                }
-            }
-            .frame(height: 10)
-
-            HStack {
-                Text("\(Int(cappedStreak))/\(Int(AppRules.weeklyStreakTarget)) weekly flame")
-                    .font(.caption2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.black.opacity(0.62))
-
-                Spacer()
-
-                Text(AppRules.calorieGraceLabel)
-                    .font(.caption2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.black.opacity(0.56))
-            }
-
-            HStack(spacing: 10) {
-                scorePill(title: "Best 30d", value: "\(bestPerfectStreak30)d", icon: "flame.fill")
-                scorePill(title: "Perfect days", value: "\(perfectDays30)/30", icon: "sparkles")
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 30)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.neonGreen,
-                            Color.yellow.opacity(0.92),
-                            Color.neonCyan.opacity(0.78)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .shadow(color: Color.neonGreen.opacity(0.26), radius: 24, x: 0, y: 12)
-    }
-
-    private var metricGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-            metricCard(icon: "leaf.fill", title: "Calorie wins", value: "\(calorieWins)/7", subtitle: AppRules.calorieGraceLabel, color: .neonGreen)
-            metricCard(icon: "drop.fill", title: "Protein closes", value: "\(proteinWins)/7", subtitle: AppRules.completionGraceLabel, color: .neonCyan)
-            metricCard(icon: "shoeprints.fill", title: "10k days", value: "\(stepWins)/7", subtitle: "\(compactSteps(totalSteps)) total", color: .yellow)
-            metricCard(icon: "chart.line.uptrend.xyaxis", title: "Window score", value: "\(weeklyScore)%", subtitle: "\(Int(avgCalories)) kcal avg", color: .orange)
-        }
-    }
-
-    private var weeklyArena: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("7-Day Streak Board")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                Text("C / P / S")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.gray)
-            }
-
-            ForEach(stats, id: \.date) { stat in
-                dayBadgeRow(stat)
-            }
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 26).fill(Color.black.opacity(0.28)))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.08), lineWidth: 1))
-    }
-
-    private var fuelChart: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Calorie Balance")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.appText)
-
-                Spacer()
-
-                Text(AppRules.calorieGraceLabel)
-                    .font(.caption2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.neonGreen)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(Color.neonGreen.opacity(0.12)))
-            }
-
-            Text("One clean read per day: under target is green, up to 3% over stays in grace, bigger overages turn red.")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.appMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(spacing: 11) {
-                ForEach(stats, id: \.date) { stat in
-                    calorieBalanceRow(stat)
-                }
-            }
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 26).fill(Color.appElevated))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.appBorder, lineWidth: 1))
-    }
-
-    private var challengeCard: some View {
-        HStack(alignment: .top, spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.neonCyan.opacity(0.14))
-                Image(systemName: remainingChecks == 0 ? "crown.fill" : "scope")
-                    .font(.title2)
-                    .foregroundColor(remainingChecks == 0 ? .yellow : .neonCyan)
-            }
-            .frame(width: 52, height: 52)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(streakObjectiveTitle)
-                    .font(.headline)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.white)
-
-                Text(streakObjectiveText)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .lineLimit(4)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.neonCyan.opacity(0.13), Color.black.opacity(0.28)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.neonCyan.opacity(0.18), lineWidth: 1))
-    }
-
-    private var scoreMessage: String {
-        switch currentPerfectStreak {
-        case 7...:
-            return "You are on a serious run."
-        case 3..<7:
-            return "Momentum is real now."
-        case 1..<3:
-            return "Protect the streak."
-        default:
-            return "One perfect day starts it."
-        }
-    }
-
-    private var streakObjectiveTitle: String {
-        currentPerfectStreak == 0 ? "Start the next streak." : "Keep the chain alive."
-    }
-
-    private var streakObjectiveText: String {
-        if currentPerfectStreak == 0 {
-            return "A missed day does not kill the week. Close calories, protein, and 10k once to light the chain again."
-        }
-
-        return "Today is not a test of the whole week. It is just the next link: calories, protein, 10k."
-    }
-
-    private var weekDateRange: String {
-        guard let first = stats.first?.date, let last = stats.last?.date else {
-            return ""
-        }
-
-        return "\(shortDay(first)) - \(shortDay(last))"
-    }
-
-    private func scorePill(title: String, value: String, icon: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: icon)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title)
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(.black.opacity(0.55))
-                Text(value)
-                    .font(.system(size: 14, weight: .black))
-                    .foregroundColor(.black)
-            }
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 8)
-        .background(Capsule().fill(Color.black.opacity(0.12)))
-    }
-
-    private func metricCard(icon: String, title: String, value: String, subtitle: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: icon)
-                .font(.headline)
-                .foregroundColor(color)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(color.opacity(0.13)))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                Text(value)
-                    .font(.system(size: 28, weight: .black))
-                    .foregroundColor(.white)
-
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-            }
-        }
-        .padding(15)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 24).fill(Color.black.opacity(0.28)))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(color.opacity(0.16), lineWidth: 1))
-    }
-
-    private func dayBadgeRow(_ stat: WeekStat) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                VStack(spacing: 2) {
-                    Text(dayName(stat.date))
-                        .font(.system(size: 10, weight: .heavy))
-                        .foregroundColor(.gray)
-
-                    Text(dayNumber(stat.date))
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundColor(.white)
-                }
-                .frame(width: 42)
-
-                Text(stat.mode.emoji)
-                    .font(.title3)
-                    .frame(width: 30)
-
-                HStack(spacing: 6) {
-                    badgeChip(text: "C", isOn: calorieWin(stat), color: .neonGreen)
-                    badgeChip(text: "P", isOn: proteinWin(stat), color: .neonCyan)
-                    badgeChip(text: "S", isOn: stepWin(stat), color: .yellow)
-                }
-
-                Spacer(minLength: 6)
-
-                if isPerfectDay(stat) {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.yellow)
-                        .font(.headline)
-                        .frame(width: 24)
-                        .shadow(color: .yellow.opacity(0.8), radius: 8)
-                }
-            }
-
-            HStack(spacing: 7) {
-                dayMetricPill(
-                    title: "kcal",
-                    value: "\(Int(stat.consumed))/\(Int(stat.target))",
-                    isOn: calorieWin(stat),
-                    color: .neonGreen
-                )
-                dayMetricPill(
-                    title: "prot",
-                    value: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
-                    isOn: proteinWin(stat),
-                    color: .neonCyan
-                )
-                dayMetricPill(
-                    title: "steps",
-                    value: "\(compactWholeSteps(stat.steps))/10k",
-                    isOn: stepWin(stat),
-                    color: .yellow
-                )
-            }
-            .transaction { transaction in
-                transaction.animation = nil
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(isPerfectDay(stat) ? Color.neonGreen.opacity(0.13) : Color.white.opacity(0.045))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(isPerfectDay(stat) ? Color.yellow.opacity(0.38) : Color.white.opacity(0.06), lineWidth: 1)
-        )
-    }
-
-    private func dayMetricPill(title: String, value: String, isOn: Bool, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title.uppercased())
-                .font(.system(size: 7, weight: .heavy))
-                .foregroundColor(isOn ? color : .gray)
-                .tracking(0.5)
-
-            Text(value)
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundColor(.white.opacity(isOn ? 0.92 : 0.58))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-                .contentTransition(.identity)
-                .transaction { transaction in
-                    transaction.animation = nil
-                }
-                .animation(nil, value: value)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isOn ? color.opacity(0.12) : Color.white.opacity(0.045))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isOn ? color.opacity(0.20) : Color.white.opacity(0.055), lineWidth: 1)
-        )
-    }
-
-    private func calorieBalanceRow(_ stat: WeekStat) -> some View {
-        let hasFood = stat.consumed > 0
-        let graceLimit = AppRules.caloriePerfectLimit(for: stat.target)
-        let isGrace = hasFood && stat.consumed > stat.target && stat.consumed <= graceLimit
-        let isOver = hasFood && stat.consumed > graceLimit
-        let statusColor: Color = !hasFood ? .appMuted : (isOver ? .red : (isGrace ? .yellow : .neonGreen))
-        let fillRatio = min(max(stat.consumed / max(stat.target, 1), 0), 1)
-        let statusText: String
-
-        if !hasFood {
-            statusText = "no food logged"
-        } else if isOver {
-            statusText = "\(Int(stat.consumed - stat.target)) over"
-        } else if isGrace {
-            statusText = "within 3% grace"
-        } else {
-            statusText = "\(Int(stat.target - stat.consumed)) left"
-        }
-
-        return VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 10) {
-                Text(dayName(stat.date))
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.appMuted)
-                    .frame(width: 34, alignment: .leading)
-
-                Text("\(Int(stat.consumed)) / \(Int(stat.target)) kcal")
-                    .font(.system(size: 12, weight: .heavy))
-                    .foregroundColor(.appText)
-
-                Spacer()
-
-                Text(statusText)
-                    .font(.system(size: 11, weight: .heavy))
-                    .foregroundColor(statusColor)
-                    .lineLimit(1)
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.07))
-
-                    Capsule()
-                        .fill(statusColor.opacity(hasFood ? 0.95 : 0.22))
-                        .frame(width: hasFood ? max(CGFloat(8), proxy.size.width * CGFloat(showBars ? fillRatio : 0.04)) : 8)
-                }
-            }
-            .frame(height: 8)
-        }
-        .padding(11)
-        .background(RoundedRectangle(cornerRadius: 17).fill(Color.appSurface))
-        .overlay(RoundedRectangle(cornerRadius: 17).stroke(statusColor.opacity(hasFood ? 0.22 : 0.10), lineWidth: 1))
-    }
-
-    private func badgeChip(text: String, isOn: Bool, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .black))
-            .foregroundColor(isOn ? .black : .gray)
-            .frame(width: 26, height: 22)
-            .background(Capsule().fill(isOn ? color : Color.white.opacity(0.07)))
-            .shadow(color: isOn ? color.opacity(0.45) : .clear, radius: 7)
-    }
-
-    private func chartLegend(color: Color, text: String) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
-            Text(text)
-                .font(.caption2)
-                .foregroundColor(.gray)
-        }
-    }
-
-    private func chartBar(value: Double, target: Double, color: Color) -> some View {
-        let ratio = min(max(value / max(target, 1), 0), 1.35)
-        let height = showBars && value > 0 ? CGFloat(ratio * 86) : 5
-
-        return RoundedRectangle(cornerRadius: 5)
-            .fill(color.opacity(value > 0 ? 0.95 : 0.2))
-            .frame(width: 8, height: height)
-            .shadow(color: color.opacity(value > 0 ? 0.35 : 0), radius: 7)
-    }
-
-    private func calorieWin(_ stat: WeekStat) -> Bool {
-        stat.consumed > 0 && stat.consumed <= AppRules.caloriePerfectLimit(for: stat.target)
-    }
-
-    private func proteinWin(_ stat: WeekStat) -> Bool {
-        stat.protein >= AppRules.completionMinimum(for: stat.proteinTarget)
-    }
-
-    private func stepWin(_ stat: WeekStat) -> Bool {
-        stat.steps >= AppRules.completionMinimum(for: stepTarget)
-    }
-
-    private func isPerfectDay(_ stat: WeekStat) -> Bool {
-        calorieWin(stat) && proteinWin(stat) && stepWin(stat)
-    }
-
-    private func daySubtitle(_ stat: WeekStat) -> String {
-        "\(Int(stat.consumed))/\(Int(stat.target)) kcal · \(Int(stat.protein))/\(Int(stat.proteinTarget))g · \(compactSteps(stat.steps)) steps"
-    }
-
-    private func stat(for date: Date) -> WeekStat {
+    private func rebuildStats() {
         let calendar = Calendar.current
-        let dateID = DateFormatter.yyyyMMdd.string(from: date)
-        let mode = DayMode.fromStoredValue(allSetups.first(where: { $0.dateID == dateID })?.mode)
-        let dayFood = allFoodEntries.filter { calendar.isDate($0.date, inSameDayAs: date) }
-        let consumed = dayFood.reduce(0) { $0 + $1.calories }
-        let protein = dayFood.reduce(0) { $0 + $1.protein }
+        let index = Dictionary(allSetups.map { ($0.dateID, $0) }, uniquingKeysWith: { _, new in new })
 
-        let targetCalories: Double
-        let targetProtein: Double
-
-        switch mode {
-        case .chill:
-            targetCalories = baseCalories
-            targetProtein = baseProtein
-        case .padel:
-            targetCalories = baseCalories + 500
-            targetProtein = baseProtein + 15
-        case .gym:
-            targetCalories = baseCalories + 300
-            targetProtein = baseProtein + 25
+        var foodByDay: [String: [FoodEntry]] = [:]
+        for entry in allFoodEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            foodByDay[key, default: []].append(entry)
         }
 
-        return (
-            date: date,
-            consumed: consumed,
-            target: targetCalories,
-            mode: mode,
-            protein: protein,
-            proteinTarget: targetProtein,
-            steps: weeklySteps[dateID] ?? 0
+        var trainingByDay: [String: (calories: Double, steps: Double)] = [:]
+        for entry in allTrainingEntries {
+            let key = DateFormatter.yyyyMMdd.string(from: entry.date)
+            var existing = trainingByDay[key] ?? (0, 0)
+            existing.calories += entry.caloriesBurned
+            existing.steps += max(entry.steps ?? 0, 0)
+            trainingByDay[key] = existing
+        }
+
+        func buildStat(for date: Date) -> DayProgress {
+            let dateID = DateFormatter.yyyyMMdd.string(from: date)
+            let setup = index[dateID]
+            let mode = DayMode.fromStoredValue(setup?.mode)
+            let training = trainingByDay[dateID] ?? (0, 0)
+            return DayProgressEngine.progress(
+                date: date,
+                foodEntries: foodByDay[dateID] ?? [],
+                trainingCalories: training.calories,
+                mode: mode,
+                baseCalories: setup?.resolvedBaseCalories(for: date, fallback: baseCalories) ?? baseCalories,
+                baseProtein: setup?.resolvedBaseProtein(for: date, fallback: baseProtein) ?? baseProtein,
+                steps: weeklySteps[dateID] ?? 0,
+                uploadedSteps: training.steps,
+                activityLevel: activityLevel,
+                stepTarget: stepTarget
+            )
+        }
+
+        let newSevenDay = (0..<7).compactMap { i -> DayProgress? in
+            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        let newLast30 = (0..<30).compactMap { i -> DayProgress? in
+            guard let date = calendar.date(byAdding: .day, value: -(29 - i), to: Date()) else { return nil }
+            return buildStat(for: date)
+        }
+
+        cachedSevenDayStats = newSevenDay
+        cachedLast30Stats = newLast30
+        cachedAchievements = AchievementEngine.achievementCollection(
+            last30Stats: newLast30,
+            recentSevenDayStats: newSevenDay,
+            foodEntries: allFoodEntries
         )
     }
 
-    private func animateBars() {
-        showBars = false
+    private var streakPayload: FitMaksSharePayload {
+        .streak(
+            FitMaksShareStreakSnapshot(
+                current: AchievementEngine.currentPerfectStreak(in: last30Stats),
+                target: Int(AppRules.weeklyStreakTarget),
+                best30: AchievementEngine.bestPerfectStreak(in: last30Stats, skipIncompleteToday: true),
+                perfect30: last30Stats.filter { $0.isPerfect }.count
+            )
+        )
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) {
-                showBars = true
-            }
+    private var streakBoardPayload: FitMaksSharePayload {
+        .streakBoard(
+            FitMaksShareStreakBoardSnapshot(
+                rows: currentSevenDayStats.map { stat in
+                    let isOver = stat.hasFood && stat.consumed > stat.calorieGraceLimit
+                    return FitMaksShareStreakBoardRow(
+                        dayName: StatsFormatters.dayName(stat.date),
+                        dayNumber: StatsFormatters.dayNumber(stat.date),
+                        modeEmoji: stat.mode.emoji,
+                        calorieWin: stat.calorieWin,
+                        proteinWin: stat.proteinWin,
+                        stepWin: stat.stepWin,
+                        isPerfect: stat.isPerfect,
+                        calorieTitle: isOver ? "kcal over" : "kcal deficit",
+                        calorieValue: stat.hasFood ? "\(abs(Int(stat.target - stat.consumed)))" : "—",
+                        calorieColor: isOver ? .red : .neonGreen,
+                        proteinValue: "\(Int(stat.protein))/\(Int(stat.proteinTarget))g",
+                        stepsValue: "\(StatsFormatters.compactWholeSteps(stat.effectiveSteps))/10k",
+                        stepsColor: stat.stepBonus > 0 ? .fitOrange : .yellow
+                    )
+                }
+            )
+        )
+    }
+
+    private func sharedPostOptions() -> [FitMaksPostOption] {
+        [
+            FitMaksPostOption(id: streakPayload.id, title: "Summary", payload: streakPayload),
+            FitMaksPostOption(id: streakBoardPayload.id, title: "Board", payload: streakBoardPayload)
+        ] + achievementCollection.all.filter { $0.isUnlocked || $0.current > 0 }.map {
+            FitMaksPostOption(
+                id: UUID(),
+                title: $0.title,
+                payload: .achievement(
+                    FitMaksShareAchievementSnapshot(
+                        title: $0.title,
+                        familyLabel: $0.family == .core ? "Core trophy" : "Side quest",
+                        subtitle: $0.subtitle,
+                        detail: $0.detail,
+                        goalText: $0.goalText,
+                        progressText: $0.progressText,
+                        icon: $0.icon,
+                        color: $0.color,
+                        isUnlocked: $0.isUnlocked,
+                        progress: $0.progress,
+                        hasStarted: $0.current > 0
+                    )
+                )
+            )
         }
-    }
-
-    private func dayName(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date).uppercased()
-    }
-
-    private func dayNumber(_ date: Date) -> String {
-        "\(Calendar.current.component(.day, from: date))"
-    }
-
-    private func shortDay(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-
-    private func compactSteps(_ value: Double) -> String {
-        guard value >= 1000 else { return "\(Int(value.rounded()))" }
-
-        let thousands = value / 1000
-        if thousands >= 10 || thousands.rounded() == thousands {
-            return "\(Int(thousands.rounded()))k"
-        }
-
-        return String(format: "%.1fk", thousands)
-    }
-
-    private func compactWholeSteps(_ value: Double) -> String {
-        guard value >= 1000 else { return "\(Int(value.rounded()))" }
-        return "\(Int((value / 1000).rounded()))k"
     }
 }
